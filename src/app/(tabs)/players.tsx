@@ -65,7 +65,7 @@ export default function PlayersScreen() {
       <View style={styles.header}>
         {/* The round name is the way to Rounds, since the tab bar is full. */}
         <Pressable onPress={() => router.push('/rounds')} hitSlop={8}>
-          <Text style={styles.kicker}>{activeRound?.name || 'Round'} · SWITCH ›</Text>
+          <Text style={styles.kicker}>{activeRound?.name || 'Round'} · ROUNDS + NEW ›</Text>
         </Pressable>
         <Text style={styles.title}>The field</Text>
       </View>

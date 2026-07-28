@@ -144,7 +144,7 @@ export default function ScoreEntryScreen() {
               it, and FIELD is the organizer's tab now — a player still has to be
               able to switch to the round they're actually playing. */}
           <Pressable onPress={() => router.push('/rounds')} hitSlop={8}>
-            <Text style={styles.headerLabel}>{activeRound?.name || 'Round'} · SWITCH ›</Text>
+            <Text style={styles.headerLabel}>{activeRound?.name || 'Round'} · ROUNDS + NEW ›</Text>
           </Pressable>
           {/* Says what's actually true: queued scores are saved on the phone
               and will sync — not lost, and not silently pending either. */}
