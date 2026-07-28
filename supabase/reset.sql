@@ -18,12 +18,10 @@ delete from scores;
 delete from signoffs;
 delete from round_players;
 delete from round_holes;
-delete from favorite_courses;
-delete from course_tees;
-delete from courses;
-delete from players;
 
--- Keep the round, but detach it from any course so the Course tab starts fresh.
+-- Detach the round from its course BEFORE deleting courses. rounds.course_id is
+-- a foreign key with no ON DELETE clause, so deleting a course the round still
+-- points at aborts the whole transaction.
 update rounds
    set course_id = null,
        course_name = '',
@@ -31,6 +29,11 @@ update rounds
        tee_name = null,
        tee_gender = 'male',
        holes_in_play = 'all18';
+
+delete from favorite_courses;
+delete from course_tees;
+delete from courses;
+delete from players;
 
 commit;
 
