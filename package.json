@@ -8,12 +8,14 @@
     "@supabase/supabase-js": "^2.110.9",
     "expo": "~54.0.36",
     "expo-constants": "~18.0.13",
+    "expo-contacts": "~15.0.11",
     "expo-device": "~8.0.10",
     "expo-font": "~14.0.12",
     "expo-glass-effect": "~0.1.10",
     "expo-image": "~3.0.11",
     "expo-linking": "~8.0.12",
     "expo-router": "~6.0.24",
+    "expo-sms": "~14.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-symbols": "~1.0.8",
@@ -46,11 +48,12 @@
     "typecheck": "tsc --noEmit",
     "check:courses": "node scripts/check-course-parse.js",
     "check:outbox": "node scripts/check-outbox.js",
-    "check": "npm run typecheck && npm run check:courses && npm run check:outbox && npm run check:wolf && npm run check:teams && npm run check:sidegames && npm run check:challenge",
+    "check": "npm run typecheck && npm run check:courses && npm run check:outbox && npm run check:wolf && npm run check:teams && npm run check:sidegames && npm run check:challenge && npm run check:invite",
     "check:wolf": "node scripts/check-wolf.js",
     "check:teams": "node scripts/check-teams.js",
     "check:sidegames": "node scripts/check-sidegames.js",
-    "check:challenge": "node scripts/check-challenge.js"
+    "check:challenge": "node scripts/check-challenge.js",
+    "check:invite": "node scripts/check-invite.js"
   },
   "private": true
 }

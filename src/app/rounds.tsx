@@ -68,9 +68,9 @@ export default function RoundsScreen() {
     }
     setName('');
     setPlayedOn(todayIso());
-    // Creating a round means you want to be in it — go straight there rather
-    // than leaving you looking at the list you just added to.
-    enterRound();
+    // A brand new round has no course and nobody in it, so the useful next
+    // screen is the run-through, not the score card.
+    router.replace('/setup');
   };
 
   const confirmDelete = (roundId: string, roundName: string) => {

@@ -69,12 +69,16 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
     [roundId, refresh],
   );
 
+  // Returns the new player's id, so a caller can become the player it just
+  // created — which is what joining from an invite link needs. Null means the
+  // add failed and nothing was created.
   const addPlayer = useCallback(
-    async (name: string, handicap: number) => {
+    async (name: string, handicap: number): Promise<string | null> => {
       if (!isSupabaseConfigured || !supabase || !roundId) {
         // Local-only fallback: keep it in memory for this session.
-        setPlayers((prev) => [...prev, { id: `local-${Date.now()}`, name, handicap }]);
-        return;
+        const localId = `local-${Date.now()}`;
+        setPlayers((prev) => [...prev, { id: localId, name, handicap }]);
+        return localId;
       }
       const { data: inserted, error: playerErr } = await supabase
         .from('players')
@@ -83,13 +87,14 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
         .single();
       if (playerErr || !inserted) {
         console.warn('addPlayer failed:', playerErr?.message);
-        return;
+        return null;
       }
       const { error: linkErr } = await supabase
         .from('round_players')
         .insert({ round_id: roundId, player_id: inserted.id });
       if (linkErr) console.warn('addPlayer (round link) failed:', linkErr.message);
       await refresh();
+      return inserted.id as string;
     },
     [roundId, refresh],
   );

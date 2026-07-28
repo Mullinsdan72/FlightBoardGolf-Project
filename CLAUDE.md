@@ -154,8 +154,8 @@ everywhere in this codebase, not just the screens they were first written for.
 - Known simplification: `strokesReceivedFor` allocates strokes off the full course handicap
   even on a 9-hole round, where convention is to halve it. Fine for gross play and for the
   net figures shown today; revisit if net becomes a competitive format.
-- `npm run check` runs the typecheck plus all six verification scripts (course parsing,
-  score outbox, wolf money, teams, side games, team challenge) — 323 assertions. Worth running before pushing anything
+- `npm run check` runs the typecheck plus all seven verification scripts (course parsing,
+  score outbox, wolf money, teams, side games, team challenge, invites) — 380 assertions. Worth running before pushing anything
   that touches scoring, course data, teams, or money.
 
 ## Who may change what
@@ -208,6 +208,33 @@ design's own worked figures. Change the maths there and run it.
   at Gladstan, holes 3, 7 and 11 all land on the same player. That's why the design shows the
   par-3 draw and offers a shuffle; it's structural, not bad luck.
 - One screen per conversation. Small, finished, tested changes beat one big one.
+
+## Setting a round up, and invites
+
+`/setup` (`src/app/setup.tsx`) is the organizer's run-through — the checklist a first-time
+organizer is missing. `src/lib/invite.ts` holds the link format, the message and the step
+order, covered by `npm run check:invite` — 57 assertions.
+
+- **It links to the screens that already do each job** rather than reimplementing course
+  search or team drawing. What a new organizer lacks isn't the screens, it's knowing which
+  one is next and when a step is finished. Only the players step is inline, because that's
+  the one that needed the most help.
+- **The order is the order a round is built**: round, course, players, then optionally teams
+  and games. Teams can't be drawn before there are players. Course and two players are
+  *required* — a round with no card has nothing to score against.
+- **Two honest limits, stated on screen rather than discovered by a friend:**
+  - `flightboard://` resolves only in a real build. Inside Expo Go the app lives at an
+    `exp://` URL tied to whichever machine runs the dev server, so an invite link in a text
+    message opens nothing yet. It starts working the day there's a build, with no change to
+    what was sent.
+  - `APP_STORE_URL` is **null** until Flight Board is published. Never put a plausible-looking
+    store URL there — a dead link in a text message is worse than none.
+- **Contacts are read on tap and never uploaded.** A picked contact lands in a staging list
+  the organizer confirms; nothing joins the round on its own.
+- `/join?round=<id>` is where an invite lands: it switches the device to that round, then asks
+  who you are. Joining is never automatic — with no sign-in the link is the only credential,
+  and a link that silently adds whoever opens it would put strangers in the field.
+- `addPlayer` returns the new player's id so a joiner can become the player they just created.
 
 ## Side games and settle-up
 

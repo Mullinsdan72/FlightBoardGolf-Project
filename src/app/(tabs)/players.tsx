@@ -164,6 +164,14 @@ export default function PlayersScreen() {
           <Text style={styles.addBtnArrow}>→</Text>
         </Pressable>
 
+        <Pressable onPress={() => router.push('/setup')} style={styles.teamsBtn}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.teamsLabel}>SET UP THE ROUND</Text>
+            <Text style={styles.teamsNote}>Step by step: course, players, invites, teams, games</Text>
+          </View>
+          <Text style={styles.teamsArrow}>›</Text>
+        </Pressable>
+
         {/* Players, then teams, then side games — the design's own step order. */}
         <Pressable onPress={() => router.push('/teams')} style={styles.teamsBtn}>
           <View style={{ flex: 1 }}>
