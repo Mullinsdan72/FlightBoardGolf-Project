@@ -13,6 +13,8 @@ export default function GamesScreen() {
   const {
     myId,
     choose,
+    amOrganizer,
+    organizerId,
     players,
     holes,
     wolf,
@@ -37,6 +39,16 @@ export default function GamesScreen() {
 
   const canPlay = players.length >= 3;
   const par3s = parThreeDraw(wolfOrder, holes, wolfDecisions);
+
+  // Everyone can read the terms — you're owed that if you're in the bet — but
+  // only the organizer sets them. Changing the stake or the rotation mid-round
+  // changes what people are playing for, which isn't a player's call.
+  //
+  // Picking a partner or going alone is a different thing entirely: that's the
+  // wolf's own decision each hole, gated to whoever has the wolf, not to the
+  // organizer. See WolfPrompt.
+  const canEdit = amOrganizer;
+  const organizerName = organizerId ? players.find((p) => p.id === organizerId)?.name : null;
 
   return (
     <View style={styles.screen}>
@@ -65,9 +77,21 @@ export default function GamesScreen() {
 
         {tab === 'setup' && canPlay && (
           <>
+            {!canEdit && (
+              <View style={styles.lockBanner}>
+                <View style={styles.lockDot} />
+                <Text style={styles.lockText}>
+                  {organizerName
+                    ? `${organizerName} is running this round and sets the terms. You can see them here, but changing the stake or the rotation isn't a player's call.`
+                    : "Nobody has taken the organizer role yet, so the terms are locked. Whoever's running the round can take it on the FIELD tab."}
+                </Text>
+              </View>
+            )}
+
             <Pressable
+              disabled={!canEdit}
               onPress={() => wolfSetSettings({ enabled: !wolf.enabled })}
-              style={[styles.toggleRow, wolf.enabled && styles.toggleRowOn]}
+              style={[styles.toggleRow, wolf.enabled && styles.toggleRowOn, !canEdit && styles.readOnly]}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.toggleTitle}>{wolf.enabled ? 'Wolf is running' : 'Wolf is off'}</Text>
@@ -87,8 +111,9 @@ export default function GamesScreen() {
             <Text style={styles.sectionLabel}>Stake a hole</Text>
             <View style={styles.stepper}>
               <Pressable
+                disabled={!canEdit}
                 onPress={() => wolfSetSettings({ stake: Math.max(0, wolf.stake - 1) })}
-                style={[styles.stepBtn, styles.stepBtnRight]}
+                style={[styles.stepBtn, styles.stepBtnRight, !canEdit && styles.readOnly]}
               >
                 <Text style={styles.stepGlyph}>−</Text>
               </Pressable>
@@ -96,8 +121,9 @@ export default function GamesScreen() {
                 <Text style={styles.stepValueText}>${wolf.stake}</Text>
               </View>
               <Pressable
+                disabled={!canEdit}
                 onPress={() => wolfSetSettings({ stake: Math.min(500, wolf.stake + 1) })}
-                style={[styles.stepBtn, styles.stepBtnLeft]}
+                style={[styles.stepBtn, styles.stepBtnLeft, !canEdit && styles.readOnly]}
               >
                 <Text style={styles.stepGlyph}>+</Text>
               </Pressable>
@@ -110,8 +136,9 @@ export default function GamesScreen() {
                 return (
                   <Pressable
                     key={m}
+                    disabled={!canEdit}
                     onPress={() => wolfSetSettings({ loneMultiplier: m })}
-                    style={[styles.multBtn, on && styles.multBtnOn]}
+                    style={[styles.multBtn, on && styles.multBtnOn, !canEdit && !on && styles.readOnly]}
                   >
                     <Text style={[styles.multLabel, on && { color: colors.white }]}>{m}×</Text>
                   </Pressable>
@@ -127,9 +154,11 @@ export default function GamesScreen() {
 
             <View style={styles.sectionRow}>
               <Text style={styles.sectionLabel}>Rotation</Text>
-              <Pressable onPress={wolfShuffleOrder} style={styles.shuffleBtn}>
-                <Text style={styles.shuffleLabel}>SHUFFLE</Text>
-              </Pressable>
+              {canEdit && (
+                <Pressable onPress={wolfShuffleOrder} style={styles.shuffleBtn}>
+                  <Text style={styles.shuffleLabel}>SHUFFLE</Text>
+                </Pressable>
+              )}
             </View>
             {wolfOrder.map((id, i) => (
               <View key={id} style={styles.orderRow}>
@@ -297,6 +326,18 @@ const styles = StyleSheet.create({
   note: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, paddingHorizontal: 20, paddingTop: 12 },
   warnNote: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.accent, paddingHorizontal: 20, paddingTop: 12 },
   rowYou: { backgroundColor: 'rgba(236,48,19,0.06)' },
+  readOnly: { opacity: 0.45 },
+  lockBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderBottomWidth: 2,
+    borderColor: colors.divider,
+  },
+  lockDot: { width: 8, height: 8, backgroundColor: colors.accent, marginTop: 4 },
+  lockText: { flex: 1, fontFamily: font.body, fontSize: 11.5, lineHeight: 17, color: colors.muted },
 
   toggleRow: {
     flexDirection: 'row',

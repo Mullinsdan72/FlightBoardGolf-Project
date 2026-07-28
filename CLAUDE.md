@@ -133,6 +133,21 @@ everywhere in this codebase, not just the screens they were first written for.
   score outbox, wolf money). Worth running before pushing anything that touches scoring,
   course data, or money.
 
+## Who may change what
+
+Three different kinds of permission, and they don't collapse into one:
+
+- **Your own** — entering your score, signing your card. Nobody else's business, including
+  the organizer's.
+- **The wolf's own, per hole** — picking a partner or going alone. Gated to whoever has the
+  wolf that hole, not to the organizer.
+- **The organizer's** — the terms of the round and of a bet: the stake, the lone multiplier,
+  the rotation, and reopening a signed card.
+
+Read access is deliberately wider than write. A player in a bet is owed sight of the stake
+and the rotation, so the Wolf setup tab stays visible to everyone and goes read-only rather
+than hiding. Hiding terms from someone playing for money would be the wrong instinct.
+
 ## Wolf
 
 `src/lib/wolf.ts` is pure and covered by `npm run check:wolf` — 30 assertions including the
