@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
 import { colors, font } from '@/theme';
@@ -33,6 +34,21 @@ export default function RoundsScreen() {
   const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(playedOn.trim());
   const canCreate = trimmed.length > 0 && dateValid && !busy;
 
+  // This screen is reached two ways and only one of them has a back stack: by
+  // tapping the round name on FIELD (pushed, so back works), or by the tabs
+  // layout redirecting here because no round exists yet (replaced, so there is
+  // nothing to go back to). Without both branches the redirect left you stranded
+  // on this screen with no tab bar and no way off it.
+  const enterRound = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  };
+
+  const openRound = async (roundId: string) => {
+    if (roundId !== activeRoundId) await switchRound(roundId);
+    enterRound();
+  };
+
   const submit = async () => {
     if (!canCreate) return;
     setBusy(true);
@@ -52,6 +68,9 @@ export default function RoundsScreen() {
     }
     setName('');
     setPlayedOn(todayIso());
+    // Creating a round means you want to be in it — go straight there rather
+    // than leaving you looking at the list you just added to.
+    enterRound();
   };
 
   const confirmDelete = (roundId: string, roundName: string) => {
@@ -76,7 +95,17 @@ export default function RoundsScreen() {
     <View style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.kicker}>Your rounds</Text>
-        <Text style={styles.title}>Rounds</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Rounds</Text>
+          {/* Only offer the way out once there's a round to go to. With none, the
+              tabs would just redirect straight back here. */}
+          {activeRoundId != null && (
+            <Pressable onPress={enterRound} style={styles.doneBtn} hitSlop={8}>
+              <Text style={styles.doneLabel}>DONE</Text>
+              <Text style={styles.doneArrow}>→</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       <ScrollView keyboardShouldPersistTaps="handled">
@@ -123,7 +152,7 @@ export default function RoundsScreen() {
           const organizer = r.organizerId ? players.find((p) => p.id === r.organizerId) : null;
           return (
             <View key={r.id} style={[styles.roundRow, active && styles.roundRowActive]}>
-              <Pressable style={styles.roundMain} onPress={() => switchRound(r.id)}>
+              <Pressable style={styles.roundMain} onPress={() => openRound(r.id)}>
                 <Text style={styles.roundName}>
                   {r.name || 'Untitled round'}
                   {active ? ' · OPEN' : ''}
@@ -145,8 +174,8 @@ export default function RoundsScreen() {
           );
         })}
         <Text style={styles.note}>
-          Tap a round to open it — every other tab then shows that round's scores, card and side games. Old rounds stay
-          put, so last week's card survives.
+          Tap a round to open it — you'll go straight back to the round, and every tab then shows that round's scores,
+          card and side games. Old rounds stay put, so last week's card survives.
         </Text>
       </ScrollView>
     </View>
@@ -156,6 +185,10 @@ export default function RoundsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  doneBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingBottom: 4 },
+  doneLabel: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.6, color: colors.accent },
+  doneArrow: { fontFamily: font.heading, fontSize: 14, color: colors.accent },
   kicker: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.accent },
   title: { fontFamily: font.heading, fontSize: 28, letterSpacing: -0.6, marginTop: 8, color: colors.text },
   sectionLabel: {
