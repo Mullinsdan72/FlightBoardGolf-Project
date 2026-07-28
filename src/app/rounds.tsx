@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
-import { SetupBar } from '@/components/SetupBar';
+import { SetupBar, useInSetup } from '@/components/SetupBar';
 import { colors, font } from '@/theme';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -25,6 +25,7 @@ export default function RoundsScreen() {
     createRound,
     deleteRound,
   } = useRound();
+  const inSetup = useInSetup();
 
   const [name, setName] = useState('');
   const [playedOn, setPlayedOn] = useState(todayIso());
@@ -95,7 +96,7 @@ export default function RoundsScreen() {
   return (
     <View style={styles.screen}>
       <SetupBar step="round" />
-      <View style={styles.header}>
+      <View style={[styles.header, inSetup && styles.headerInSetup]}>
         <Text style={styles.kicker}>Your rounds</Text>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Rounds</Text>
@@ -186,6 +187,7 @@ export default function RoundsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  headerInSetup: { paddingTop: 18 },
   header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   doneBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingBottom: 4 },

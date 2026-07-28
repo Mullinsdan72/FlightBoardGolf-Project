@@ -6,7 +6,7 @@ import { useRound } from '@/context/RoundContext';
 import { holeGameName, holeGameShortName, type HoleGameType } from '@/lib/sideGames';
 import { matchStateLabel } from '@/lib/teamChallenge';
 import { fmtMoney, parThreeDraw } from '@/lib/wolf';
-import { SetupBar } from '@/components/SetupBar';
+import { SetupBar, useInSetup } from '@/components/SetupBar';
 import { colors, font } from '@/theme';
 
 type Tab = 'standings' | 'setup' | 'holes' | 'challenge';
@@ -53,6 +53,7 @@ export default function GamesScreen() {
     challengeFor,
     setChallengeSettings,
   } = useRound();
+  const inSetup = useInSetup();
   const [tab, setTab] = useState<Tab | null>(null);
   const [newType, setNewType] = useState<HoleGameType>('ctp');
   const [newWager, setNewWager] = useState(500);
@@ -94,7 +95,7 @@ export default function GamesScreen() {
   return (
     <View style={styles.screen}>
       <SetupBar step="games" />
-      <View style={styles.header}>
+      <View style={[styles.header, inSetup && styles.headerInSetup]}>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.kicker}>Side games</Text>
@@ -879,6 +880,7 @@ const styles = StyleSheet.create({
   addBtnLabel: { fontFamily: font.heading, fontSize: 14, letterSpacing: 0.3, color: '#fff' },
   addBtnArrow: { fontFamily: font.heading, fontSize: 20, color: '#fff' },
   screen: { flex: 1, backgroundColor: colors.bg },
+  headerInSetup: { paddingTop: 18 },
   header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
   kicker: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.accent },
   title: { fontFamily: font.heading, fontSize: 28, letterSpacing: -0.6, marginTop: 8, color: colors.text },

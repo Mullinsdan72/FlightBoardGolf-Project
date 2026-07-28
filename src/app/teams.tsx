@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
 import { allowanceFor, formatName, handicapName, type HandicapMode, type TeamFormat } from '@/lib/teams';
-import { SetupBar } from '@/components/SetupBar';
+import { SetupBar, useInSetup } from '@/components/SetupBar';
 import { colors, font, fmtToPar } from '@/theme';
 
 const SIZES = [1, 2, 3, 4];
@@ -52,6 +52,7 @@ export default function TeamsScreen() {
     teamAssign,
     teamClear,
   } = useRound();
+  const inSetup = useInSetup();
 
   const [picked, setPicked] = useState<string | null>(null);
 
@@ -104,7 +105,7 @@ export default function TeamsScreen() {
     return (
       <View style={styles.screen}>
         <SetupBar step="teams" />
-        <View style={styles.header}>
+        <View style={[styles.header, inSetup && styles.headerInSetup]}>
           <Text style={styles.kicker}>{activeRound?.name || 'Round'}</Text>
           <Text style={styles.title}>Teams</Text>
         </View>
@@ -119,7 +120,7 @@ export default function TeamsScreen() {
   return (
     <View style={styles.screen}>
       <SetupBar step="teams" />
-      <View style={styles.header}>
+      <View style={[styles.header, inSetup && styles.headerInSetup]}>
         <Text style={styles.kicker}>{activeRound?.name || 'Round'}</Text>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Teams</Text>
@@ -460,6 +461,7 @@ export default function TeamsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  headerInSetup: { paddingTop: 18 },
   header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   kicker: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.accent },
