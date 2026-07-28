@@ -10,7 +10,7 @@ project's working rules.
 
 ## What's built so far
 
-Four tabs, once you've picked which player you are:
+Five tabs, once you've picked which player you are:
 
 - **Score** (`src/app/(tabs)/index.tsx`) — hole-by-hole, big +/− stepper, traditional
   circle/square notation (birdie, eagle, bogey...), both "everyone scores" and "one scorer
@@ -20,10 +20,17 @@ Four tabs, once you've picked which player you are:
 - **Card** (`src/app/(tabs)/card.tsx`) — the final scorecard (OUT/IN, gross/net/Stableford)
   and a hold-to-sign gesture that locks it once all 18 holes are posted.
 - **Field** (`src/app/(tabs)/players.tsx`) — add and remove players on the round.
+- **Course** (`src/app/(tabs)/course.tsx`) — search the course database and auto-fill all 18
+  holes, star favourites that load with no lookup, pick a tee, choose Front 9 / Back 9 / All
+  18, or type a card by hand when a course isn't listed.
 
 No sign-in yet (see `src/components/PlayerPicker.tsx` for the stand-in), one group only, and
-no course setup, teams, or side games — those come later, in the order `design/Build
-Guide.dc.html` lays out.
+no teams or side games — those come later, in the order `design/Build Guide.dc.html` lays
+out.
+
+Course search needs the `courses` Edge Function deployed so the API key stays off phones —
+see [`supabase/functions/README.md`](./supabase/functions/README.md). Everything else works
+without it.
 
 ## Running it
 

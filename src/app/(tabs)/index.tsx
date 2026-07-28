@@ -3,8 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
-import { HOLES, ROUND_NAME } from '@/data/seed';
-import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
+import { ROUND_NAME } from '@/data/seed';
 import { useSignoff } from '@/hooks/useSignoff';
 import { thruFor, toParFor } from '@/lib/roundMath';
 import { colors, font, fmtToPar, scoreName } from '@/theme';
@@ -12,11 +11,10 @@ import { colors, font, fmtToPar, scoreName } from '@/theme';
 type Mode = 'self' | 'scorer';
 
 export default function ScoreEntryScreen() {
-  const { myId, choose, clear } = usePlayerIdentity();
-  const { scores, setScores, postScore, live, connected, players } = useRound();
+  const { myId, choose, clear, scores, setScores, postScore, live, connected, players, holes } = useRound();
   const { signedAt } = useSignoff(myId);
 
-  const [hole, setHole] = useState(1);
+  const [holeIndex, setHoleIndex] = useState(0);
   const [mode, setMode] = useState<Mode>('self');
   const [draft, setDraft] = useState<Record<number, Record<string, number>>>({});
   const startedAt = useRef(false);
@@ -25,13 +23,13 @@ export default function ScoreEntryScreen() {
   // Jump to the first unplayed hole once, the first time this player's
   // posted scores load — after that, hole navigation is the golfer's own.
   useEffect(() => {
-    if (startedAt.current || !myId) return;
-    const thru = thruFor(scores, myId);
+    if (startedAt.current || !myId || !holes.length) return;
+    const thru = thruFor(holes, scores, myId);
     if (thru > 0) {
       startedAt.current = true;
-      setHole(Math.min(18, thru + 1));
+      setHoleIndex(Math.min(holes.length - 1, thru));
     }
-  }, [scores, myId]);
+  }, [scores, myId, holes]);
 
   // If this device's chosen player was removed from the round elsewhere,
   // fall back to the picker rather than keep scoring as a ghost player.
@@ -57,11 +55,28 @@ export default function ScoreEntryScreen() {
     );
   }
 
-  const holeInfo = HOLES[hole - 1];
+  if (!holes.length) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.lockedWrap}>
+          <Text style={styles.headerLabel}>{ROUND_NAME}</Text>
+          <Text style={styles.lockedTitle}>No course picked yet</Text>
+          <Text style={styles.lockedNote}>
+            Choose a course on the Course tab and its card fills in here — par, yardage and stroke index for every hole.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const safeIndex = Math.min(holeIndex, holes.length - 1);
+  const holeInfo = holes[safeIndex];
+  const hole = holeInfo.hole;
   const par = holeInfo.par;
+  const parOf = (h: number) => holes.find((x) => x.hole === h)?.par ?? 4;
 
   const valueFor = (h: number, playerId: string) =>
-    draft[h]?.[playerId] ?? scores[h]?.[playerId] ?? HOLES[h - 1].par;
+    draft[h]?.[playerId] ?? scores[h]?.[playerId] ?? parOf(h);
 
   const bump = (playerId: string, delta: number) => {
     const next = Math.max(1, Math.min(15, valueFor(hole, playerId) + delta));
@@ -69,8 +84,9 @@ export default function ScoreEntryScreen() {
   };
 
   const myScore = valueFor(hole, myId);
-  const myToPar = toParFor(scores, myId);
-  const thru = thruFor(scores, myId);
+  const myToPar = toParFor(holes, scores, myId);
+  const thru = thruFor(holes, scores, myId);
+  const isLastHole = safeIndex === holes.length - 1;
 
   // Posts whatever's currently showing for the hole being left. Called both
   // by the POST button (which also advances) and by jumping to a different
@@ -90,12 +106,12 @@ export default function ScoreEntryScreen() {
 
   const commitHole = () => {
     postCurrentHole();
-    if (hole < 18) setHole(hole + 1);
+    if (!isLastHole) setHoleIndex(safeIndex + 1);
   };
 
-  const goToHole = (h: number) => {
-    if (h !== hole) postCurrentHole();
-    setHole(h);
+  const goToHole = (index: number) => {
+    if (index !== safeIndex) postCurrentHole();
+    setHoleIndex(index);
   };
 
   const others = players.filter((p) => p.id !== myId);
@@ -170,7 +186,7 @@ export default function ScoreEntryScreen() {
           <View>
             {players.map((p) => {
               const val = valueFor(hole, p.id);
-              const pToPar = toParFor(scores, p.id);
+              const pToPar = toParFor(holes, scores, p.id);
               return (
                 <View key={p.id} style={styles.scorerRow}>
                   <View style={styles.scorerName}>
@@ -201,13 +217,13 @@ export default function ScoreEntryScreen() {
 
       <View style={styles.holeChipsRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {HOLES.map((h) => {
-            const isCurrent = h.hole === hole;
+          {holes.map((h, i) => {
+            const isCurrent = i === safeIndex;
             const isPosted = scores[h.hole]?.[myId] != null;
             return (
               <Pressable
                 key={h.hole}
-                onPress={() => goToHole(h.hole)}
+                onPress={() => goToHole(i)}
                 style={[
                   styles.chip,
                   { backgroundColor: isCurrent ? colors.accent : isPosted ? colors.text : 'transparent' },
@@ -222,7 +238,9 @@ export default function ScoreEntryScreen() {
         </ScrollView>
       </View>
       <Pressable style={styles.postBtn} onPress={commitHole}>
-        <Text style={styles.postLabel}>{hole < 18 ? `POST · HOLE ${hole + 1}` : 'POST · ROUND COMPLETE'}</Text>
+        <Text style={styles.postLabel}>
+          {isLastHole ? 'POST · ROUND COMPLETE' : `POST · HOLE ${holes[safeIndex + 1].hole}`}
+        </Text>
         <Text style={styles.postArrow}>→</Text>
       </Pressable>
     </View>

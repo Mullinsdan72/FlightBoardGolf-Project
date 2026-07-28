@@ -4,10 +4,16 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
-import { COURSE_META, COURSE_NAME } from '@/data/seed';
-import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
 import { useSignoff } from '@/hooks/useSignoff';
-import { cardBlocksFor, netToParFor, stablefordFor, thruFor, toParFor } from '@/lib/roundMath';
+import {
+  cardBlocksFor,
+  grossFor,
+  netToParFor,
+  parTotalFor,
+  stablefordFor,
+  strokesReceivedFor,
+  thruFor,
+} from '@/lib/roundMath';
 import { colors, font, fmtToPar, markForScore } from '@/theme';
 
 const LEGEND: Array<{ label: string; strokes: number; par: number }> = [
@@ -22,8 +28,7 @@ const HOLD_STEP = 8;
 const HOLD_INTERVAL_MS = 40;
 
 export default function ScorecardScreen() {
-  const { myId, choose, clear } = usePlayerIdentity();
-  const { scores, players } = useRound();
+  const { myId, choose, clear, scores, players, holes, course } = useRound();
   const { signedAt, sign } = useSignoff(myId);
   const [hold, setHold] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -43,10 +48,12 @@ export default function ScorecardScreen() {
   if (myId === undefined || signedAt === undefined) return <View style={styles.screen} />;
   if (!myId || !me) return <PlayerPicker players={players} onChoose={choose} />;
 
-  const thru = thruFor(scores, myId);
-  const complete = thru === 18;
-  const gross = toParFor(scores, myId) + 72; // par 72 course
-  const blocks = cardBlocksFor(scores, myId);
+  const thru = thruFor(holes, scores, myId);
+  const complete = holes.length > 0 && thru === holes.length;
+  const parTotal = parTotalFor(holes);
+  const gross = grossFor(holes, scores, myId);
+  const net = gross - strokesReceivedFor(holes, scores, myId, me.handicap);
+  const blocks = cardBlocksFor(holes, scores, myId);
   const signed = !!signedAt;
 
   const holdStart = () => {
@@ -73,17 +80,19 @@ export default function ScorecardScreen() {
     <View style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.headerLabel}>
-          {COURSE_NAME} · {COURSE_META}
+          {[course?.courseName, course?.courseMeta].filter(Boolean).join(' · ') || 'No course picked'}
         </Text>
         <View style={styles.headerRow}>
           <Text style={styles.name}>{me.name}</Text>
           {complete ? (
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={styles.grossHero}>{gross}</Text>
-              <Text style={styles.toParHero}>{fmtToPar(gross - 72)} GROSS</Text>
+              <Text style={styles.toParHero}>{fmtToPar(gross - parTotal)} GROSS</Text>
             </View>
           ) : (
-            <Text style={styles.progressNote}>{thru} of 18 played</Text>
+            <Text style={styles.progressNote}>
+              {thru} of {holes.length || '–'} played
+            </Text>
           )}
         </View>
       </View>
@@ -131,11 +140,11 @@ export default function ScorecardScreen() {
             <Text style={styles.totalLabel}>Gross</Text>
           </View>
           <View style={styles.totalCell}>
-            <Text style={styles.totalVal}>{complete ? netToParFor(scores, myId, me.handicap) + 72 : '–'}</Text>
+            <Text style={styles.totalVal}>{complete ? net : '–'}</Text>
             <Text style={styles.totalLabel}>Net ({me.handicap})</Text>
           </View>
           <View style={[styles.totalCell, { borderRightWidth: 0 }]}>
-            <Text style={styles.totalVal}>{complete ? stablefordFor(scores, myId) : '–'}</Text>
+            <Text style={styles.totalVal}>{complete ? stablefordFor(holes, scores, myId) : '–'}</Text>
             <Text style={styles.totalLabel}>Stableford</Text>
           </View>
         </View>
@@ -172,15 +181,18 @@ export default function ScorecardScreen() {
               <Text style={styles.signedTitle}>Card signed and locked</Text>
               <Text style={styles.signedNote}>
                 {me.name} · {new Date(signedAt!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · posted to{' '}
-                {COURSE_NAME}.
+                {course?.courseName || 'this round'}.
               </Text>
             </>
           ) : complete ? (
             <Text style={styles.signNote}>By signing you confirm every number above. This is the paper card — once it's in, it's in.</Text>
-          ) : (
+          ) : holes.length ? (
             <Text style={styles.signNote}>
-              {18 - thru} hole{18 - thru === 1 ? '' : 's'} left to play — sign-off unlocks once your round is complete.
+              {holes.length - thru} hole{holes.length - thru === 1 ? '' : 's'} left to play — sign-off unlocks once your
+              round is complete.
             </Text>
+          ) : (
+            <Text style={styles.signNote}>Pick a course on the Course tab and your card appears here.</Text>
           )}
         </View>
       </ScrollView>

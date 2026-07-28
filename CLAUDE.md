@@ -10,18 +10,24 @@ decision matters. `design/Build Guide.dc.html` is the phased build plan this pro
 
 ## Current state
 
-Built so far, as four tabs — **Score** (`src/app/(tabs)/index.tsx`), **Board**
+Built so far, as five tabs — **Score** (`src/app/(tabs)/index.tsx`), **Board**
 (`src/app/(tabs)/board.tsx`), **Card** (`src/app/(tabs)/card.tsx`, the final scorecard and
-hold-to-sign), and **Field** (`src/app/(tabs)/players.tsx`, add/remove players on the
-round) — all wired to Supabase (Postgres + Realtime). No sign-in yet — each device picks
-which player in the round it is (`src/components/PlayerPicker.tsx`) as a stand-in until real
-phone-number auth is built. Course setup, teams, and side games are not built yet — see
-`design/Build Guide.dc.html` for the intended phase order and don't jump ahead of it without
-discussing scope first.
+hold-to-sign), **Field** (`src/app/(tabs)/players.tsx`, the round's roster), and **Course**
+(`src/app/(tabs)/course.tsx`, search/favourites/tees/holes-in-play/manual card entry) — all
+wired to Supabase (Postgres + Realtime). No sign-in yet — each device picks which player in
+the round it is (`src/components/PlayerPicker.tsx`) as a stand-in until real phone-number
+auth is built. Teams and side games are not built yet — see `design/Build Guide.dc.html` for
+the intended phase order and don't jump ahead of it without discussing scope first.
 
 Only one group exists so far. The design's group-splitting, shotgun starting-hole
 assignment, flights, and 300-player roster tools are all deliberately deferred — the Field
 tab is a single group's roster, not the full field tool from screen 04.
+
+**Hole data is never a constant.** The round's card comes from `useRound().holes` — the
+holes actually in play, which is 9 or 18 depending on the course and the holes-in-play
+setting. Everything in `src/lib/roundMath.ts` takes that array as its first argument, and
+nothing may assume 18 holes or par 72. `HOLES` in `src/data/seed.ts` is only the offline
+fallback for when Supabase isn't configured.
 
 **Every screen shares one live-data connection and one roster** via `RoundProvider`
 (`src/context/RoundContext.tsx`), mounted once at the tabs layout. Don't call
@@ -83,8 +89,19 @@ everywhere in this codebase, not just the screens they were first written for.
   for now — there's no sign-in yet, so there's no identity to scope by — but it must be
   replaced with policies scoped to a real signed-in user before anyone but the developer
   uses this for real (Build Guide Phase 2).
-- `GOLFCOURSE_API_KEY` (golfcourseapi.com, in `.env`, no `EXPO_PUBLIC_` prefix) isn't wired
-  to anything yet. It's for the future course-search screen, and should be called from a
-  Supabase Edge Function, not directly from the client — an `EXPO_PUBLIC_` key ships inside
-  the app bundle for anyone to read out.
+- **Never call GolfCourseAPI from the app.** The key lives as a Supabase secret on the
+  `courses` Edge Function (`supabase/functions/courses/index.ts`); the app talks only to that
+  function via `src/lib/courseApi.ts`. An `EXPO_PUBLIC_` key would be compiled into the
+  bundle for anyone to extract and spend the account's 300-lookups-a-day quota. The
+  `GOLFCOURSE_API_KEY` in `.env` is only there for local reference — nothing reads it.
+- The function is deployed with `--no-verify-jwt` because there's no sign-in yet, so anyone
+  who found the URL could spend the quota. Drop that flag when phone auth lands. See
+  `supabase/functions/README.md`.
+- **Three tiers of course data, by design:** starred favourites (permanent, zero API calls),
+  the round's own `round_holes` snapshot (fetched once, works offline at the tee), and search
+  (the only thing that spends the daily quota). A course is fetched once ever and cached
+  permanently in `courses`/`course_tees` — never re-fetch one that's already cached.
+- `src/lib/courseApi.ts` parses upstream fields tolerantly on purpose (yardage vs yards,
+  handicap vs stroke_index). If a real response doesn't map, it logs the raw payload and
+  throws a readable error rather than silently returning nothing.
 - One screen per conversation. Small, finished, tested changes beat one big one.

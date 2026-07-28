@@ -8,7 +8,8 @@ const TAB_META: Record<string, { label: string; sub: string }> = {
   index: { label: 'SCORE', sub: 'hole-by-hole' },
   board: { label: 'BOARD', sub: 'live' },
   card: { label: 'CARD', sub: 'sign off' },
-  players: { label: 'FIELD', sub: 'the roster' },
+  players: { label: 'FIELD', sub: 'roster' },
+  course: { label: 'COURSE', sub: 'the card' },
 };
 
 function ModernistTabBar({ state, descriptors, navigation }: any) {
@@ -47,6 +48,7 @@ export default function TabLayout() {
         <Tabs.Screen name="board" options={{ title: 'Board' }} />
         <Tabs.Screen name="card" options={{ title: 'Card' }} />
         <Tabs.Screen name="players" options={{ title: 'Field' }} />
+        <Tabs.Screen name="course" options={{ title: 'Course' }} />
       </Tabs>
     </RoundProvider>
   );
@@ -62,7 +64,7 @@ const styles = StyleSheet.create({
   tab: { flex: 1 },
   tabDivider: { borderRightWidth: 1, borderRightColor: colors.divider },
   topBar: { height: 3 },
-  tabInner: { paddingHorizontal: 9, paddingTop: 12, paddingBottom: 2 },
-  label: { fontFamily: font.heading, fontSize: 11.5, letterSpacing: 0.4 },
-  sub: { fontFamily: font.body, fontSize: 8.5, color: colors.mutedFaint, marginTop: 6 },
+  tabInner: { paddingHorizontal: 6, paddingTop: 12, paddingBottom: 2 },
+  label: { fontFamily: font.heading, fontSize: 10.5, letterSpacing: 0.2 },
+  sub: { fontFamily: font.body, fontSize: 8, color: colors.mutedFaint, marginTop: 5 },
 });

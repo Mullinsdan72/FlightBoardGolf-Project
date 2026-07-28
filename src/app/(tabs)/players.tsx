@@ -2,13 +2,11 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
 import { ROUND_NAME } from '@/data/seed';
-import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
 import { thruFor } from '@/lib/roundMath';
 import { colors, font } from '@/theme';
 
 export default function PlayersScreen() {
-  const { myId } = usePlayerIdentity();
-  const { players, addPlayer, removePlayer, scores } = useRound();
+  const { myId, players, addPlayer, removePlayer, scores, holes } = useRound();
   const [name, setName] = useState('');
   const [handicap, setHandicap] = useState('');
   const [busy, setBusy] = useState(false);
@@ -28,7 +26,7 @@ export default function PlayersScreen() {
   };
 
   const confirmRemove = (playerId: string, playerName: string) => {
-    const played = thruFor(scores, playerId);
+    const played = thruFor(holes, scores, playerId);
     const warning =
       played > 0
         ? `${playerName} has ${played} hole${played === 1 ? '' : 's'} posted. Removing them takes them off this round — their posted scores stay in the database but stop showing on the board.`
@@ -57,7 +55,7 @@ export default function PlayersScreen() {
         </View>
         <View style={[styles.statCell, { borderRightWidth: 0 }]}>
           <Text style={[styles.statVal, { color: colors.accent }]}>
-            {players.filter((p) => thruFor(scores, p.id) > 0).length}
+            {players.filter((p) => thruFor(holes, scores, p.id) > 0).length}
           </Text>
           <Text style={styles.statLabel}>Started</Text>
         </View>
@@ -66,7 +64,7 @@ export default function PlayersScreen() {
       <ScrollView keyboardShouldPersistTaps="handled">
         <Text style={styles.sectionLabel}>Group 12</Text>
         {players.map((p) => {
-          const played = thruFor(scores, p.id);
+          const played = thruFor(holes, scores, p.id);
           return (
             <View key={p.id} style={[styles.playerRow, p.id === myId && styles.rowYou]}>
               <View style={[styles.dot, { backgroundColor: played > 0 ? colors.accent : colors.dividerFaint }]} />

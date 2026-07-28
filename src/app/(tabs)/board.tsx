@@ -3,16 +3,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
-import { FIELD_DEMO_ROWS, HOLES, ROUND_NAME } from '@/data/seed';
-import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
-import { thruFor, toParFor } from '@/lib/roundMath';
+import { FIELD_DEMO_ROWS, ROUND_NAME } from '@/data/seed';
+import { netToParFor, thruFor, toParFor } from '@/lib/roundMath';
 import { colors, font, fmtToPar } from '@/theme';
 
 type Tab = 'group' | 'field';
 
 export default function LeaderboardScreen() {
-  const { myId, choose, clear } = usePlayerIdentity();
-  const { scores, live, connected, players } = useRound();
+  const { myId, choose, clear, scores, live, connected, players, holes } = useRound();
   const [tab, setTab] = useState<Tab>('field');
   const amInRound = !myId || players.some((p) => p.id === myId);
 
@@ -25,12 +23,17 @@ export default function LeaderboardScreen() {
   if (myId === undefined) return <View style={styles.screen} />;
   if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} />;
 
+  const roundLength = holes.length || 18;
+
   const realRows = players.map((p) => ({
     name: p.id === myId ? p.name + ' (you)' : p.name,
     club: 'Group 12',
     handicap: p.handicap,
-    toPar: toParFor(scores, p.id),
-    thru: thruFor(scores, p.id),
+    toPar: toParFor(holes, scores, p.id),
+    // Same stroke-index allocation the scorecard uses, so a player's net here
+    // and on their card can never disagree.
+    net: netToParFor(holes, scores, p.id, p.handicap),
+    thru: thruFor(holes, scores, p.id),
     isYou: p.id === myId,
   }));
 
@@ -39,24 +42,25 @@ export default function LeaderboardScreen() {
     club: r.club,
     handicap: null as number | null,
     toPar: r.toPar,
-    thru: r.thru === 'F' ? 18 : r.thru,
+    net: r.toPar,
+    thru: r.thru === 'F' ? roundLength : r.thru,
     thruLabel: r.thru === 'F' ? 'F' : String(r.thru),
     isYou: false,
   }));
 
-  const fieldRows = [...realRows.map((r) => ({ ...r, thruLabel: r.thru === 18 ? 'F' : String(r.thru) })), ...demoRows]
+  const fieldRows = [
+    ...realRows.map((r) => ({ ...r, thruLabel: r.thru === roundLength ? 'F' : String(r.thru) })),
+    ...demoRows,
+  ]
     .slice()
     .sort((a, b) => a.toPar - b.toPar);
 
   const groupRows = realRows
     .slice()
     .sort((a, b) => a.toPar - b.toPar)
-    .map((r) => {
-      const net = r.toPar - Math.round((r.handicap ?? 0) * (r.thru / 18));
-      return { ...r, note: `HCP ${r.handicap} · net ${fmtToPar(net)}` };
-    });
+    .map((r) => ({ ...r, note: `HCP ${r.handicap} · net ${fmtToPar(r.net)}` }));
 
-  const myMini = HOLES.map((h) => ({ hole: h.hole, par: h.par, strokes: scores[h.hole]?.[myId] }));
+  const myMini = holes.map((h) => ({ hole: h.hole, par: h.par, strokes: scores[h.hole]?.[myId] }));
 
   return (
     <View style={styles.screen}>
@@ -109,7 +113,7 @@ export default function LeaderboardScreen() {
                 <Text style={[styles.groupToPar, { color: r.toPar < 0 ? colors.accent : colors.text }]}>
                   {fmtToPar(r.toPar)}
                 </Text>
-                <Text style={styles.groupThru}>{r.thru === 18 ? 'F' : `thru ${r.thru}`}</Text>
+                <Text style={styles.groupThru}>{r.thru === roundLength ? 'F' : `thru ${r.thru}`}</Text>
               </View>
             ))}
 
