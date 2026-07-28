@@ -75,6 +75,15 @@ alter table rounds add column if not exists tee_gender text default 'male';
 alter table rounds add column if not exists holes_in_play text not null default 'all18';
 -- 'all18' | 'front9' | 'back9'
 
+-- Who runs the round. Currently the only thing the role gates is reopening a
+-- signed card (CLAUDE.md rule 8) — a player signs only their own card, but
+-- unlocking one is the organizer's call.
+--
+-- Honest limitation: with no sign-in, anyone can claim this. It encodes intent
+-- and stops an accidental unlock; it is not yet a permission. Enforce it in RLS
+-- once there are real accounts.
+alter table rounds add column if not exists organizer_player_id uuid references players(id) on delete set null;
+
 -- The round's own copy of the card it is being played on. This deliberately
 -- duplicates course_tees.holes, and that is not a "one number, one source"
 -- violation: it's the event cache the design calls for ("saved to this event,

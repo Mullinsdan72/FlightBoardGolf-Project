@@ -77,9 +77,16 @@ everywhere in this codebase, not just the screens they were first written for.
 7. **Rotations must be reshufflable.** Anything fixed (wolf order, starting holes, team
    draws) hands the same advantage to the same person every time, at the same course.
 8. **A signed card is locked.** Reopening it takes the organizer, and every day-of change is
-   logged with the name of whoever made it. Enforced today by `signoffs` (one row = locked,
-   checked in the Score tab via `useSignoff`) — the "takes the organizer to reopen" and
-   "day-of change log" halves aren't built yet, since there's no organizer role at all.
+   logged with the name of whoever made it. Enforced by `signoffs` (one row = locked, checked
+   in the Score tab via `useSignoff`); reopening lives on the Card tab behind a confirmation
+   and only appears for `amOrganizer`. The change *log* half isn't built.
+   - A player signs only their own card. The organizer can reopen **any** card, which is
+     what the rule actually says.
+   - `rounds.organizer_player_id` holds the role, claimed on the FIELD tab. With no sign-in
+     anyone can take it, so today it records who's running the round rather than restricting
+     anything — move it into RLS once accounts exist.
+   - Empty means nobody is organizer, not everybody. A card must not become unlockable just
+     because the role is unclaimed.
 
 ## Working notes
 

@@ -25,7 +25,8 @@ delete from round_holes;
 -- a foreign key with no ON DELETE clause, so deleting a course the round still
 -- points at aborts the whole transaction.
 update rounds
-   set course_id = null,
+   set organizer_player_id = null,
+       course_id = null,
        course_name = '',
        course_meta = '',
        tee_name = null,

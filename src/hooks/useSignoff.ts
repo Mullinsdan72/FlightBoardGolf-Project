@@ -46,5 +46,35 @@ export function useSignoff(playerId: string | null | undefined) {
     if (error) console.warn('signoff upsert failed, staying locked locally:', error.message);
   }, [playerId]);
 
-  return { signedAt, sign };
+  // Deliberately not easy: the design's rule is that reopening a signed card
+  // takes the organizer. There's no organizer role yet, so this is gated behind
+  // a confirmation that spells out the consequence, and callers only offer it on
+  // the player's own card. When roles exist this should move behind one, and
+  // grow the "logged with the name of whoever did it" half of the rule.
+  const reopen = useCallback(async () => {
+    if (!playerId) return null;
+    setSignedAt(null);
+    if (!isSupabaseConfigured || !supabase) return null;
+    const { error } = await supabase
+      .from('signoffs')
+      .delete()
+      .eq('round_id', ROUND_ID)
+      .eq('player_id', playerId);
+    if (error) {
+      console.warn('reopen failed:', error.message);
+      // Put the lock back rather than leaving the card editable on a device
+      // whose unlock never reached the server.
+      const { data } = await supabase
+        .from('signoffs')
+        .select('signed_at')
+        .eq('round_id', ROUND_ID)
+        .eq('player_id', playerId)
+        .maybeSingle();
+      setSignedAt(data?.signed_at ?? null);
+      return error.message;
+    }
+    return null;
+  }, [playerId]);
+
+  return { signedAt, sign, reopen };
 }

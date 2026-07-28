@@ -27,7 +27,7 @@ const RoundContext = createContext<RoundContextValue | null>(null);
 export function RoundProvider({ children }: { children: ReactNode }) {
   const identity = usePlayerIdentity();
   const scores = useLiveScores();
-  const roster = useRoundPlayers();
+  const roster = useRoundPlayers(identity.myId);
   const course = useRoundCourse(identity.myId);
   const playerIds = useMemo(() => roster.players.map((p) => p.id), [roster.players]);
   const wolf = useWolf(playerIds, course.holes, scores.scores);

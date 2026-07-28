@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
@@ -28,7 +28,7 @@ const HOLD_STEP = 8;
 const HOLD_INTERVAL_MS = 40;
 
 export default function ScorecardScreen() {
-  const { myId, choose, clear, scores, players, holes, course } = useRound();
+  const { myId, choose, clear, scores, players, holes, course, amOrganizer } = useRound();
 
   // Which player's card is on screen. Defaults to you, but any player in the
   // round can be viewed — reading a partner's card is normal at the turn.
@@ -68,7 +68,7 @@ export default function ScorecardScreen() {
   // Signing is only ever your own card, so this tracks the *viewed* player to
   // show their status truthfully while the hold-to-sign control stays gated to
   // your own (CLAUDE.md rules 2 and 8).
-  const { signedAt, sign } = useSignoff(shownId);
+  const { signedAt, sign, reopen } = useSignoff(shownId);
   const [hold, setHold] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -131,6 +131,25 @@ export default function ScorecardScreen() {
   const holdStop = () => {
     if (timer.current) clearInterval(timer.current);
     if (!signed) setHold(0);
+  };
+
+  const confirmReopen = () => {
+    Alert.alert(
+      `Reopen ${isOwnCard ? 'your' : who.name + "'s"} card?`,
+      'A signed card is meant to stay locked — that is what makes it stand in for the paper one. Reopening lets the scores be edited again, and everyone in the round will see it unlock.',
+      [
+        { text: 'Leave it signed', style: 'cancel' },
+        {
+          text: 'Reopen',
+          style: 'destructive',
+          onPress: async () => {
+            setHold(0);
+            const message = await reopen();
+            if (message) Alert.alert('Could not reopen that card', message);
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -295,6 +314,17 @@ export default function ScorecardScreen() {
           ) : (
             <Text style={styles.signNote}>Pick a course on the Course tab and your card appears here.</Text>
           )}
+
+          {signed && amOrganizer && (
+            <Pressable onPress={confirmReopen} style={styles.reopenBtn}>
+              <Text style={styles.reopenLabel}>REOPEN THIS CARD</Text>
+            </Pressable>
+          )}
+          {signed && !amOrganizer && (
+            <Text style={styles.signNote}>
+              A signed card stays locked. Reopening one is the organizer's call — they can do it from this screen.
+            </Text>
+          )}
         </View>
       </ScrollView>
 
@@ -390,6 +420,8 @@ const styles = StyleSheet.create({
   signNote: { fontFamily: font.body, fontSize: 12, lineHeight: 19, color: 'rgba(32,30,29,0.65)' },
   signedTitle: { fontFamily: font.heading, fontSize: 15, color: colors.accent },
   signedNote: { fontFamily: font.body, fontSize: 12, lineHeight: 19, color: 'rgba(32,30,29,0.65)', marginTop: 8 },
+  reopenBtn: { marginTop: 16, borderWidth: 2, borderColor: colors.text, paddingVertical: 13, alignItems: 'center' },
+  reopenLabel: { fontFamily: font.heading, fontSize: 11, letterSpacing: 1, color: colors.text },
   footer: { borderTopWidth: 2, borderColor: colors.divider },
   holdBtn: { height: 82, backgroundColor: colors.bg, overflow: 'hidden', paddingHorizontal: 20, paddingBottom: 26, justifyContent: 'center' },
   holdBtnDisabled: { opacity: 0.4 },

@@ -6,10 +6,13 @@ import { thruFor } from '@/lib/roundMath';
 import { colors, font } from '@/theme';
 
 export default function PlayersScreen() {
-  const { myId, players, addPlayer, removePlayer, scores, holes } = useRound();
+  const { myId, players, addPlayer, removePlayer, scores, holes, organizerId, amOrganizer, claimOrganizer } =
+    useRound();
   const [name, setName] = useState('');
   const [handicap, setHandicap] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const organizerName = organizerId ? (players.find((p) => p.id === organizerId)?.name ?? null) : null;
 
   const trimmedName = name.trim();
   const parsedHandicap = handicap.trim() === '' ? 0 : Number(handicap.trim());
@@ -62,6 +65,30 @@ export default function PlayersScreen() {
       </View>
 
       <ScrollView keyboardShouldPersistTaps="handled">
+        <Text style={styles.sectionLabel}>Organizer</Text>
+        <View style={styles.organizerBlock}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.organizerName}>
+              {organizerName ?? 'Nobody yet'}
+              {amOrganizer ? ' (you)' : ''}
+            </Text>
+            <Text style={styles.organizerNote}>
+              The organizer is the only one who can reopen a signed card. Without sign-in anyone can take the role, so
+              it records who's running the round rather than truly restricting it.
+            </Text>
+          </View>
+          {myId && !amOrganizer && (
+            <Pressable onPress={() => claimOrganizer(myId)} style={styles.claimBtn}>
+              <Text style={styles.claimLabel}>TAKE IT</Text>
+            </Pressable>
+          )}
+          {amOrganizer && (
+            <Pressable onPress={() => claimOrganizer(null)} style={styles.claimBtn}>
+              <Text style={styles.claimLabel}>GIVE UP</Text>
+            </Pressable>
+          )}
+        </View>
+
         <Text style={styles.sectionLabel}>Group 12</Text>
         {players.map((p) => {
           const played = thruFor(holes, scores, p.id);
@@ -152,6 +179,19 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
   },
   rowYou: { backgroundColor: 'rgba(236,48,19,0.06)' },
+  organizerBlock: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 2,
+    borderColor: colors.divider,
+  },
+  organizerName: { fontFamily: font.heading, fontSize: 15, color: colors.text },
+  organizerNote: { fontFamily: font.body, fontSize: 11, lineHeight: 16, color: colors.muted, marginTop: 5 },
+  claimBtn: { borderWidth: 2, borderColor: colors.text, paddingVertical: 9, paddingHorizontal: 11 },
+  claimLabel: { fontFamily: font.heading, fontSize: 10, letterSpacing: 0.9, color: colors.text },
   dot: { width: 9, height: 9 },
   playerNameCol: { flex: 1 },
   playerName: { fontFamily: font.heading, fontSize: 15, color: colors.text },
