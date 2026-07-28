@@ -266,8 +266,15 @@ export default function TeamsScreen() {
           partners, taking the fairest arrangement that actually changes who plays with whom. With only four players
           there are three possible pairings and one of them is the fair one, so a re-draw there costs some balance;
           nothing can avoid that.
-          {amOrganizer ? ' Tap a player to pick them up, then tap a team to put them there.' : ''}
         </Text>
+        {amOrganizer && (
+          <Text style={styles.note}>
+            You can always set the teams by hand instead, and a hand-made team is never overwritten unless you tap auto
+            draw or re-draw again. Tap a player to pick them up, then tap a team to put them there — or tap "take off
+            their team" to move them to nobody. To swap two players, move the first across and then move one of the
+            others back; a team can hold more than its size for as long as it takes you.
+          </Text>
+        )}
 
         {picked && (
           <View style={styles.pickedBar}>
@@ -329,14 +336,17 @@ export default function TeamsScreen() {
         })}
 
         <Text style={styles.sectionLabel}>Not on a team · {teamUnassigned.length}</Text>
-        {teamUnassigned.length === 0 && <Text style={styles.note}>Everybody has a team.</Text>}
-        {teamUnassigned.length > 0 && (
+        {/* The drop target has to be here even when the pool is empty, or a full
+            set of teams has no way to take somebody off one — with four players
+            in two pairs that was every swap you'd actually want to make. */}
+        {(teamUnassigned.length > 0 || (amOrganizer && picked)) && (
           <Pressable onPress={() => tapTeam(-1)} disabled={!amOrganizer || !picked} style={styles.poolHead}>
-            <Text style={styles.poolLabel}>
-              {picked && amOrganizer ? 'PUT BACK IN THE POOL ›' : 'Waiting for a team'}
+            <Text style={[styles.poolLabel, picked && amOrganizer && styles.poolLabelActive]}>
+              {picked && amOrganizer ? 'TAKE OFF THEIR TEAM ›' : 'Waiting for a team'}
             </Text>
           </Pressable>
         )}
+        {teamUnassigned.length === 0 && !picked && <Text style={styles.note}>Everybody has a team.</Text>}
         {teamUnassigned.map((id) => (
           <Pressable
             key={id}
@@ -507,6 +517,7 @@ const styles = StyleSheet.create({
   memberHcp: { fontFamily: font.body, fontSize: 11, color: colors.muted },
   poolHead: { paddingHorizontal: 20, paddingVertical: 11, borderTopWidth: 2, borderColor: colors.divider },
   poolLabel: { fontFamily: font.heading, fontSize: 10.5, letterSpacing: 0.9, color: colors.muted },
+  poolLabelActive: { color: colors.accent },
   standingRow: {
     flexDirection: 'row',
     alignItems: 'center',
