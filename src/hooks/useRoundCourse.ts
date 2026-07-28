@@ -38,7 +38,11 @@ const teeRowToSet = (r: any): TeeSet => ({
 // round_holes, not the course record — see the note on that table in
 // supabase/schema.sql for why those are deliberately separate.
 export function useRoundCourse(myId: string | null | undefined) {
-  const [allHoles, setAllHoles] = useState<Hole[]>(FALLBACK_HOLES);
+  // Empty until the database says otherwise. The sample card is only a stand-in
+  // for running with no backend at all — using it as a default meant a round
+  // with no course still showed 18 invented holes, which is both wrong and
+  // impossible to clear.
+  const [allHoles, setAllHoles] = useState<Hole[]>(isSupabaseConfigured ? [] : FALLBACK_HOLES);
   const [holesInPlay, setHolesInPlayState] = useState<HolesInPlay>('all18');
   const [course, setCourse] = useState<RoundCourse | null>(null);
   const [savedCourses, setSavedCourses] = useState<SavedCourse[]>([]);
@@ -69,7 +73,10 @@ export function useRoundCourse(myId: string | null | undefined) {
       });
       setHolesInPlayState((r.holes_in_play as HolesInPlay) ?? 'all18');
     }
-    if (holesRes.data?.length) setAllHoles(holesRes.data as Hole[]);
+    // Assign unconditionally, including an empty result — "no course picked" is
+    // a real state the screens handle, and quietly keeping stale holes would
+    // let a deleted course keep supplying a scorecard.
+    setAllHoles((holesRes.data as Hole[] | null) ?? []);
     setLoading(false);
   }, []);
 

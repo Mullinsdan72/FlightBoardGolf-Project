@@ -5,6 +5,22 @@ import { colors, font } from '@/theme';
 // Stands in for phone sign-in until Build Guide Phase 2 wires up Supabase
 // phone auth. Each device picks which player in the round it is, once.
 export function PlayerPicker({ players, onChoose }: { players: SeedPlayer[]; onChoose: (id: string) => void }) {
+  // An empty roster is a normal state, not an error — it's what a fresh round
+  // looks like before anyone has been added. Without this the screen would be a
+  // dead end: a question with no answers.
+  if (!players.length) {
+    return (
+      <View style={styles.wrap}>
+        <Text style={styles.kicker}>Nobody in this round yet</Text>
+        <Text style={styles.title}>Add the players first</Text>
+        <Text style={styles.body}>
+          Open the <Text style={styles.bodyStrong}>FIELD</Text> tab and add everyone playing — name and handicap. Then
+          come back here and pick which one is you.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.kicker}>No sign-in yet</Text>
@@ -30,6 +46,7 @@ const styles = StyleSheet.create({
   kicker: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.accent },
   title: { fontFamily: font.heading, fontSize: 30, letterSpacing: -0.6, marginTop: 8, color: colors.text },
   body: { fontFamily: font.body, fontSize: 13, lineHeight: 19, color: colors.muted, marginTop: 10 },
+  bodyStrong: { fontFamily: font.heading, color: colors.text },
   list: { marginTop: 24, borderTopWidth: 2, borderTopColor: colors.divider },
   row: {
     flexDirection: 'row',

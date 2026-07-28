@@ -5,10 +5,15 @@ import type { SeedPlayer } from '@/data/seed';
 
 type Row = { player_id: string; players: { id: string; name: string; handicap: number } | null };
 
-// The round's actual roster — who's in this group. Falls back to the seed
-// four when Supabase isn't configured, same pattern as useLiveScores.
+// The round's actual roster — who's in this group.
+//
+// When Supabase is configured it is the only source of truth, including when it
+// says the roster is empty. It must not fall back to the seed players in that
+// case: doing so made removing everyone impossible, because deleting the last
+// player brought all four hardcoded ones straight back.
 export function useRoundPlayers() {
-  const [players, setPlayers] = useState<SeedPlayer[]>(SEED_PLAYERS);
+  const [players, setPlayers] = useState<SeedPlayer[]>(isSupabaseConfigured ? [] : SEED_PLAYERS);
+  const [playersLoaded, setPlayersLoaded] = useState(!isSupabaseConfigured);
 
   const refresh = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -21,11 +26,14 @@ export function useRoundPlayers() {
       return;
     }
     const rows = data as unknown as Row[];
-    const list = rows
-      .map((r) => r.players)
-      .filter((p): p is NonNullable<Row['players']> => p != null)
-      .map((p) => ({ id: p.id, name: p.name, handicap: p.handicap }));
-    if (list.length) setPlayers(list);
+    setPlayers(
+      rows
+        .map((r) => r.players)
+        .filter((p): p is NonNullable<Row['players']> => p != null)
+        .map((p) => ({ id: p.id, name: p.name, handicap: p.handicap }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    );
+    setPlayersLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -74,5 +82,5 @@ export function useRoundPlayers() {
     [refresh],
   );
 
-  return { players, addPlayer, removePlayer };
+  return { players, playersLoaded, addPlayer, removePlayer, refreshPlayers: refresh };
 }

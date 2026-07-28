@@ -35,8 +35,10 @@ export default function CourseScreen() {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
 
+  // "Your courses" is the starred list, nothing more — unstarring is how you
+  // take a course off it. Unstarred courses stay in the cache so re-adding one
+  // costs no API lookup; they're just not clutter on this screen.
   const favorites = savedCourses.filter((c) => c.isFavorite);
-  const others = savedCourses.filter((c) => !c.isFavorite);
   const selectedCourse = savedCourses.find((c) => c.id === course?.courseId);
   const activeTee = selectedCourse?.tees.find(
     (t) => t.teeName === course?.teeName && t.gender === course?.teeGender,
@@ -220,14 +222,14 @@ export default function CourseScreen() {
           );
         })}
 
-        {/* Saved / favourites */}
-        {(favorites.length > 0 || others.length > 0) && (
+        {/* Your courses — the starred list only. */}
+        {favorites.length > 0 && (
           <>
             <View style={styles.sectionRow}>
               <Text style={styles.sectionLabel}>Your courses</Text>
               <Text style={styles.sectionAside}>saved · no lookup</Text>
             </View>
-            {[...favorites, ...others].map((c) => (
+            {favorites.map((c) => (
               <View key={c.id} style={[styles.savedRow, c.id === course?.courseId && styles.savedRowActive]}>
                 <Pressable style={styles.savedMain} onPress={() => pickSaved(c)}>
                   <Text style={styles.savedName}>{c.courseName || c.clubName}</Text>
@@ -238,15 +240,13 @@ export default function CourseScreen() {
                   </Text>
                 </Pressable>
                 <Pressable onPress={() => star(c.id)} style={styles.starBtn} hitSlop={6}>
-                  <Text style={[styles.star, { color: c.isFavorite ? colors.accent : colors.ghost }]}>
-                    {c.isFavorite ? '★' : '☆'}
-                  </Text>
+                  <Text style={[styles.star, { color: colors.accent }]}>★</Text>
                 </Pressable>
               </View>
             ))}
             <Text style={styles.note}>
-              Starred courses live on your account — a round here loads instantly, signal or not, and never spends one of
-              your 300 daily lookups.
+              Tap a course to play it, or ★ to take it off this list. These load instantly, signal or not, and never spend
+              one of your 300 daily lookups.
             </Text>
           </>
         )}

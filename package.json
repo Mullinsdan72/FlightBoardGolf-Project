@@ -43,7 +43,9 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "check:courses": "node scripts/check-course-parse.js"
+    "check:courses": "node scripts/check-course-parse.js",
+    "check:outbox": "node scripts/check-outbox.js",
+    "check": "npm run typecheck && npm run check:courses && npm run check:outbox"
   },
   "private": true
 }

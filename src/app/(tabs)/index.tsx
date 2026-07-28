@@ -11,7 +11,8 @@ import { colors, font, fmtToPar, scoreName } from '@/theme';
 type Mode = 'self' | 'scorer';
 
 export default function ScoreEntryScreen() {
-  const { myId, choose, clear, scores, setScores, postScore, live, connected, players, holes } = useRound();
+  const { myId, choose, clear, scores, setScores, postScore, live, connected, players, holes, pendingCount } =
+    useRound();
   const { signedAt } = useSignoff(myId);
 
   const [holeIndex, setHoleIndex] = useState(0);
@@ -121,12 +122,24 @@ export default function ScoreEntryScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
           <Text style={styles.headerLabel}>{ROUND_NAME} · Group 12</Text>
-          {(!live || !connected) && (
+          {/* Says what's actually true: queued scores are saved on the phone
+              and will sync — not lost, and not silently pending either. */}
+          {pendingCount > 0 ? (
             <View style={styles.offlineBadge}>
               <View style={styles.offlineDot} />
-              <Text style={styles.offlineText}>{live ? 'CONNECTING' : 'OFFLINE · LOCAL ONLY'}</Text>
+              <Text style={styles.offlineText}>SAVED · {pendingCount} TO SYNC</Text>
             </View>
-          )}
+          ) : !live ? (
+            <View style={styles.offlineBadge}>
+              <View style={[styles.offlineDot, { backgroundColor: colors.mutedFaint }]} />
+              <Text style={[styles.offlineText, { color: colors.muted }]}>THIS PHONE ONLY</Text>
+            </View>
+          ) : !connected ? (
+            <View style={styles.offlineBadge}>
+              <View style={[styles.offlineDot, { backgroundColor: colors.mutedFaint }]} />
+              <Text style={[styles.offlineText, { color: colors.muted }]}>CONNECTING</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.holeRow}>

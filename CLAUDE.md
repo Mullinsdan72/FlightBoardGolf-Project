@@ -57,7 +57,12 @@ These came out of building the prototype, several by getting them wrong first. T
 everywhere in this codebase, not just the screens they were first written for.
 
 1. **Scores write locally first, always.** The write succeeds on the phone and syncs later.
-   Never make a golfer wait on a network to record a four.
+   Never make a golfer wait on a network to record a four. Implemented by
+   `src/lib/scoreOutbox.ts`: `postScore` persists to AsyncStorage and queues in an outbox
+   *before* touching the network, and the queue is retried on reconnect, on a 15s timer, and
+   whenever the app is foregrounded. Never "simplify" this back into a bare upsert — a score
+   entered out of signal then lived only in React state, and a reload lost the hole. Run
+   `npm run check:outbox` after touching it.
 2. **A player edits only their own score**, unless they are the group's designated scorer.
    Any hole can be disputed for five minutes after it posts.
 3. **One number, one source.** Never store a figure that can be derived — a to-par total, a
@@ -117,4 +122,6 @@ everywhere in this codebase, not just the screens they were first written for.
 - Known simplification: `strokesReceivedFor` allocates strokes off the full course handicap
   even on a 9-hole round, where convention is to halve it. Fine for gross play and for the
   net figures shown today; revisit if net becomes a competitive format.
+- `npm run check` runs the typecheck plus both verification scripts (course parsing, score
+  outbox). Worth running before pushing anything that touches scoring or course data.
 - One screen per conversation. Small, finished, tested changes beat one big one.

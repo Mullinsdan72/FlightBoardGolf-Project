@@ -5,8 +5,27 @@
    again, but it's a pain to lose.
 2. Open **SQL Editor** in the project's left sidebar → **New query** → paste the entire
    contents of `schema.sql` → **Run**. This creates the tables, sets (permissive, for-now)
-   row-level security, turns on realtime for the `scores` table, and seeds the sample round
-   (Gladstan Grudge Match, four players) that the app expects.
+   row-level security, and turns on realtime. It creates the round but adds no players and no
+   course — add real players on the app's FIELD tab and pick a course on the COURSE tab.
+
+   Optional: `seed.sql` adds sample data (the Gladstan card and four named golfers) if you
+   want something to click through immediately. Deliberately separate from `schema.sql`, so
+   re-running the schema can't resurrect players you deleted.
+
+## Starting over
+
+`reset.sql` deletes every player, score, sign-off, cached course and favourite, and detaches
+the round from its course. Same route: SQL Editor → New query → paste → Run. It prints a row
+of counts that should all be zero. There's no undo, and no backup on the free tier.
+
+Afterwards the app will ask who you are and have no names to offer — that's the expected
+empty state, not a bug. Add players on the FIELD tab first.
+
+A handy shortcut for copying any of these files on a Mac:
+
+```bash
+cat supabase/reset.sql | pbcopy
+```
 3. Open **Project Settings → API**. Copy the **Project URL** and the **anon public** key
    (not `service_role` — that one is secret) into the app's `.env`:
 

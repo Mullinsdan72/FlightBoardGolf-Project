@@ -40,15 +40,3 @@ export const PLAYERS: SeedPlayer[] = [
   { id: '22222222-2222-4222-8222-222222222223', name: 'Marcus Vela', handicap: 11 },
   { id: '22222222-2222-4222-8222-222222222224', name: 'Ray Okafor', handicap: 16 },
 ];
-
-// The rest of the field, for the leaderboard's Field tab — static demo rows
-// until a real tournament (many groups, many devices) exists. Clearly a
-// stand-in: nobody is actually scoring these from a phone yet.
-export const FIELD_DEMO_ROWS: Array<{ name: string; club: string; toPar: number; thru: number | 'F' }> = [
-  { name: 'Sol Whitaker', club: 'Group 41', toPar: -5, thru: 'F' },
-  { name: 'Rhett Sandoval', club: 'Group 15', toPar: -2, thru: 16 },
-  { name: 'Bo Latimer', club: 'Group 11', toPar: -1, thru: 15 },
-  { name: 'Vic Marchetti', club: 'Group 14', toPar: 0, thru: 13 },
-  { name: 'Hollis Ward', club: 'Group 13', toPar: 1, thru: 'F' },
-  { name: 'June Tavares', club: 'Group 15', toPar: 3, thru: 12 },
-];

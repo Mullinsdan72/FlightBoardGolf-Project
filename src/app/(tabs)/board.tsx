@@ -3,14 +3,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
-import { FIELD_DEMO_ROWS, ROUND_NAME } from '@/data/seed';
+import { ROUND_NAME } from '@/data/seed';
 import { netToParFor, thruFor, toParFor } from '@/lib/roundMath';
 import { colors, font, fmtToPar } from '@/theme';
 
 type Tab = 'group' | 'field';
 
 export default function LeaderboardScreen() {
-  const { myId, choose, clear, scores, live, connected, players, holes } = useRound();
+  const { myId, choose, clear, scores, live, connected, players, playersLoaded, holes } = useRound();
   const [tab, setTab] = useState<Tab>('field');
   const amInRound = !myId || players.some((p) => p.id === myId);
 
@@ -20,7 +20,7 @@ export default function LeaderboardScreen() {
     if (myId && players.length && !amInRound) clear();
   }, [myId, players, amInRound]);
 
-  if (myId === undefined) return <View style={styles.screen} />;
+  if (myId === undefined || !playersLoaded) return <View style={styles.screen} />;
   if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} />;
 
   const roundLength = holes.length || 18;
@@ -37,22 +37,11 @@ export default function LeaderboardScreen() {
     isYou: p.id === myId,
   }));
 
-  const demoRows = FIELD_DEMO_ROWS.map((r) => ({
-    name: r.name,
-    club: r.club,
-    handicap: null as number | null,
-    toPar: r.toPar,
-    net: r.toPar,
-    thru: r.thru === 'F' ? roundLength : r.thru,
-    thruLabel: r.thru === 'F' ? 'F' : String(r.thru),
-    isYou: false,
-  }));
-
-  const fieldRows = [
-    ...realRows.map((r) => ({ ...r, thruLabel: r.thru === roundLength ? 'F' : String(r.thru) })),
-    ...demoRows,
-  ]
-    .slice()
+  // Only real players. There used to be six invented names padding this board
+  // out; they made a demo look convincing but there was no way to remove them,
+  // and a leaderboard that shows people who aren't playing is just wrong.
+  const fieldRows = realRows
+    .map((r) => ({ ...r, thruLabel: r.thru === roundLength ? 'F' : String(r.thru) }))
     .sort((a, b) => a.toPar - b.toPar);
 
   const groupRows = realRows
