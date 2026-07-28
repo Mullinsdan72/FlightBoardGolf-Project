@@ -24,11 +24,13 @@ Built so far, as six tabs — **Score** (`src/app/(tabs)/index.tsx`), **Board**
 hold-to-sign), **Field** (`src/app/(tabs)/players.tsx`, the round's roster), **Course**
 (`src/app/(tabs)/course.tsx`, search/favourites/tees/holes-in-play/manual card entry) and
 **Games** (`src/app/(tabs)/games.tsx`, Wolf) — all wired to Supabase (Postgres + Realtime),
-plus `/rounds` outside the tabs, reached by tapping the round name on FIELD (the tab bar is
-full at six). No sign-in yet — each device picks which player in
-the round it is (`src/components/PlayerPicker.tsx`) as a stand-in until real phone-number
-auth is built. Teams and side games are not built yet — see `design/Build Guide.dc.html` for
-the intended phase order and don't jump ahead of it without discussing scope first.
+plus two screens outside the tabs, because the tab bar is full at six: `/rounds` (tap the
+round name on FIELD) and `/teams` (the TEAMS row at the bottom of FIELD, which follows the
+design's own players → teams → side games order). No sign-in yet — each device picks which
+player in the round it is (`src/components/PlayerPicker.tsx`) as a stand-in until real
+phone-number auth is built. The remaining side games aren't built — see
+`design/prototype/Build Guide.dc.html` for the intended phase order and don't jump ahead of
+it without discussing scope first.
 
 Only one group exists so far. The design's group-splitting, shotgun starting-hole
 assignment, flights, and 300-player roster tools are all deliberately deferred — the Field
@@ -144,9 +146,9 @@ everywhere in this codebase, not just the screens they were first written for.
 - Known simplification: `strokesReceivedFor` allocates strokes off the full course handicap
   even on a 9-hole round, where convention is to halve it. Fine for gross play and for the
   net figures shown today; revisit if net becomes a competitive format.
-- `npm run check` runs the typecheck plus all three verification scripts (course parsing,
-  score outbox, wolf money). Worth running before pushing anything that touches scoring,
-  course data, or money.
+- `npm run check` runs the typecheck plus all four verification scripts (course parsing,
+  score outbox, wolf money, teams) — 132 assertions. Worth running before pushing anything
+  that touches scoring, course data, teams, or money.
 
 ## Who may change what
 
@@ -186,3 +188,39 @@ design's own worked figures. Change the maths there and run it.
   at Gladstan, holes 3, 7 and 11 all land on the same player. That's why the design shows the
   par-3 draw and offers a shuffle; it's structural, not bad luck.
 - One screen per conversation. Small, finished, tested changes beat one big one.
+
+## Teams
+
+`src/lib/teams.ts` is pure and covered by `npm run check:teams` — 66 assertions. `/teams`
+(`src/app/teams.tsx`) is organizer-only to edit and read-only to everyone else, same as Wolf
+setup.
+
+- **Only the two formats that keep per-player score entry**: best ball and team total. The
+  design lists five more (scramble, 2-man scramble, shamble, alternate shot, Ryder Cup) and
+  they are deliberately absent — they need one number per *group* instead of one per player,
+  which is a change to score entry, not to teams. Don't add them to the format list without
+  building that.
+- **A hole counts only once every member has posted it.** Half a best ball is not a best
+  ball; the number would drop the moment the last player posts. Same rule as a pending Wolf
+  hole, and the same reason (rule 4). `toPar` is measured over the holes that counted, so a
+  team two holes behind isn't flattered by the ones it hasn't played.
+- **A team total pars against every card**, so its baseline is par × the number of players.
+  Comparing a two-man total to a single par would make every team look 70 over.
+- **`draftTeams` deviates from the prototype's version, on purpose.** The prototype rotated
+  each handicap tier by `seg * (row + 1)`, which with two teams rotates the first tier and not
+  the second — breaking the snake it exists to preserve. A re-draw of four players off 2, 8,
+  14 and 22 came out 2+14 against 8+22, a 14-shot spread where a 2-shot one was available.
+  Instead: generate candidate draws (seeded shuffles within each tier, so every team still
+  gets one player per tier), dedupe by who's together, rank by handicap spread, and let `seg`
+  pick. Seed 0 is the plain snake, so the fairest draw is always a candidate.
+- Balance and variety genuinely conflict in a small group — four players have three possible
+  pairings and only one is fair. The screen says so rather than quietly handing out a lopsided
+  re-draw.
+- Handicaps are **not** applied to team scoring yet; the figures are gross. Net best ball is
+  the obvious next step and is the format most mixed-handicap groups actually play.
+- `team_members`' primary key is `(round_id, segment, player_id)` — a player is on at most one
+  team per segment. Two teams for one player would make a best ball count their score twice,
+  so the database refuses it rather than trusting every screen to.
+- Segments are what a re-draw at the turn produces. `segmentsFor` splits **by position, not by
+  hole number** — the back nine is holes 10–18, and a round can legitimately start at hole 10.
+  Nine holes get one segment however the setting is left, since there's no turn to re-draw at.

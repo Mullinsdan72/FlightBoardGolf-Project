@@ -3,6 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { router } from 'expo-router';
 import { useRound } from '@/context/RoundContext';
 import { thruFor } from '@/lib/roundMath';
+import { formatName } from '@/lib/teams';
 import { colors, font } from '@/theme';
 
 export default function PlayersScreen() {
@@ -17,6 +18,7 @@ export default function PlayersScreen() {
     amOrganizer,
     claimOrganizer,
     activeRound,
+    teams,
   } = useRound();
   const [name, setName] = useState('');
   const [handicap, setHandicap] = useState('');
@@ -162,6 +164,19 @@ export default function PlayersScreen() {
           <Text style={styles.addBtnArrow}>→</Text>
         </Pressable>
 
+        {/* Players, then teams, then side games — the design's own step order. */}
+        <Pressable onPress={() => router.push('/teams')} style={styles.teamsBtn}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.teamsLabel}>TEAMS</Text>
+            <Text style={styles.teamsNote}>
+              {teams.enabled
+                ? `${formatName(teams.format)} · ${teams.count} team${teams.count === 1 ? '' : 's'} of ${teams.size}`
+                : 'Best ball or team total, drawn by handicap'}
+            </Text>
+          </View>
+          <Text style={styles.teamsArrow}>›</Text>
+        </Pressable>
+
         <Text style={styles.note}>
           Everyone here shows up in score entry's group view, on the leaderboard, and in the scorer mode that posts for
           the whole group. Adding by phone number and texting the round link come with sign-in, in a later phase.
@@ -244,4 +259,18 @@ const styles = StyleSheet.create({
   addBtnLabel: { fontFamily: font.heading, fontSize: 17, letterSpacing: 0.3, color: '#fff' },
   addBtnArrow: { fontFamily: font.heading, fontSize: 20, color: '#fff' },
   note: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, padding: 20 },
+  teamsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: colors.divider,
+  },
+  teamsLabel: { fontFamily: font.heading, fontSize: 14, letterSpacing: 0.4, color: colors.text },
+  teamsNote: { fontFamily: font.body, fontSize: 11, color: colors.muted, marginTop: 5 },
+  teamsArrow: { fontFamily: font.heading, fontSize: 18, color: colors.ghost },
 });

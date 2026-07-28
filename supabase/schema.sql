@@ -163,6 +163,41 @@ create table if not exists wolf_holes (
   constraint wolf_partner_is_not_the_wolf check (partner_player_id is null or partner_player_id <> wolf_player_id)
 );
 
+-- Teams: one row per round holding the terms. Nothing derived is stored — a
+-- team's strokes, its to-par and who leads are all recomputed from the
+-- assignments plus posted scores (src/lib/teams.ts), so a team total can never
+-- drift from the cards it came from.
+--
+-- Formats are limited to the two that keep per-player score entry. Scramble,
+-- alternate shot and shamble need one number for the group instead of one per
+-- player, which is a change to how scoring works rather than a change to teams.
+create table if not exists team_games (
+  round_id uuid primary key references rounds(id) on delete cascade,
+  enabled boolean not null default false,
+  format text not null default 'bestball',
+  team_size int not null default 2,
+  team_count int not null default 2,
+  redraw_at_turn boolean not null default false,
+  constraint team_format_is_known check (format in ('bestball', 'total')),
+  constraint team_size_is_sane check (team_size between 1 and 4),
+  constraint team_count_is_sane check (team_count between 1 and 26)
+);
+
+-- Who is on which team, per segment. Segment 0 is the whole round, or the first
+-- half when teams are re-drawn at the turn.
+--
+-- The primary key is (round, segment, player): a player is on at most one team
+-- per segment. Two teams for one player would make a best ball count their score
+-- twice, so the database refuses it rather than trusting every screen to.
+create table if not exists team_members (
+  round_id uuid not null references rounds(id) on delete cascade,
+  segment int not null default 0,
+  team_index int not null,
+  player_id uuid not null references players(id) on delete cascade,
+  primary key (round_id, segment, player_id),
+  constraint team_index_is_sane check (team_index between 0 and 25)
+);
+
 alter table players enable row level security;
 alter table rounds enable row level security;
 alter table round_holes enable row level security;
@@ -174,6 +209,8 @@ alter table course_tees enable row level security;
 alter table favorite_courses enable row level security;
 alter table wolf_games enable row level security;
 alter table wolf_holes enable row level security;
+alter table team_games enable row level security;
+alter table team_members enable row level security;
 
 drop policy if exists "anon full access" on players;
 create policy "anon full access" on players for all using (true) with check (true);
@@ -197,6 +234,10 @@ drop policy if exists "anon full access" on wolf_games;
 create policy "anon full access" on wolf_games for all using (true) with check (true);
 drop policy if exists "anon full access" on wolf_holes;
 create policy "anon full access" on wolf_holes for all using (true) with check (true);
+drop policy if exists "anon full access" on team_games;
+create policy "anon full access" on team_games for all using (true) with check (true);
+drop policy if exists "anon full access" on team_members;
+create policy "anon full access" on team_members for all using (true) with check (true);
 
 -- Push changes to every subscribed phone: scores as they post, and the round's
 -- card/course selection when the organizer picks a course.
@@ -205,7 +246,13 @@ create policy "anon full access" on wolf_holes for all using (true) with check (
 do $$
 declare t text;
 begin
-  for t in select unnest(array['scores', 'round_holes', 'rounds']) loop
+  for t in select unnest(array[
+    'scores', 'round_holes', 'rounds',
+    -- Side-game tables subscribe via postgres_changes too: the wolf picks a
+    -- partner on their own phone and the rest of the group has to see it, and
+    -- the organizer's team draw has to reach everyone playing in it.
+    'wolf_games', 'wolf_holes', 'team_games', 'team_members'
+  ]) loop
     if not exists (
       select 1 from pg_publication_tables
       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
