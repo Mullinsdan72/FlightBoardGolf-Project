@@ -65,7 +65,11 @@ export default function ScoreEntryScreen() {
   const myToPar = toParFor(scores, myId);
   const thru = thruFor(scores, myId);
 
-  const commitHole = () => {
+  // Posts whatever's currently showing for the hole being left. Called both
+  // by the POST button (which also advances) and by jumping to a different
+  // hole via the chip strip — leaving a hole is the commit, not a separate
+  // step you have to remember.
+  const postCurrentHole = () => {
     const entries = mode === 'self' ? [myId] : PLAYERS.map((p) => p.id);
     const nextScores = { ...scores, [hole]: { ...(scores[hole] || {}) } };
     for (const playerId of entries) {
@@ -75,7 +79,16 @@ export default function ScoreEntryScreen() {
     }
     setScores(nextScores);
     setDraft((prev) => ({ ...prev, [hole]: {} }));
+  };
+
+  const commitHole = () => {
+    postCurrentHole();
     if (hole < 18) setHole(hole + 1);
+  };
+
+  const goToHole = (h: number) => {
+    if (h !== hole) postCurrentHole();
+    setHole(h);
   };
 
   const others = PLAYERS.filter((p) => p.id !== myId);
@@ -187,7 +200,7 @@ export default function ScoreEntryScreen() {
             return (
               <Pressable
                 key={h.hole}
-                onPress={() => setHole(h.hole)}
+                onPress={() => goToHole(h.hole)}
                 style={[
                   styles.chip,
                   { backgroundColor: isCurrent ? colors.accent : isPosted ? colors.text : 'transparent' },

@@ -124,7 +124,7 @@ export default function ScorecardScreen() {
             <Text style={styles.totalLabel}>Gross</Text>
           </View>
           <View style={styles.totalCell}>
-            <Text style={styles.totalVal}>{complete ? fmtToPar(netToParFor(scores, myId, me.handicap) + 72) : '–'}</Text>
+            <Text style={styles.totalVal}>{complete ? netToParFor(scores, myId, me.handicap) + 72 : '–'}</Text>
             <Text style={styles.totalLabel}>Net ({me.handicap})</Text>
           </View>
           <View style={[styles.totalCell, { borderRightWidth: 0 }]}>
