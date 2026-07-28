@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
@@ -23,9 +24,15 @@ export default function LeaderboardScreen() {
   if (myId === undefined || !playersLoaded) return <View style={styles.screen} />;
   if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} />;
 
+  // Hand the Card tab the player to show. It reads this off the route rather
+  // than sharing state, so the card is also reachable by URL on web.
+  const openCard = (playerId: string) =>
+    router.navigate({ pathname: '/(tabs)/card', params: { player: playerId } });
+
   const roundLength = holes.length || 18;
 
   const realRows = players.map((p) => ({
+    id: p.id,
     name: p.id === myId ? p.name + ' (you)' : p.name,
     club: 'Group 12',
     handicap: p.handicap,
@@ -78,7 +85,11 @@ export default function LeaderboardScreen() {
       <ScrollView>
         {tab === 'field' &&
           fieldRows.map((r, i) => (
-            <View key={r.name} style={[styles.fieldRow, r.isYou && styles.rowYou]}>
+            <Pressable
+              key={r.id}
+              onPress={() => openCard(r.id)}
+              style={[styles.fieldRow, r.isYou && styles.rowYou]}
+            >
               <Text style={styles.pos}>{i + 1}</Text>
               <View style={styles.fieldNameCol}>
                 <Text style={styles.fieldName}>{r.name}</Text>
@@ -88,13 +99,18 @@ export default function LeaderboardScreen() {
                 {fmtToPar(r.toPar)}
               </Text>
               <Text style={styles.fieldThru}>{r.thruLabel}</Text>
-            </View>
+              <Text style={styles.chevron}>›</Text>
+            </Pressable>
           ))}
 
         {tab === 'group' && (
           <>
             {groupRows.map((r) => (
-              <View key={r.name} style={[styles.groupRow, r.isYou && styles.rowYou]}>
+              <Pressable
+                key={r.id}
+                onPress={() => openCard(r.id)}
+                style={[styles.groupRow, r.isYou && styles.rowYou]}
+              >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.groupName}>{r.name}</Text>
                   <Text style={styles.groupNote}>{r.note}</Text>
@@ -103,7 +119,8 @@ export default function LeaderboardScreen() {
                   {fmtToPar(r.toPar)}
                 </Text>
                 <Text style={styles.groupThru}>{r.thru === roundLength ? 'F' : `thru ${r.thru}`}</Text>
-              </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
             ))}
 
             <View style={styles.miniSection}>
@@ -159,6 +176,7 @@ const styles = StyleSheet.create({
   fieldClub: { fontFamily: font.body, fontSize: 10.5, color: colors.muted, marginTop: 4 },
   fieldToPar: { fontFamily: font.heading, fontSize: 20, width: 56, textAlign: 'right' },
   fieldThru: { fontFamily: font.body, fontSize: 11, width: 52, textAlign: 'right', color: colors.muted },
+  chevron: { fontFamily: font.heading, fontSize: 13, color: colors.ghost, width: 14, textAlign: 'right' },
   groupRow: {
     flexDirection: 'row',
     alignItems: 'center',

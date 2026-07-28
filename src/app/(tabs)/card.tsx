@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
@@ -35,6 +35,33 @@ export default function ScorecardScreen() {
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
+  // A leaderboard row can send a player here via the route. Tracked by last
+  // applied value so arriving from the board doesn't fight with the in-page
+  // switcher on every re-render.
+  const params = useLocalSearchParams<{ player?: string }>();
+  const appliedParam = useRef<string | null>(null);
+
+  useEffect(() => {
+    const requested = typeof params.player === 'string' && params.player ? params.player : null;
+    if (!requested) {
+      appliedParam.current = null;
+      return;
+    }
+    if (requested === appliedParam.current) return;
+    appliedParam.current = requested;
+    setViewingId(requested === myId ? null : requested);
+    setSwitcherOpen(false);
+  }, [params.player, myId]);
+
+  // Clearing the param matters: without it, returning to your own card leaves
+  // the old player on the route, so tapping that same row again would do
+  // nothing — the value wouldn't have changed.
+  const backToMyCard = () => {
+    setViewingId(null);
+    appliedParam.current = null;
+    router.setParams({ player: '' });
+  };
+
   const shownId = viewingId ?? myId ?? null;
   const isOwnCard = !!myId && shownId === myId;
 
@@ -61,7 +88,7 @@ export default function ScorecardScreen() {
   // Likewise if the player being viewed leaves the round: snap back to your own
   // card instead of rendering a card for someone who isn't in it.
   useEffect(() => {
-    if (viewingId && players.length && !players.some((p) => p.id === viewingId)) setViewingId(null);
+    if (viewingId && players.length && !players.some((p) => p.id === viewingId)) backToMyCard();
   }, [viewingId, players]);
 
   // Reset the hold when switching cards, so a part-filled bar can't carry over
@@ -273,7 +300,7 @@ export default function ScorecardScreen() {
 
       <View style={styles.footer}>
         {!isOwnCard ? (
-          <Pressable style={styles.footerBtnDark} onPress={() => setViewingId(null)}>
+          <Pressable style={styles.footerBtnDark} onPress={backToMyCard}>
             <Text style={styles.footerBtnDarkLabel}>BACK TO MY CARD</Text>
             <Text style={styles.footerBtnDarkArrow}>→</Text>
           </Pressable>
