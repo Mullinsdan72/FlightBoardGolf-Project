@@ -28,6 +28,14 @@ export default function PlayersScreen() {
     setBusy(false);
   };
 
+  // claimOrganizer reports why it failed; a button that silently does nothing is
+  // indistinguishable from a missing database column, which is exactly how this
+  // went wrong the first time.
+  const setOrganizer = async (playerId: string | null) => {
+    const message = await claimOrganizer(playerId);
+    if (message) Alert.alert('Could not change the organizer', message);
+  };
+
   const confirmRemove = (playerId: string, playerName: string) => {
     const played = thruFor(holes, scores, playerId);
     const warning =
@@ -78,12 +86,12 @@ export default function PlayersScreen() {
             </Text>
           </View>
           {myId && !amOrganizer && (
-            <Pressable onPress={() => claimOrganizer(myId)} style={styles.claimBtn}>
+            <Pressable onPress={() => setOrganizer(myId)} style={styles.claimBtn}>
               <Text style={styles.claimLabel}>TAKE IT</Text>
             </Pressable>
           )}
           {amOrganizer && (
-            <Pressable onPress={() => claimOrganizer(null)} style={styles.claimBtn}>
+            <Pressable onPress={() => setOrganizer(null)} style={styles.claimBtn}>
               <Text style={styles.claimLabel}>GIVE UP</Text>
             </Pressable>
           )}
