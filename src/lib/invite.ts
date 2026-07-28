@@ -184,6 +184,52 @@ export function setupSteps(state: {
   ];
 }
 
+export type StepKey = SetupStep['key'];
+
+/** The run-through, in order. One list, so nothing can disagree about it. */
+export const SETUP_ORDER: StepKey[] = ['round', 'course', 'players', 'teams', 'games'];
+
+/**
+ * Which screen does each step's work.
+ *
+ * `players` is `/setup` itself — that step is inline, because it's the one a
+ * first-time organizer needs the most help with.
+ */
+export const STEP_ROUTE: Record<StepKey, string> = {
+  round: '/rounds',
+  course: '/(tabs)/course',
+  players: '/setup',
+  teams: '/teams',
+  games: '/(tabs)/games',
+};
+
+export const STEP_TITLE: Record<StepKey, string> = {
+  round: 'The round',
+  course: 'The course',
+  players: 'The players',
+  teams: 'Teams',
+  games: 'Side games',
+};
+
+/** 1-based, because "step 2 of 5" is how it reads on screen. */
+export const stepNumber = (key: StepKey): number => SETUP_ORDER.indexOf(key) + 1;
+
+export const stepCount = SETUP_ORDER.length;
+
+/** The next step, or null at the end of the run-through. */
+export function stepAfter(key: StepKey): StepKey | null {
+  const i = SETUP_ORDER.indexOf(key);
+  if (i < 0 || i === SETUP_ORDER.length - 1) return null;
+  return SETUP_ORDER[i + 1];
+}
+
+/** The previous step, or null at the start. */
+export function stepBefore(key: StepKey): StepKey | null {
+  const i = SETUP_ORDER.indexOf(key);
+  if (i <= 0) return null;
+  return SETUP_ORDER[i - 1];
+}
+
 /** The first thing still to do, or null when the round is ready to play. */
 export function nextStep(steps: SetupStep[]): SetupStep | null {
   return steps.find((s) => !s.done && !s.optional) ?? null;

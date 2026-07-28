@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
+import { SetupBar } from '@/components/SetupBar';
 import { colors, font } from '@/theme';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -93,6 +94,7 @@ export default function RoundsScreen() {
 
   return (
     <View style={styles.screen}>
+      <SetupBar step="round" />
       <View style={styles.header}>
         <Text style={styles.kicker}>Your rounds</Text>
         <View style={styles.headerRow}>

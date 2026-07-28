@@ -198,6 +198,38 @@ check('a fully set up round has every step done', full.every((s) => s.done), tru
 check('and reads the teams back', full[3].detail, '2 teams');
 check('and the games', full[4].detail, '2 running');
 
+// ------------------------------------------------- moving through the steps
+
+check('the order matches the checklist', inv.SETUP_ORDER, empty.map((s) => s.key));
+check('five steps to walk', inv.stepCount, 5);
+check('the course is step two', inv.stepNumber('course'), 2);
+check('games is the last', inv.stepNumber('games'), 5);
+
+check('after the course comes the players', inv.stepAfter('course'), 'players');
+check('before the course is the round', inv.stepBefore('course'), 'round');
+// The ends must stop rather than wrap — a "next" off the end of the last step
+// would send somebody round the loop again.
+check('there is nothing after the last step', inv.stepAfter('games'), null);
+check('and nothing before the first', inv.stepBefore('round'), null);
+check('an unknown step has no next', inv.stepAfter('nonsense'), null);
+check('nor a previous', inv.stepBefore('nonsense'), null);
+
+// Every step needs somewhere to go, or a Next button lands on nothing.
+check('every step has a route', inv.SETUP_ORDER.every((k) => !!inv.STEP_ROUTE[k]), true);
+check('every step has a title', inv.SETUP_ORDER.every((k) => !!inv.STEP_TITLE[k]), true);
+// The players step is the run-through itself — it's handled inline.
+check('the players step is the setup screen', inv.STEP_ROUTE.players, '/setup');
+check('the course step is the course tab', inv.STEP_ROUTE.course, '/(tabs)/course');
+
+// Walking forward from the start must reach the end and stop.
+const walked = [];
+let cur = inv.SETUP_ORDER[0];
+while (cur) {
+  walked.push(cur);
+  cur = inv.stepAfter(cur);
+}
+check('walking forward covers every step once', walked, inv.SETUP_ORDER);
+
 console.log('');
 if (failures.length) {
   console.error(`${failures.length} check(s) failed:\n`);

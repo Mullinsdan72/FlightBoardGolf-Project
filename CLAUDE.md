@@ -155,7 +155,7 @@ everywhere in this codebase, not just the screens they were first written for.
   even on a 9-hole round, where convention is to halve it. Fine for gross play and for the
   net figures shown today; revisit if net becomes a competitive format.
 - `npm run check` runs the typecheck plus all seven verification scripts (course parsing,
-  score outbox, wolf money, teams, side games, team challenge, invites) — 380 assertions. Worth running before pushing anything
+  score outbox, wolf money, teams, side games, team challenge, invites) — 395 assertions. Worth running before pushing anything
   that touches scoring, course data, teams, or money.
 
 ## Who may change what
@@ -213,12 +213,20 @@ design's own worked figures. Change the maths there and run it.
 
 `/setup` (`src/app/setup.tsx`) is the organizer's run-through — the checklist a first-time
 organizer is missing. `src/lib/invite.ts` holds the link format, the message and the step
-order, covered by `npm run check:invite` — 57 assertions.
+order, covered by `npm run check:invite` — 72 assertions.
 
 - **It links to the screens that already do each job** rather than reimplementing course
   search or team drawing. What a new organizer lacks isn't the screens, it's knowing which
   one is next and when a step is finished. Only the players step is inline, because that's
   the one that needed the most help.
+- **`SetupBar` is what stops that being a dead end.** Every step screen mounts it, and it
+  shows only when the route carries `?setup=1` — so the Course tab is an ordinary tab the
+  rest of the time. Keep the flag on every hop (`router.replace({ pathname, params: { setup:
+  '1' } })`) or the run-through drops you where it found you. There is deliberately **no Save
+  button** anywhere in it: picking a course, adding a player and drawing teams all write as
+  you tap, and a Save button would imply they don't.
+- `SETUP_ORDER`, `STEP_ROUTE` and `stepAfter`/`stepBefore` in `invite.ts` are the single
+  source of the order. Add a step there, not in a screen.
 - **The order is the order a round is built**: round, course, players, then optionally teams
   and games. Teams can't be drawn before there are players. Course and two players are
   *required* — a round with no card has nothing to score against.

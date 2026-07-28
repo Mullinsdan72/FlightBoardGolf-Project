@@ -22,6 +22,9 @@ import {
   readyToPlay,
   setupSteps,
   nextStep as firstUndone,
+  STEP_ROUTE,
+  STEP_TITLE,
+  stepAfter,
   type SetupStep,
 } from '@/lib/invite';
 import { colors, font } from '@/theme';
@@ -73,12 +76,12 @@ export default function SetupScreen() {
   const ready = readyToPlay(steps);
   const next = firstUndone(steps);
 
+  // `setup: '1'` rides along so the screen it lands on knows it's part of the
+  // run-through and shows the back/next bar. Without it the Course tab is just
+  // the Course tab, which is how the run-through used to strand people.
   const goTo = (key: SetupStep['key']) => {
-    if (key === 'round') router.push('/rounds');
-    else if (key === 'course') router.push('/(tabs)/course');
-    else if (key === 'teams') router.push('/teams');
-    else if (key === 'games') router.push('/(tabs)/games');
-    // 'players' is handled inline below — it's the step that needed the most help.
+    if (key === 'players') return; // handled inline below
+    router.push({ pathname: STEP_ROUTE[key] as any, params: { setup: '1' } });
   };
 
   const parsedHandicap = handicap.trim() === '' ? 0 : Number(handicap.trim());
@@ -322,6 +325,16 @@ export default function SetupScreen() {
                   </Text>
                   {/* Two honest limits, stated where they matter rather than
                       discovered by a friend staring at a dead link. */}
+                  <Pressable
+                    onPress={() => goTo(stepAfter('players') as SetupStep['key'])}
+                    style={styles.nextStepBtn}
+                  >
+                    <Text style={styles.nextStepLabel}>
+                      NEXT · {STEP_TITLE[stepAfter('players') as SetupStep['key']].toUpperCase()}
+                    </Text>
+                    <Text style={styles.nextStepArrow}>›</Text>
+                  </Pressable>
+
                   <Text style={styles.warnText}>
                     That link won't open anything yet. It needs Flight Board installed as a real app — inside Expo Go
                     there's nothing for it to open
@@ -432,6 +445,18 @@ const styles = StyleSheet.create({
   hint: { fontFamily: font.body, fontSize: 11, lineHeight: 17, color: colors.muted, marginTop: 12 },
   outerHint: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, padding: 20 },
   linkText: { fontFamily: font.body, fontSize: 11, color: colors.accent, marginTop: 8 },
+  nextStepBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 2,
+    borderColor: colors.text,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    marginTop: 18,
+  },
+  nextStepLabel: { fontFamily: font.heading, fontSize: 11.5, letterSpacing: 0.7, color: colors.text },
+  nextStepArrow: { fontFamily: font.heading, fontSize: 16, color: colors.text },
   warnText: { fontFamily: font.body, fontSize: 11, lineHeight: 17, color: colors.text, marginTop: 10 },
   beginBtn: {
     marginTop: 24,

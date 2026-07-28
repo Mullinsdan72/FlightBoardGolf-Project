@@ -6,6 +6,7 @@ import { useRound } from '@/context/RoundContext';
 import { holeGameName, holeGameShortName, type HoleGameType } from '@/lib/sideGames';
 import { matchStateLabel } from '@/lib/teamChallenge';
 import { fmtMoney, parThreeDraw } from '@/lib/wolf';
+import { SetupBar } from '@/components/SetupBar';
 import { colors, font } from '@/theme';
 
 type Tab = 'standings' | 'setup' | 'holes' | 'challenge';
@@ -92,6 +93,7 @@ export default function GamesScreen() {
 
   return (
     <View style={styles.screen}>
+      <SetupBar step="games" />
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View>
