@@ -1,69 +1,16 @@
-import type { Hole } from '@/data/seed';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { type Json, type ParsedCourse, type TeeSet, parseCourse, parseSearchBody, teesOf } from '@/lib/courseParse';
 
 // Talks to the `courses` Edge Function, never to GolfCourseAPI directly — the
 // API key lives on Supabase, not in this bundle. See supabase/functions/README.md.
 //
-// Field extraction below is deliberately tolerant: the upstream API's exact
-// field names vary a little by endpoint (yardage vs yards, handicap vs stroke
-// index), and a course with a missing yardage should still be usable rather
-// than crashing the screen. Anything genuinely unrecognisable is surfaced as an
-// error with the raw payload logged, so a shape change is diagnosable instead
-// of silently producing an empty list.
+// Payload parsing lives in courseParse.ts so it can be tested without a network
+// (scripts/check-course-parse.js). This file is only transport.
 
-export type CourseSearchResult = {
-  externalId: string;
-  clubName: string;
-  courseName: string;
-  location: string;
-};
+export type { TeeSet };
 
-export type TeeSet = {
-  teeName: string;
-  gender: 'male' | 'female';
-  totalYards: number | null;
-  parTotal: number | null;
-  courseRating: number | null;
-  slopeRating: number | null;
-  holes: Hole[];
-};
-
-export type CourseDetail = {
-  externalId: string;
-  clubName: string;
-  courseName: string;
-  location: string;
-  tees: TeeSet[];
-  raw: unknown;
-};
-
-type Json = Record<string, any>;
-
-const str = (...vals: unknown[]): string => {
-  for (const v of vals) if (typeof v === 'string' && v.trim()) return v.trim();
-  return '';
-};
-
-const num = (...vals: unknown[]): number | null => {
-  for (const v of vals) {
-    if (typeof v === 'number' && Number.isFinite(v)) return v;
-    if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return Number(v);
-  }
-  return null;
-};
-
-function locationOf(c: Json): string {
-  const loc = c.location ?? c.address ?? null;
-  if (typeof loc === 'string') return loc.trim();
-  if (loc && typeof loc === 'object') {
-    const address = str(loc.address);
-    if (address) return address;
-    const parts = [str(loc.city), str(loc.state), str(loc.country)].filter(Boolean);
-    return parts.join(', ');
-  }
-  const parts = [str(c.city), str(c.state), str(c.country)].filter(Boolean);
-  return parts.join(', ');
-}
+export type CourseSearchResult = ParsedCourse;
+export type CourseDetail = ParsedCourse;
 
 // The Supabase client throws FunctionsHttpError for any non-2xx and hands back
 // `data: null`, which would throw away the specific reason the function put in
@@ -92,7 +39,9 @@ async function messageFromError(error: unknown): Promise<string> {
 
 async function callFunction(params: Record<string, string>): Promise<Json> {
   if (!isSupabaseConfigured || !supabase) {
-    throw new Error('Supabase is not configured, so course lookup is unavailable.');
+    throw new Error(
+      'Course lookup needs Supabase configured and the `courses` function deployed. See supabase/functions/README.md.',
+    );
   }
   const query = new URLSearchParams(params).toString();
   const { data, error } = await supabase.functions.invoke(`courses?${query}`, { method: 'GET' });
@@ -103,93 +52,26 @@ async function callFunction(params: Record<string, string>): Promise<Json> {
   return body;
 }
 
-// The upstream wraps its list under different keys depending on endpoint; take
-// whichever array of course-shaped objects is present.
-function courseArray(body: Json): Json[] {
-  for (const key of ['courses', 'results', 'data', 'items']) {
-    if (Array.isArray(body[key])) return body[key] as Json[];
-  }
-  if (Array.isArray(body)) return body as unknown as Json[];
-  return [];
-}
-
+// Search returns the *whole* card, tees and all — so picking a result needs no
+// second lookup. That matters: the free tier is 300 lookups a day, and fetching
+// detail for something already in hand would double the cost of every course.
 export async function searchCourses(query: string): Promise<CourseSearchResult[]> {
-  const body = await callFunction({ q: query });
-  const rows = courseArray(body);
-  if (!rows.length) return [];
-  return rows
-    .map((c) => ({
-      externalId: str(c.id, c.course_id, c.courseId),
-      clubName: str(c.club_name, c.clubName, c.club),
-      courseName: str(c.course_name, c.courseName, c.name),
-      location: locationOf(c),
-    }))
-    .filter((c) => c.externalId && (c.courseName || c.clubName));
+  return parseSearchBody(await callFunction({ q: query }));
 }
 
-function parseHoles(raw: unknown): Hole[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((h: Json, i) => {
-      const par = num(h?.par);
-      if (par == null) return null;
-      return {
-        hole: num(h?.hole, h?.hole_number, h?.number) ?? i + 1,
-        par,
-        yards: num(h?.yardage, h?.yards, h?.length, h?.distance) ?? 0,
-        // Stroke index — how hard the hole ranks, 1 = hardest. Drives net
-        // scoring, so a course without it falls back to hole order rather
-        // than pretending every hole is equally hard.
-        handicap: num(h?.handicap, h?.stroke_index, h?.strokeIndex, h?.hcp, h?.si) ?? i + 1,
-      };
-    })
-    .filter((h): h is Hole => h != null);
-}
-
-function parseTees(raw: unknown, gender: 'male' | 'female'): TeeSet[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((t: Json) => ({
-      teeName: str(t?.tee_name, t?.teeName, t?.name, t?.color) || 'Tee',
-      gender,
-      totalYards: num(t?.total_yards, t?.totalYards, t?.yardage, t?.yards),
-      parTotal: num(t?.par_total, t?.parTotal, t?.par),
-      courseRating: num(t?.course_rating, t?.courseRating, t?.rating),
-      slopeRating: num(t?.slope_rating, t?.slopeRating, t?.slope),
-      holes: parseHoles(t?.holes),
-    }))
-    .filter((t) => t.holes.length > 0);
-}
-
+// Only needed when a search result arrives without tees — search normally
+// includes the full card, so this is the exception, not the path.
 export async function fetchCourseDetail(externalId: string): Promise<CourseDetail> {
   const body = await callFunction({ id: externalId });
   const c: Json = (body.course as Json) ?? (body.data as Json) ?? body;
+  const parsed = parseCourse(c);
 
-  const teesRaw = c.tees ?? c.tee_sets ?? null;
-  let tees: TeeSet[] = [];
-  if (Array.isArray(teesRaw)) {
-    tees = parseTees(teesRaw, 'male');
-  } else if (teesRaw && typeof teesRaw === 'object') {
-    tees = [
-      ...parseTees((teesRaw as Json).male, 'male'),
-      ...parseTees((teesRaw as Json).female, 'female'),
-    ];
-  }
-
-  if (!tees.length) {
+  if (!teesOf(c).length) {
     // Better to say so plainly than to hand back a course whose card is empty.
     console.warn('No usable tee/hole data in course payload:', JSON.stringify(body).slice(0, 1200));
     throw new Error(
       'That course came back without hole data (par and yardage per tee). Try another course, or enter the card by hand.',
     );
   }
-
-  return {
-    externalId: str(c.id, c.course_id, externalId) || externalId,
-    clubName: str(c.club_name, c.clubName, c.club),
-    courseName: str(c.course_name, c.courseName, c.name),
-    location: locationOf(c),
-    tees,
-    raw: body,
-  };
+  return { ...parsed, externalId: parsed.externalId || externalId };
 }

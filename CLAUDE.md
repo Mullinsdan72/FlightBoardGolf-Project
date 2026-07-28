@@ -101,7 +101,20 @@ everywhere in this codebase, not just the screens they were first written for.
   the round's own `round_holes` snapshot (fetched once, works offline at the tee), and search
   (the only thing that spends the daily quota). A course is fetched once ever and cached
   permanently in `courses`/`course_tees` — never re-fetch one that's already cached.
-- `src/lib/courseApi.ts` parses upstream fields tolerantly on purpose (yardage vs yards,
-  handicap vs stroke_index). If a real response doesn't map, it logs the raw payload and
-  throws a readable error rather than silently returning nothing.
+- **Search already returns the full card** (tees, per-hole par/yardage/stroke index), so
+  picking a search result must not trigger a second lookup — that would double the quota cost
+  of every course. `fetchCourseDetail` is a fallback for results that arrive without tees.
+- Payload parsing lives in `src/lib/courseParse.ts` (pure, no network) so it can be checked
+  against a recorded response: `npm run check:courses` runs
+  `scripts/check-course-parse.js` over `scripts/fixtures/gladstan-search.json`. Run it after
+  touching the parser. It exists because the failure it caught was silent — upstream `id` is
+  a *number*, and a string-only guard dropped every result while reporting "nothing found".
+- Parsing is tolerant of alternative field names (yardage vs yards, handicap vs stroke_index)
+  on purpose. If a response genuinely doesn't map, it logs the raw payload and throws a
+  readable error rather than returning an empty list.
+- Tee names repeat across genders (Gladstan has a men's and a women's Gold at different
+  ratings), so a tee's identity is always name **+ gender** — including its database key.
+- Known simplification: `strokesReceivedFor` allocates strokes off the full course handicap
+  even on a 9-hole round, where convention is to halve it. Fine for gross play and for the
+  net figures shown today; revisit if net becomes a competitive format.
 - One screen per conversation. Small, finished, tested changes beat one big one.

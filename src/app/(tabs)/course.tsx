@@ -62,19 +62,29 @@ export default function CourseScreen() {
     }
   };
 
-  // One lookup per course, ever: fetch it, cache it permanently, then use the
-  // cache from then on.
+  // One lookup per course, ever. Search already returned the full card, so this
+  // spends no further quota — it only falls back to a detail fetch if the
+  // result somehow arrived without tees.
   const pickSearchResult = async (r: CourseSearchResult) => {
     setPendingId(r.externalId);
     try {
-      const detail = await fetchCourseDetail(r.externalId);
+      const detail = r.tees.length
+        ? {
+            externalId: r.externalId,
+            clubName: r.clubName,
+            courseName: r.courseName,
+            location: r.location,
+            tees: r.tees,
+            raw: r.raw,
+          }
+        : await fetchCourseDetail(r.externalId);
+
       const courseId = await cacheCourse(detail);
-      const tee = detail.tees[0];
       if (!courseId) {
         Alert.alert('Could not save', 'The course was found but could not be saved. Check your connection.');
         return;
       }
-      await selectCourseTee(courseId, tee, {
+      await selectCourseTee(courseId, detail.tees[0], {
         clubName: detail.clubName,
         courseName: detail.courseName || detail.clubName,
         location: detail.location,
@@ -164,7 +174,13 @@ export default function CourseScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.resultName}>{r.courseName || r.clubName}</Text>
               <Text style={styles.resultMeta}>
-                {[r.clubName !== r.courseName ? r.clubName : null, r.location].filter(Boolean).join(' · ')}
+                {[
+                  r.clubName !== r.courseName ? r.clubName : null,
+                  r.location,
+                  r.tees.length ? `${r.tees.length} tees · card included` : 'no card data',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
               </Text>
             </View>
             {pendingId === r.externalId ? (
@@ -206,26 +222,36 @@ export default function CourseScreen() {
           </>
         )}
 
-        {/* Tees */}
+        {/* Tees. The same name can appear for each gender at different ratings,
+            so the label carries the gender whenever both are present. */}
         {selectedCourse && selectedCourse.tees.length > 1 && (
           <>
             <Text style={styles.sectionLabel}>Tees</Text>
-            <View style={styles.teeRow}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teeScroll}>
               {selectedCourse.tees.map((t) => {
                 const on = t.teeName === course?.teeName && t.gender === course?.teeGender;
+                const bothGenders = selectedCourse.tees.some((o) => o.gender !== t.gender);
                 return (
                   <Pressable
                     key={`${t.teeName}-${t.gender}`}
                     onPress={() => pickSaved(selectedCourse, t)}
                     style={styles.teeBtn}
                   >
-                    <Text style={styles.teeName}>{t.teeName}</Text>
-                    <Text style={styles.teeYds}>{t.totalYards ? t.totalYards.toLocaleString() : '–'}</Text>
+                    <Text style={styles.teeName}>
+                      {t.teeName}
+                      {bothGenders ? (t.gender === 'female' ? " ♀" : " ♂") : ''}
+                    </Text>
+                    <Text style={styles.teeYds}>
+                      {t.totalYards ? `${t.totalYards.toLocaleString()} yds` : '–'}
+                    </Text>
+                    <Text style={styles.teeYds}>
+                      {t.courseRating ? `${t.courseRating} / ${t.slopeRating ?? '–'}` : ' '}
+                    </Text>
                     {on && <View style={styles.teeUnderline} />}
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
           </>
         )}
 
@@ -505,8 +531,8 @@ const styles = StyleSheet.create({
   starBtn: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderColor: colors.divider },
   star: { fontSize: 20 },
 
-  teeRow: { flexDirection: 'row', borderTopWidth: 2, borderBottomWidth: 2, borderColor: colors.divider },
-  teeBtn: { flex: 1, paddingVertical: 13, paddingHorizontal: 6, borderRightWidth: 1, borderColor: colors.divider },
+  teeScroll: { borderTopWidth: 2, borderBottomWidth: 2, borderColor: colors.divider },
+  teeBtn: { minWidth: 96, paddingVertical: 13, paddingHorizontal: 12, borderRightWidth: 1, borderColor: colors.divider },
   teeName: { fontFamily: font.heading, fontSize: 11, color: colors.text },
   teeYds: { fontFamily: font.body, fontSize: 10, color: colors.muted, marginTop: 3 },
   teeUnderline: { height: 3, backgroundColor: colors.accent, marginTop: 9 },
