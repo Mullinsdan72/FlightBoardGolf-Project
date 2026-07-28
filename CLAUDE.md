@@ -146,8 +146,8 @@ everywhere in this codebase, not just the screens they were first written for.
 - Known simplification: `strokesReceivedFor` allocates strokes off the full course handicap
   even on a 9-hole round, where convention is to halve it. Fine for gross play and for the
   net figures shown today; revisit if net becomes a competitive format.
-- `npm run check` runs the typecheck plus all four verification scripts (course parsing,
-  score outbox, wolf money, teams) — 173 assertions. Worth running before pushing anything
+- `npm run check` runs the typecheck plus all five verification scripts (course parsing,
+  score outbox, wolf money, teams, side games) — 241 assertions. Worth running before pushing anything
   that touches scoring, course data, teams, or money.
 
 ## Who may change what
@@ -188,6 +188,34 @@ design's own worked figures. Change the maths there and run it.
   at Gladstan, holes 3, 7 and 11 all land on the same player. That's why the design shows the
   par-3 draw and offers a shuffle; it's structural, not bad luck.
 - One screen per conversation. Small, finished, tested changes beat one big one.
+
+## Side games and settle-up
+
+`src/lib/sideGames.ts` is pure and covered by `npm run check:sidegames` — 55 assertions.
+`/settle` (`src/app/settle.tsx`) is where every game converges; hole games live on the GAMES
+tab's third sub-tab.
+
+- **A hole pays only when it has a winner.** Nobody on the green means nobody won it and the
+  antes stay in pockets — the money must never go to the least-bad miss. Same rule as a
+  pending Wolf hole, same reason.
+- **One game covers many holes.** Closest to the pin on every par 3 is one game with four
+  payouts, not four games — straight from the design.
+- **Netting across games is the point.** A fiver lost at Wolf and won back at closest-to-the-pin
+  against the same player is *no payment*, not two people swapping notes. `settleEverything`
+  combines positions and hands them to the same greedy `settleUp` Wolf already uses.
+- **Every game is shown separately alongside the total**, so a disputed figure can be traced
+  to the game that produced it. A single number nobody can explain is what starts the argument
+  the screen exists to end.
+- **The settle screen checks its own arithmetic.** If the positions ever fail to sum to zero
+  it says so in red and tells you not to pay off it, rather than quietly paying out a number
+  that came from nowhere.
+- **Deviation from the design, deliberate:** the design excludes pot games from the settle-up
+  because a 96-entrant field's pot is collected by the pro shop. Here every entrant is a player
+  in the round, so the pot *is* person-to-person and nets like anything else. Revisit when
+  field-wide games exist (Phase 5) — that's when a pot stops being nettable inside the group.
+- Terms are the organizer's (adding, removing and pricing a game); **recording who won a hole
+  is any player's**, like posting a score. That's the existing three-tier permission model, not
+  a new one.
 
 ## Teams
 

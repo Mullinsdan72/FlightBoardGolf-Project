@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { useRound } from '@/context/RoundContext';
+import { holeGameName, holeGameShortName, type HoleGameType } from '@/lib/sideGames';
 import { fmtMoney, parThreeDraw } from '@/lib/wolf';
 import { colors, font } from '@/theme';
 
-type Tab = 'standings' | 'setup';
+type Tab = 'standings' | 'setup' | 'holes';
 
 const MULTIPLIERS = [2, 3, 4];
+const HOLE_GAME_TYPES: HoleGameType[] = ['ctp', 'ld'];
+const WAGER_STEPS = [100, 200, 500, 1000, 2000];
 
 export default function GamesScreen() {
   const {
@@ -26,8 +30,18 @@ export default function GamesScreen() {
     wolfLedger,
     wolfPayments,
     wolfHolesDecided,
+    holeGames,
+    holeGamesLoaded,
+    holeGameLedgers,
+    addHoleGame,
+    removeHoleGame,
+    updateHoleGame,
+    setHoleGameWinner,
   } = useRound();
   const [tab, setTab] = useState<Tab>('standings');
+  const [newType, setNewType] = useState<HoleGameType>('ctp');
+  const [newWager, setNewWager] = useState(500);
+  const [newHoles, setNewHoles] = useState<number[]>([]);
 
   const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? 'Unknown';
   const firstNameOf = (id: string) => nameOf(id).split(' ')[0];
@@ -53,25 +67,243 @@ export default function GamesScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.kicker}>Side games</Text>
-        <Text style={styles.title}>Wolf</Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.kicker}>Side games</Text>
+            <Text style={styles.title}>{tab === 'holes' ? 'Hole games' : 'Wolf'}</Text>
+          </View>
+          {/* Every game converges here — the money is one screen, not one per game. */}
+          <Pressable onPress={() => router.push('/settle')} style={styles.settleBtn} hitSlop={8}>
+            <Text style={styles.settleLabel}>SETTLE UP</Text>
+            <Text style={styles.settleArrow}>→</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.tabRow}>
         <Pressable style={[styles.tabBtn, styles.tabDivider]} onPress={() => setTab('standings')}>
-          <Text style={styles.tabLabel}>STANDINGS</Text>
+          <Text style={styles.tabLabel}>WOLF</Text>
           {tab === 'standings' && <View style={styles.tabUnderline} />}
         </Pressable>
-        <Pressable style={styles.tabBtn} onPress={() => setTab('setup')}>
+        <Pressable style={[styles.tabBtn, styles.tabDivider]} onPress={() => setTab('setup')}>
           <Text style={styles.tabLabel}>SETUP</Text>
           {tab === 'setup' && <View style={styles.tabUnderline} />}
+        </Pressable>
+        <Pressable style={styles.tabBtn} onPress={() => setTab('holes')}>
+          <Text style={styles.tabLabel}>CTP · LD</Text>
+          {tab === 'holes' && <View style={styles.tabUnderline} />}
         </Pressable>
       </View>
 
       <ScrollView>
-        {!canPlay && (
+        {tab === 'holes' && (
+          <>
+            {!holeGamesLoaded && <Text style={styles.note}>Loading…</Text>}
+
+            {holeGames.map((game) => {
+              const ledger = holeGameLedgers.find((l) => l.gameId === game.id);
+              return (
+                <View key={game.id} style={styles.gameBlock}>
+                  <View style={styles.gameHead}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.gameName}>{holeGameName(game.type)}</Text>
+                      <Text style={styles.gameMeta}>
+                        {game.holes.length} hole{game.holes.length === 1 ? '' : 's'} ·{' '}
+                        {fmtMoney(game.wagerCents).replace('+', '')} a man a hole ·{' '}
+                        {ledger?.holesSettled ?? 0} settled
+                      </Text>
+                    </View>
+                    {canEdit && (
+                      <Pressable
+                        onPress={() =>
+                          Alert.alert('Remove this game?', 'Its winners and money go with it. Scores are untouched.', [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Remove',
+                              style: 'destructive',
+                              onPress: async () => {
+                                const msg = await removeHoleGame(game.id);
+                                if (msg) Alert.alert('Could not remove that game', msg);
+                              },
+                            },
+                          ])
+                        }
+                        style={styles.removeBtn}
+                        hitSlop={6}
+                      >
+                        <Text style={styles.removeLabel}>×</Text>
+                      </Pressable>
+                    )}
+                  </View>
+
+                  {game.holes.map((hole) => {
+                    const outcome = ledger?.outcomes.find((o) => o.hole === hole);
+                    return (
+                      <View key={hole} style={styles.holeRow}>
+                        <Text style={styles.holeNum}>{hole}</Text>
+                        <View style={styles.winnerRow}>
+                          {players.map((p) => {
+                            const won = outcome?.winnerId === p.id;
+                            return (
+                              <Pressable
+                                key={p.id}
+                                onPress={() => setHoleGameWinner(game.id, hole, won ? null : p.id)}
+                                style={[styles.winnerChip, won && styles.winnerChipOn]}
+                              >
+                                <Text style={[styles.winnerName, won && { color: colors.white }]} numberOfLines={1}>
+                                  {firstNameOf(p.id)}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                        <Text style={styles.holePot}>
+                          {outcome?.settled ? fmtMoney(outcome.potCents).replace('+', '') : '–'}
+                        </Text>
+                      </View>
+                    );
+                  })}
+
+                  {ledger && (
+                    <View style={styles.gameTotals}>
+                      {players.map((p) => (
+                        <View key={p.id} style={styles.totalCell}>
+                          <Text style={styles.totalName} numberOfLines={1}>
+                            {firstNameOf(p.id)}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.totalAmt,
+                              {
+                                color:
+                                  (ledger.positions[p.id] ?? 0) > 0
+                                    ? colors.accent
+                                    : (ledger.positions[p.id] ?? 0) < 0
+                                      ? colors.text
+                                      : colors.mutedFaint,
+                              },
+                            ]}
+                          >
+                            {fmtMoney(ledger.positions[p.id] ?? 0)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+
+            {!holeGames.length && holeGamesLoaded && (
+              <Text style={styles.note}>
+                No hole games yet. Closest to the pin on every par 3 is one game with several payouts, not one game per
+                hole.
+              </Text>
+            )}
+
+            <Text style={styles.note}>
+              Tap a name to record who won a hole; tap them again to clear it. A hole nobody won pays nothing — the
+              antes stay in your pockets rather than going to the least-bad miss. Anyone in the group can record a
+              result; only the organizer adds or removes a game.
+            </Text>
+
+            {canEdit && (
+              <>
+                <Text style={styles.sectionLabel}>Add a game</Text>
+                <View style={styles.multRow}>
+                  {HOLE_GAME_TYPES.map((t) => (
+                    <Pressable
+                      key={t}
+                      onPress={() => setNewType(t)}
+                      style={[styles.multBtn, newType === t && styles.multBtnOn]}
+                    >
+                      <Text style={[styles.multLabel, newType === t && { color: colors.white }]}>
+                        {holeGameShortName(t).toUpperCase()}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <Text style={styles.sectionLabel}>A man, a hole</Text>
+                <View style={styles.multRow}>
+                  {WAGER_STEPS.map((cents) => (
+                    <Pressable
+                      key={cents}
+                      onPress={() => setNewWager(cents)}
+                      style={[styles.multBtn, newWager === cents && styles.multBtnOn]}
+                    >
+                      <Text style={[styles.multLabel, newWager === cents && { color: colors.white }]}>
+                        {fmtMoney(cents).replace('+', '')}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <View style={styles.sectionRow}>
+                  <Text style={styles.sectionLabel}>Which holes</Text>
+                  <Pressable
+                    onPress={() =>
+                      setNewHoles(
+                        newType === 'ctp'
+                          ? holes.filter((h) => h.par === 3).map((h) => h.hole)
+                          : holes.filter((h) => h.par >= 5).map((h) => h.hole),
+                      )
+                    }
+                    style={styles.shuffleBtn}
+                  >
+                    <Text style={styles.shuffleLabel}>{newType === 'ctp' ? 'ALL PAR 3s' : 'ALL PAR 5s'}</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.holeGrid}>
+                  {holes.map((h) => {
+                    const on = newHoles.includes(h.hole);
+                    return (
+                      <Pressable
+                        key={h.hole}
+                        onPress={() =>
+                          setNewHoles((prev) =>
+                            prev.includes(h.hole) ? prev.filter((x) => x !== h.hole) : [...prev, h.hole].sort((a, b) => a - b),
+                          )
+                        }
+                        style={[styles.holeCell, on && styles.holeCellOn]}
+                      >
+                        <Text style={[styles.holeCellNum, on && { color: colors.white }]}>{h.hole}</Text>
+                        <Text style={[styles.holeCellPar, on && { color: colors.white }]}>par {h.par}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <Pressable
+                  disabled={!newHoles.length}
+                  onPress={async () => {
+                    const msg = await addHoleGame(newType, newHoles, newWager);
+                    if (msg) Alert.alert('Could not add that game', msg);
+                    else setNewHoles([]);
+                  }}
+                  style={[styles.addBtn, !newHoles.length && styles.addBtnDisabled]}
+                >
+                  <Text style={styles.addBtnLabel}>
+                    {newHoles.length
+                      ? `ADD ${holeGameShortName(newType).toUpperCase()} ON ${newHoles.length} HOLE${newHoles.length === 1 ? '' : 'S'}`
+                      : 'PICK SOME HOLES'}
+                  </Text>
+                  <Text style={styles.addBtnArrow}>→</Text>
+                </Pressable>
+                <Text style={styles.note}>
+                  Everyone in the round is in, at {fmtMoney(newWager).replace('+', '')} a hole. With {players.length}{' '}
+                  playing, each hole pays its winner{' '}
+                  {fmtMoney(newWager * Math.max(0, players.length - 1)).replace('+', '')}.
+                </Text>
+              </>
+            )}
+          </>
+        )}
+
+        {!canPlay && tab !== 'holes' && (
           <Text style={styles.note}>
-            Wolf needs at least three players — one wolf and two to play against. Add players on the FIELD tab.
+            Wolf needs at least three players — one wolf and two to play against. Add players on the FIELD tab. Closest
+            to the pin and longest drive work with two.
           </Text>
         )}
 
@@ -302,6 +534,52 @@ export default function GamesScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  settleBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingBottom: 4 },
+  settleLabel: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.6, color: colors.accent },
+  settleArrow: { fontFamily: font.heading, fontSize: 14, color: colors.accent },
+  gameBlock: { borderTopWidth: 2, borderColor: colors.divider, marginTop: 16 },
+  gameHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 13 },
+  gameName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
+  gameMeta: { fontFamily: font.body, fontSize: 11, color: colors.muted, marginTop: 5 },
+  removeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.divider },
+  removeLabel: { fontFamily: font.heading, fontSize: 18, color: colors.mutedFaint },
+  holeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderColor: colors.divider,
+  },
+  holeNum: { fontFamily: font.heading, fontSize: 15, width: 26, color: colors.text },
+  winnerRow: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  winnerChip: { borderWidth: 1, borderColor: colors.divider, paddingVertical: 6, paddingHorizontal: 9 },
+  winnerChipOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  winnerName: { fontFamily: font.bodySemi, fontSize: 11, color: colors.text, maxWidth: 74 },
+  holePot: { fontFamily: font.heading, fontSize: 13, color: colors.muted, width: 52, textAlign: 'right' },
+  gameTotals: { flexDirection: 'row', borderTopWidth: 2, borderColor: colors.divider },
+  totalCell: { flex: 1, paddingVertical: 11, paddingHorizontal: 8, borderRightWidth: 1, borderColor: colors.divider },
+  totalName: { fontFamily: font.body, fontSize: 10, color: colors.muted },
+  totalAmt: { fontFamily: font.heading, fontSize: 14, marginTop: 5 },
+  holeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 20 },
+  holeCell: { borderWidth: 2, borderColor: colors.divider, paddingVertical: 8, paddingHorizontal: 10, alignItems: 'center', minWidth: 52 },
+  holeCellOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  holeCellNum: { fontFamily: font.heading, fontSize: 14, color: colors.text },
+  holeCellPar: { fontFamily: font.body, fontSize: 9, color: colors.muted, marginTop: 3 },
+  addBtn: {
+    marginTop: 20,
+    height: 68,
+    backgroundColor: colors.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  addBtnDisabled: { opacity: 0.35 },
+  addBtnLabel: { fontFamily: font.heading, fontSize: 14, letterSpacing: 0.3, color: '#fff' },
+  addBtnArrow: { fontFamily: font.heading, fontSize: 20, color: '#fff' },
   screen: { flex: 1, backgroundColor: colors.bg },
   header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
   kicker: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.accent },

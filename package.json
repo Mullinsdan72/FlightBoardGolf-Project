@@ -46,9 +46,10 @@
     "typecheck": "tsc --noEmit",
     "check:courses": "node scripts/check-course-parse.js",
     "check:outbox": "node scripts/check-outbox.js",
-    "check": "npm run typecheck && npm run check:courses && npm run check:outbox && npm run check:wolf && npm run check:teams",
+    "check": "npm run typecheck && npm run check:courses && npm run check:outbox && npm run check:wolf && npm run check:teams && npm run check:sidegames",
     "check:wolf": "node scripts/check-wolf.js",
-    "check:teams": "node scripts/check-teams.js"
+    "check:teams": "node scripts/check-teams.js",
+    "check:sidegames": "node scripts/check-sidegames.js"
   },
   "private": true
 }

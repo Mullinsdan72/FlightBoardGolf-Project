@@ -209,6 +209,34 @@ create table if not exists team_members (
   constraint team_index_is_sane check (team_index between 0 and 25)
 );
 
+-- Hole games: closest to the pin, longest drive. One row per game, covering
+-- however many holes it runs on — closest to the pin on every par 3 is one game
+-- with four payouts, not four games.
+--
+-- No money is stored. The wager is the terms; who won which hole is the result;
+-- every position and payment is recomputed from those (src/lib/sideGames.ts).
+create table if not exists hole_games (
+  id uuid primary key default gen_random_uuid(),
+  round_id uuid not null references rounds(id) on delete cascade,
+  type text not null,
+  holes int[] not null default '{}',
+  wager_cents int not null default 500,
+  created_at timestamptz not null default now(),
+  constraint hole_game_type_is_known check (type in ('ctp', 'ld')),
+  constraint hole_game_wager_is_not_negative check (wager_cents >= 0)
+);
+
+-- One row per hole once somebody has won it. No row means the hole hasn't
+-- settled — nobody on the green means nobody won it, and the antes stay in
+-- everyone's pocket rather than paying the least-bad miss.
+create table if not exists hole_game_winners (
+  game_id uuid not null references hole_games(id) on delete cascade,
+  hole int not null,
+  player_id uuid not null references players(id) on delete cascade,
+  recorded_at timestamptz not null default now(),
+  primary key (game_id, hole)
+);
+
 alter table players enable row level security;
 alter table rounds enable row level security;
 alter table round_holes enable row level security;
@@ -222,6 +250,8 @@ alter table wolf_games enable row level security;
 alter table wolf_holes enable row level security;
 alter table team_games enable row level security;
 alter table team_members enable row level security;
+alter table hole_games enable row level security;
+alter table hole_game_winners enable row level security;
 
 drop policy if exists "anon full access" on players;
 create policy "anon full access" on players for all using (true) with check (true);
@@ -249,6 +279,10 @@ drop policy if exists "anon full access" on team_games;
 create policy "anon full access" on team_games for all using (true) with check (true);
 drop policy if exists "anon full access" on team_members;
 create policy "anon full access" on team_members for all using (true) with check (true);
+drop policy if exists "anon full access" on hole_games;
+create policy "anon full access" on hole_games for all using (true) with check (true);
+drop policy if exists "anon full access" on hole_game_winners;
+create policy "anon full access" on hole_game_winners for all using (true) with check (true);
 
 -- Push changes to every subscribed phone: scores as they post, and the round's
 -- card/course selection when the organizer picks a course.
@@ -262,7 +296,8 @@ begin
     -- Side-game tables subscribe via postgres_changes too: the wolf picks a
     -- partner on their own phone and the rest of the group has to see it, and
     -- the organizer's team draw has to reach everyone playing in it.
-    'wolf_games', 'wolf_holes', 'team_games', 'team_members'
+    'wolf_games', 'wolf_holes', 'team_games', 'team_members',
+    'hole_games', 'hole_game_winners'
   ]) loop
     if not exists (
       select 1 from pg_publication_tables
