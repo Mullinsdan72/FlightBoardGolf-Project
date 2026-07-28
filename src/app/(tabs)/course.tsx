@@ -15,7 +15,6 @@ const PLAY_SETS: Array<{ key: HolesInPlay; label: string; sub: string }> = [
 
 export default function CourseScreen() {
   const {
-    myId,
     holes,
     allHoles,
     holesInPlay,
@@ -25,6 +24,7 @@ export default function CourseScreen() {
     cacheCourse,
     selectCourseTee,
     toggleFavorite,
+    favoriteFromSearch,
     saveManualCourse,
   } = useRound();
 
@@ -98,6 +98,28 @@ export default function CourseScreen() {
     }
   };
 
+  // Starring a search result caches it and favourites it, without making it the
+  // round's course — you might want it saved for next week, not for today.
+  const starSearchResult = async (r: CourseSearchResult) => {
+    const saved = savedCourses.find((c) => c.id === `gca:${r.externalId}`);
+    const message = saved
+      ? await toggleFavorite(saved.id)
+      : await favoriteFromSearch({
+          externalId: r.externalId,
+          clubName: r.clubName,
+          courseName: r.courseName,
+          location: r.location,
+          tees: r.tees,
+          raw: r.raw,
+        });
+    if (message) Alert.alert('Could not save that favourite', message);
+  };
+
+  const star = async (courseId: string) => {
+    const message = await toggleFavorite(courseId);
+    if (message) Alert.alert('Could not save that favourite', message);
+  };
+
   const pickSaved = async (c: SavedCourse, tee?: TeeSet) => {
     const chosen = tee ?? c.tees[0];
     if (!chosen) {
@@ -169,27 +191,34 @@ export default function CourseScreen() {
         {searchError && <Text style={styles.errorText}>{searchError}</Text>}
         {searching && <ActivityIndicator style={{ marginVertical: 14 }} color={colors.accent} />}
 
-        {results?.map((r) => (
-          <Pressable key={r.externalId} onPress={() => pickSearchResult(r)} style={styles.resultRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.resultName}>{r.courseName || r.clubName}</Text>
-              <Text style={styles.resultMeta}>
-                {[
-                  r.clubName !== r.courseName ? r.clubName : null,
-                  r.location,
-                  r.tees.length ? `${r.tees.length} tees · card included` : 'no card data',
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </Text>
+        {results?.map((r) => {
+          const alreadySaved = savedCourses.find((c) => c.id === `gca:${r.externalId}`);
+          return (
+            <View key={r.externalId} style={styles.resultRow}>
+              <Pressable style={styles.resultMain} onPress={() => pickSearchResult(r)}>
+                <Text style={styles.resultName}>{r.courseName || r.clubName}</Text>
+                <Text style={styles.resultMeta}>
+                  {[
+                    r.clubName !== r.courseName ? r.clubName : null,
+                    r.location,
+                    r.tees.length ? `${r.tees.length} tees · card included` : 'no card data',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+              </Pressable>
+              {pendingId === r.externalId ? (
+                <ActivityIndicator color={colors.accent} style={{ width: 52 }} />
+              ) : (
+                <Pressable onPress={() => starSearchResult(r)} style={styles.starBtn} hitSlop={6}>
+                  <Text style={[styles.star, { color: alreadySaved?.isFavorite ? colors.accent : colors.ghost }]}>
+                    {alreadySaved?.isFavorite ? '★' : '☆'}
+                  </Text>
+                </Pressable>
+              )}
             </View>
-            {pendingId === r.externalId ? (
-              <ActivityIndicator color={colors.accent} />
-            ) : (
-              <Text style={styles.resultArrow}>→</Text>
-            )}
-          </Pressable>
-        ))}
+          );
+        })}
 
         {/* Saved / favourites */}
         {(favorites.length > 0 || others.length > 0) && (
@@ -208,7 +237,7 @@ export default function CourseScreen() {
                       .join(' · ')}
                   </Text>
                 </Pressable>
-                <Pressable onPress={() => toggleFavorite(c.id)} style={styles.starBtn} hitSlop={6} disabled={!myId}>
+                <Pressable onPress={() => star(c.id)} style={styles.starBtn} hitSlop={6}>
                   <Text style={[styles.star, { color: c.isFavorite ? colors.accent : colors.ghost }]}>
                     {c.isFavorite ? '★' : '☆'}
                   </Text>
@@ -513,15 +542,12 @@ const styles = StyleSheet.create({
   resultRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
     borderTopWidth: 1,
     borderColor: colors.divider,
   },
+  resultMain: { flex: 1, paddingVertical: 14, paddingLeft: 20, paddingRight: 8 },
   resultName: { fontFamily: font.heading, fontSize: 15, color: colors.text },
   resultMeta: { fontFamily: font.body, fontSize: 11.5, color: colors.muted, marginTop: 3 },
-  resultArrow: { fontFamily: font.heading, fontSize: 16, color: colors.accent },
 
   savedRow: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderColor: colors.divider },
   savedRowActive: { backgroundColor: 'rgba(236,48,19,0.06)' },

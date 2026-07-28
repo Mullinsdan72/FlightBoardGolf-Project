@@ -228,13 +228,17 @@ export function useRoundCourse(myId: string | null | undefined) {
     [loadRound],
   );
 
+  // Returns a message on failure, null on success. A star that silently does
+  // nothing is impossible to diagnose from the outside, so callers surface this.
   const toggleFavorite = useCallback(
-    async (courseId: string) => {
-      if (!myId) return;
+    async (courseId: string): Promise<string | null> => {
+      if (!myId) {
+        return 'Pick which player you are first — favourites are saved to your account.';
+      }
       const current = savedCourses.find((c) => c.id === courseId);
       const nextFav = !current?.isFavorite;
       setSavedCourses((prev) => prev.map((c) => (c.id === courseId ? { ...c, isFavorite: nextFav } : c)));
-      if (!isSupabaseConfigured || !supabase) return;
+      if (!isSupabaseConfigured || !supabase) return null;
       const { error } = nextFav
         ? await supabase.from('favorite_courses').upsert(
             { player_id: myId, course_id: courseId },
@@ -244,9 +248,35 @@ export function useRoundCourse(myId: string | null | undefined) {
       if (error) {
         console.warn('toggleFavorite failed:', error.message);
         await loadSavedCourses();
+        return error.message;
       }
+      return null;
     },
     [myId, savedCourses, loadSavedCourses],
+  );
+
+  // Star a course straight from search results without making it the round's
+  // course. Search already carries the full card, so this caches it (no extra
+  // API call) and then favourites it.
+  const favoriteFromSearch = useCallback(
+    async (detail: CourseDetail): Promise<string | null> => {
+      if (!myId) {
+        return 'Pick which player you are first — favourites are saved to your account.';
+      }
+      const courseId = await cacheCourse(detail);
+      if (!courseId) return 'Could not save that course. Check your connection.';
+      if (!isSupabaseConfigured || !supabase) return null;
+      const { error } = await supabase
+        .from('favorite_courses')
+        .upsert({ player_id: myId, course_id: courseId }, { onConflict: 'player_id,course_id' });
+      if (error) {
+        console.warn('favoriteFromSearch failed:', error.message);
+        return error.message;
+      }
+      await loadSavedCourses();
+      return null;
+    },
+    [myId, cacheCourse, loadSavedCourses],
   );
 
   // The "course not listed?" path — type the card once and it becomes a
@@ -324,6 +354,7 @@ export function useRoundCourse(myId: string | null | undefined) {
     cacheCourse,
     selectCourseTee,
     toggleFavorite,
+    favoriteFromSearch,
     saveManualCourse,
     refreshCourses: loadSavedCourses,
   };
