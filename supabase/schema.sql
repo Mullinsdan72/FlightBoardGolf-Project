@@ -180,7 +180,7 @@ create table if not exists team_games (
   team_count int not null default 2,
   redraw_at_turn boolean not null default false,
   constraint team_format_is_known check (format in ('bestball', 'total')),
-  constraint team_handicap_mode_is_known check (handicap_mode in ('gross', 'net')),
+  constraint team_handicap_mode_is_known check (handicap_mode in ('gross', 'net', 'lowman')),
   constraint team_size_is_sane check (team_size between 1 and 4),
   constraint team_count_is_sane check (team_count between 1 and 26)
 );
@@ -192,14 +192,13 @@ create table if not exists team_games (
 -- per segment. Two teams for one player would make a best ball count their score
 -- twice, so the database refuses it rather than trusting every screen to.
 -- Added after team_games shipped, so existing rounds pick it up on a re-run.
+-- The constraint is dropped and recreated rather than added only when missing:
+-- an earlier version of this file allowed ('gross', 'net') alone, and a database
+-- that ran that one would reject 'lowman' forever otherwise.
 alter table team_games add column if not exists handicap_mode text not null default 'gross';
-do $$
-begin
-  if not exists (select 1 from pg_constraint where conname = 'team_handicap_mode_is_known') then
-    alter table team_games add constraint team_handicap_mode_is_known
-      check (handicap_mode in ('gross', 'net'));
-  end if;
-end $$;
+alter table team_games drop constraint if exists team_handicap_mode_is_known;
+alter table team_games add constraint team_handicap_mode_is_known
+  check (handicap_mode in ('gross', 'net', 'lowman'));
 
 create table if not exists team_members (
   round_id uuid not null references rounds(id) on delete cascade,

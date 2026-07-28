@@ -15,8 +15,17 @@ import type { Hole } from '@/data/seed';
 
 export type TeamFormat = 'bestball' | 'total';
 
-/** Gross plays the ball as it lies. Net applies each player's handicap strokes. */
-export type HandicapMode = 'gross' | 'net';
+/**
+ * How much handicap a player actually gets.
+ *
+ * - `gross` — none. The ball as it lies.
+ * - `net` — their full course handicap.
+ * - `lowman` — the difference between their handicap and the best player's, so
+ *   the low man plays off scratch and everyone else gets the gap. Standard in a
+ *   fourball, and it keeps the shots being given inside the group rather than
+ *   handing everybody strokes against par.
+ */
+export type HandicapMode = 'gross' | 'net' | 'lowman';
 
 export type DraftPlayer = { id: string; handicap: number };
 
@@ -43,6 +52,10 @@ export const teamLetter = (index: number) => TEAM_LETTERS[index] ?? `T${index + 
 
 export const formatName = (format: TeamFormat) =>
   format === 'bestball' ? 'Best ball' : 'Team total';
+
+/** What to call the handicap mode on screen, so a figure is never unlabelled. */
+export const handicapName = (mode: HandicapMode) =>
+  mode === 'net' ? 'net' : mode === 'lowman' ? 'off the low man' : 'gross';
 
 /**
  * The stretches of holes that each carry their own teams.
@@ -226,10 +239,31 @@ export type StrokesLookup = (hole: number, playerId: string) => number;
 export const NO_STROKES: StrokesLookup = () => 0;
 
 /**
+ * The handicap each player actually plays off, for a given mode.
+ *
+ * Separate from the allocation on purpose: this decides *how many* strokes a
+ * player gets, `strokesOnHole` decides *which holes* they fall on. Mixing the
+ * two is how allowance rules end up quietly reimplemented per format.
+ *
+ * `players` is the pool the game is between — for `lowman` that matters, since
+ * the baseline is the best handicap actually playing in it. Nobody ever comes
+ * out below scratch: the low man plays off zero, not into minus figures.
+ */
+export function allowanceFor(players: DraftPlayer[], mode: HandicapMode): DraftPlayer[] {
+  if (mode === 'gross') return players.map((p) => ({ ...p, handicap: 0 }));
+  if (mode === 'net') return players.slice();
+  if (!players.length) return [];
+  const low = Math.min(...players.map((p) => p.handicap));
+  return players.map((p) => ({ ...p, handicap: Math.max(0, p.handicap - low) }));
+}
+
+/**
  * Strokes each player receives per hole, off the stroke index.
  *
  * Uses `strokesOnHole` from roundMath rather than repeating the allocation rule,
- * so a player's net here always matches the net on their own card.
+ * so a player's net here always matches the net on their own card. Pass the
+ * handicaps through `allowanceFor` first when the game isn't played off full
+ * handicaps.
  *
  * Known simplification, shared with the rest of the app: the full course
  * handicap is used even on a nine-hole round, where convention is to halve it.

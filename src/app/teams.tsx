@@ -2,11 +2,25 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
-import { formatName, type TeamFormat } from '@/lib/teams';
+import { allowanceFor, formatName, handicapName, type HandicapMode, type TeamFormat } from '@/lib/teams';
 import { colors, font, fmtToPar } from '@/theme';
 
 const SIZES = [1, 2, 3, 4];
 const FORMATS: TeamFormat[] = ['bestball', 'total'];
+
+const HANDICAP_MODES: Array<{ mode: HandicapMode; label: string }> = [
+  { mode: 'gross', label: 'GROSS' },
+  { mode: 'net', label: 'NET' },
+  { mode: 'lowman', label: 'LOW MAN' },
+];
+
+const HANDICAP_NOTE: Record<HandicapMode, string> = {
+  gross:
+    'Strokes as played, handicaps ignored. Fine when everyone plays off much the same mark; a mixed group usually wants one of the other two.',
+  net: 'Every player gets their full handicap, hole by hole off the stroke index — the same allocation as the net figure on their own card. In a best ball the low net ball wins the hole, which is not always the low gross one.',
+  lowman:
+    'The best player in the game plays off scratch and everyone else gets the difference. Fewer shots change hands than full net, and they are given inside the group rather than against par. The usual way a fourball is played.',
+};
 
 const FORMAT_NOTE: Record<TeamFormat, string> = {
   bestball:
@@ -44,6 +58,21 @@ export default function TeamsScreen() {
   const hcpOf = (id: string) => players.find((p) => p.id === id)?.handicap ?? 0;
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)'));
+
+  // Spell out who's giving shots to whom. "Off the low man" is only fair if
+  // everybody can see which mark it's measured from.
+  const inGame = players.filter((p) => teamRoster.some((ids) => ids.includes(p.id)));
+  const pool = inGame.length ? inGame : players;
+  const lowMan = pool.reduce<(typeof pool)[number] | null>(
+    (best, p) => (best == null || p.handicap < best.handicap ? p : best),
+    null,
+  );
+  const lowManName = lowMan?.name ?? null;
+  const lowManHcp = lowMan?.handicap ?? 0;
+  const shotList = allowanceFor(pool, 'lowman')
+    .filter((p) => p.handicap > 0)
+    .map((p) => `${players.find((q) => q.id === p.id)?.name ?? '?'} ${p.handicap}`)
+    .join(', ') || 'nobody, everyone is off the same mark';
 
   // Report failures rather than leaving a button that looks broken — a save that
   // silently does nothing is indistinguishable from a missing table.
@@ -154,26 +183,26 @@ export default function TeamsScreen() {
           which changes score entry rather than teams.
         </Text>
 
-        <Text style={styles.sectionLabel}>Gross or net</Text>
+        <Text style={styles.sectionLabel}>Handicaps</Text>
         <View style={styles.sizeRow}>
-          {(['gross', 'net'] as const).map((mode) => (
+          {HANDICAP_MODES.map(({ mode, label }) => (
             <Pressable
               key={mode}
               onPress={() => amOrganizer && teamSetSettings({ handicapMode: mode })}
               disabled={!amOrganizer}
               style={[styles.modeBtn, teams.handicapMode === mode && styles.sizeBtnOn]}
             >
-              <Text style={[styles.modeLabel, teams.handicapMode === mode && styles.sizeLabelOn]}>
-                {mode.toUpperCase()}
-              </Text>
+              <Text style={[styles.modeLabel, teams.handicapMode === mode && styles.sizeLabelOn]}>{label}</Text>
             </Pressable>
           ))}
         </View>
-        <Text style={styles.note}>
-          {teams.handicapMode === 'net'
-            ? 'Each player gets their handicap strokes hole by hole, off the stroke index — the same allocation as the net figure on their own card. In a best ball the low net ball wins the hole, which is not always the low gross one.'
-            : 'Strokes as played, handicaps ignored. Fine when everyone plays off much the same mark; a mixed group usually wants net.'}
-        </Text>
+        <Text style={styles.note}>{HANDICAP_NOTE[teams.handicapMode]}</Text>
+        {teams.handicapMode === 'lowman' && lowManName && (
+          <Text style={styles.note}>
+            {lowManName} is the low man here, off {lowManHcp}, so they play off scratch. Everyone else gets the gap:{' '}
+            {shotList}.
+          </Text>
+        )}
 
         <Text style={styles.sectionLabel}>Team size</Text>
         <View style={styles.sizeRow}>
@@ -386,7 +415,7 @@ export default function TeamsScreen() {
         {teams.enabled && (
           <>
             <Text style={styles.sectionLabel}>
-              Standings · {formatName(teams.format)} · {teams.handicapMode === 'net' ? 'net' : 'gross'}
+              Standings · {formatName(teams.format)} · {handicapName(teams.handicapMode)}
             </Text>
             {teamStandings.map((s, i) => (
               <View key={s.teamIndex} style={styles.standingRow}>
@@ -415,9 +444,9 @@ export default function TeamsScreen() {
               number would drop the moment the last player posts. To-par is measured over the holes that counted, so a
               team two holes behind isn't flattered by the ones it hasn't played.
               {teams.format === 'total' ? " A team total is measured against par for every card, not one." : ''}
-              {teams.handicapMode === 'net'
-                ? ' Net: each score has that player’s handicap strokes for the hole taken off before the team’s is worked out.'
-                : ' Gross: handicaps are not applied.'}
+              {teams.handicapMode === 'gross'
+                ? ' Gross: handicaps are not applied.'
+                : ` Played ${handicapName(teams.handicapMode)}: each score has that player’s strokes for the hole taken off before the team’s is worked out.`}
             </Text>
           </>
         )}

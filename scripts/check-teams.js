@@ -311,6 +311,68 @@ check(
   null,
 );
 
+// ------------------------------------------------------- off the low man
+
+const fourball = [
+  { id: 'low', handicap: 2 },
+  { id: 'b', handicap: 8 },
+  { id: 'c', handicap: 14 },
+  { id: 'high', handicap: 22 },
+];
+
+const lowManHcp = t.allowanceFor(fourball, 'lowman').map((p) => p.handicap);
+check('the best player plays off scratch', lowManHcp[0], 0);
+check('everyone else plays the difference', lowManHcp, [0, 6, 12, 20]);
+check('full net leaves handicaps alone', t.allowanceFor(fourball, 'net').map((p) => p.handicap), [2, 8, 14, 22]);
+check('gross zeroes everyone', t.allowanceFor(fourball, 'gross').map((p) => p.handicap), [0, 0, 0, 0]);
+check('allowance keeps the player ids', t.allowanceFor(fourball, 'lowman').map((p) => p.id), ['low', 'b', 'c', 'high']);
+
+// The baseline is whoever is actually in the game, not a fixed zero.
+const scratchGroup = [
+  { id: 'x', handicap: 0 },
+  { id: 'y', handicap: 5 },
+];
+check('a scratch player in the group changes nothing', t.allowanceFor(scratchGroup, 'lowman').map((p) => p.handicap), [0, 5]);
+const evenGroup = [
+  { id: 'p', handicap: 12 },
+  { id: 'q', handicap: 12 },
+];
+check('equal handicaps give nobody a shot', t.allowanceFor(evenGroup, 'lowman').map((p) => p.handicap), [0, 0]);
+check('a solo player gets nothing off themselves', t.allowanceFor([{ id: 'solo', handicap: 30 }], 'lowman')[0].handicap, 0);
+check('an empty game does not crash', t.allowanceFor([], 'lowman'), []);
+// Nobody goes below scratch, whatever the spread.
+check(
+  'nobody comes out under scratch',
+  t.allowanceFor(fourball, 'lowman').every((p) => p.handicap >= 0),
+  true,
+);
+
+// Off the low man still wraps past 18 the same way a full handicap does.
+const wide = [
+  { id: 'lowest', handicap: 1 },
+  { id: 'widest', handicap: 28 },
+];
+const wideStrokes = t.strokesLookupFor(holes18, t.allowanceFor(wide, 'lowman'));
+check('the low man gets no strokes', wideStrokes(6, 'lowest'), 0);
+// 28 - 1 = 27, which wraps: two strokes on stroke index 1-9, one on the rest.
+check('a 27-shot gap takes two on the hardest hole', wideStrokes(6, 'widest'), 2);
+check('and one on the easiest', wideStrokes(3, 'widest'), 1);
+
+// The point of the format: a fourball played off the low man gives out fewer
+// strokes than full net, because the shots are relative to the best player.
+const fullStrokes = t.strokesLookupFor(holes18, t.allowanceFor(fourball, 'net'));
+const relStrokes = t.strokesLookupFor(holes18, t.allowanceFor(fourball, 'lowman'));
+const shotsOn = (lookup) =>
+  fourball.reduce((n, p) => n + frontNine.reduce((m, h) => m + lookup(h, p.id), 0), 0);
+check('off the low man gives out fewer shots than full net', shotsOn(relStrokes) < shotsOn(fullStrokes), true);
+// Everybody's shots drop by exactly the low man's, so the gaps between players
+// are untouched — that's what makes it the same contest.
+check(
+  'the gaps between players are unchanged',
+  t.allowanceFor(fourball, 'lowman').map((p, i) => fourball[i].handicap - p.handicap),
+  [2, 2, 2, 2],
+);
+
 // Standings sort on net when strokes are supplied. Team A is two scratch
 // players shooting 5s; Team B two 18 handicaps shooting 6s.
 const evenField = [

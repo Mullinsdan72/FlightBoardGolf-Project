@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import {
+  allowanceFor,
   draftTeams,
   segmentsFor,
   strokesLookupFor,
@@ -71,7 +72,8 @@ export function useTeams(
       setState({
         enabled: !!g.enabled,
         format: g.format === 'total' ? 'total' : 'bestball',
-        handicapMode: g.handicap_mode === 'net' ? 'net' : 'gross',
+        handicapMode:
+          g.handicap_mode === 'net' || g.handicap_mode === 'lowman' ? g.handicap_mode : 'gross',
         size: Number(g.team_size) || 2,
         count: Number(g.team_count) || 2,
         redrawAtTurn: !!g.redraw_at_turn,
@@ -251,12 +253,26 @@ export function useTeams(
     [scores],
   );
 
-  // Gross play is the zero-strokes case, so the scoring code has one path rather
-  // than a branch everywhere a score is compared.
-  const strokesFor = useMemo(
-    () => (state.handicapMode === 'net' ? strokesLookupFor(holes, players) : NO_STROKES),
-    [state.handicapMode, holes, players],
+  /**
+   * Strokes for a segment. Gross short-circuits to no strokes at all, so the
+   * scoring code has one path rather than a branch at every comparison.
+   *
+   * Off the low man, the baseline is the best handicap **among the players
+   * actually on a team in this segment** — not the whole roster. Someone sitting
+   * out isn't in the game, and letting them set the baseline would hand the
+   * whole field strokes they hadn't won.
+   */
+  const strokesForSegment = useCallback(
+    (seg: number) => {
+      if (state.handicapMode === 'gross') return NO_STROKES;
+      const inGame = new Set(teamsForSegment(seg).flat());
+      const pool = players.filter((p) => inGame.has(p.id));
+      return strokesLookupFor(holes, allowanceFor(pool.length ? pool : players, state.handicapMode));
+    },
+    [state.handicapMode, teamsForSegment, players, holes],
   );
+
+  const strokesFor = useMemo(() => strokesForSegment(activeSeg), [strokesForSegment, activeSeg]);
 
   const standings: TeamStanding[] = useMemo(
     () => teamStandings(teams, state.format, segments[activeSeg]?.holes ?? [], holes, scoreFor, strokesFor),
@@ -278,9 +294,9 @@ export function useTeams(
         segments[seg]?.holes ?? [],
         holes,
         scoreFor,
-        strokesFor,
+        strokesForSegment(seg),
       ),
-    [teamsForSegment, state.format, segments, holes, scoreFor, strokesFor],
+    [teamsForSegment, state.format, segments, holes, scoreFor, strokesForSegment],
   );
 
   /** Whether a segment's teams were actually drawn, rather than just suggested. */

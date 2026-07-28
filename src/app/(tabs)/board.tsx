@@ -5,7 +5,7 @@ import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
 import { netToParFor, thruFor, toParFor } from '@/lib/roundMath';
-import { formatName } from '@/lib/teams';
+import { formatName, handicapName } from '@/lib/teams';
 import { colors, font, fmtToPar } from '@/theme';
 
 type Tab = 'group' | 'field' | 'teams';
@@ -124,7 +124,9 @@ export default function LeaderboardScreen() {
         {/* Only when there's a team game on — an empty tab is worse than no tab. */}
         {teamsOn && (
           <Pressable style={styles.tabBtn} onPress={() => setTab('teams')}>
-            <Text style={styles.tabLabel}>TEAMS · {teams.handicapMode === 'net' ? 'NET' : 'GROSS'}</Text>
+            <Text style={styles.tabLabel}>
+              TEAMS · {teams.handicapMode === 'lowman' ? 'LOW MAN' : teams.handicapMode.toUpperCase()}
+            </Text>
             {tab === 'teams' && <View style={styles.tabUnderline} />}
           </Pressable>
         )}
@@ -200,7 +202,7 @@ export default function LeaderboardScreen() {
               );
             })}
             <Text style={styles.teamsNote}>
-              {formatName(teams.format)}, {teams.handicapMode === 'net' ? 'net' : 'gross'}. A hole counts once every
+              {formatName(teams.format)}, {handicapName(teams.handicapMode)}. A hole counts once every
               player on the team has posted it, so a team waiting on somebody sits behind until that score lands — the
               figure would otherwise drop the moment it did. To-par is measured over the holes that counted.
               {teamSegments.length > 1

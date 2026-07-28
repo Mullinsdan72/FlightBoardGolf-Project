@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { router } from 'expo-router';
 import { useRound } from '@/context/RoundContext';
 import { thruFor } from '@/lib/roundMath';
-import { formatName } from '@/lib/teams';
+import { formatName, handicapName } from '@/lib/teams';
 import { colors, font } from '@/theme';
 
 export default function PlayersScreen() {
@@ -170,7 +170,7 @@ export default function PlayersScreen() {
             <Text style={styles.teamsLabel}>TEAMS</Text>
             <Text style={styles.teamsNote}>
               {teams.enabled
-                ? `${formatName(teams.format)} ${teams.handicapMode} · ${teams.count} team${teams.count === 1 ? '' : 's'} of ${teams.size}`
+                ? `${formatName(teams.format)} ${handicapName(teams.handicapMode)} · ${teams.count} team${teams.count === 1 ? '' : 's'} of ${teams.size}`
                 : 'Best ball or team total, drawn by handicap'}
             </Text>
           </View>

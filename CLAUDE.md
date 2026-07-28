@@ -147,7 +147,7 @@ everywhere in this codebase, not just the screens they were first written for.
   even on a 9-hole round, where convention is to halve it. Fine for gross play and for the
   net figures shown today; revisit if net becomes a competitive format.
 - `npm run check` runs the typecheck plus all four verification scripts (course parsing,
-  score outbox, wolf money, teams) — 158 assertions. Worth running before pushing anything
+  score outbox, wolf money, teams) — 173 assertions. Worth running before pushing anything
   that touches scoring, course data, teams, or money.
 
 ## Who may change what
@@ -191,7 +191,7 @@ design's own worked figures. Change the maths there and run it.
 
 ## Teams
 
-`src/lib/teams.ts` is pure and covered by `npm run check:teams` — 92 assertions. `/teams`
+`src/lib/teams.ts` is pure and covered by `npm run check:teams` — 107 assertions. `/teams`
 (`src/app/teams.tsx`) is organizer-only to edit and read-only to everyone else, same as Wolf
 setup.
 
@@ -226,9 +226,15 @@ setup.
 - `roundMath.ts` imports `ScoreMap` from `@/lib/scoreOutbox`, not from `@/hooks/useLiveScores`
   which merely re-exports it. A pure maths module must not pull React and Supabase in behind
   a type import — it breaks the isolated builds the check scripts do.
-- Handicap **allowance** is full, not the 85–90% many fourball competitions use, and there's
-  no "off the low man" option. Full strokes off the stroke index is what the design specifies
-  and what the rest of the app already does.
+- **Allowance and allocation are separate steps.** `allowanceFor` decides how many strokes a
+  player gets (`gross` none, `net` their full handicap, `lowman` the gap to the best player);
+  `strokesOnHole` decides which holes they land on. Keep them apart — mixing them is how an
+  allowance rule ends up quietly reimplemented per format.
+- **Off the low man, the baseline is the players on a team in that segment**, not the whole
+  roster. Somebody sitting out isn't in the game, and letting them set the mark would hand
+  the entire field strokes nobody won. Nobody ever comes out below scratch.
+- Handicap **percentage** allowance (the 85–90% many fourball competitions use) is still not
+  implemented — full strokes only, in all three modes.
 - `team_members`' primary key is `(round_id, segment, player_id)` — a player is on at most one
   team per segment. Two teams for one player would make a best ball count their score twice,
   so the database refuses it rather than trusting every screen to.
