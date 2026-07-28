@@ -115,6 +115,37 @@ create table if not exists signoffs (
   primary key (round_id, player_id)
 );
 
+-- Wolf: one row per round holding the wager terms and the rotation.
+-- No money is stored anywhere. Every figure — what a hole paid, who owes whom,
+-- the running totals — is recomputed from these terms plus the recorded
+-- decisions plus the posted scores (src/lib/wolf.ts). Storing a total would let
+-- it drift from the scores it came from.
+create table if not exists wolf_games (
+  round_id uuid primary key references rounds(id) on delete cascade,
+  enabled boolean not null default false,
+  stake numeric not null default 5,          -- dollars per hole
+  lone_multiplier int not null default 3,    -- 2, 3 or 4
+  player_order uuid[] not null default '{}', -- rotation, by player id
+  reshuffle_each_round boolean not null default true
+);
+
+-- One row per hole once the wolf has committed: who had it, and who they took.
+-- partner_player_id null means they went alone.
+--
+-- The wolf is recorded rather than derived from the rotation, deliberately: a
+-- reshuffle must never rewrite a hole that has already been played. Upcoming
+-- holes still come from the rotation, so shuffling before the round works as
+-- designed while shuffling mid-round can't rewrite history.
+create table if not exists wolf_holes (
+  round_id uuid not null references rounds(id) on delete cascade,
+  hole int not null,
+  wolf_player_id uuid not null references players(id) on delete cascade,
+  partner_player_id uuid references players(id) on delete cascade,
+  decided_at timestamptz not null default now(),
+  primary key (round_id, hole),
+  constraint wolf_partner_is_not_the_wolf check (partner_player_id is null or partner_player_id <> wolf_player_id)
+);
+
 alter table players enable row level security;
 alter table rounds enable row level security;
 alter table round_holes enable row level security;
@@ -124,6 +155,8 @@ alter table signoffs enable row level security;
 alter table courses enable row level security;
 alter table course_tees enable row level security;
 alter table favorite_courses enable row level security;
+alter table wolf_games enable row level security;
+alter table wolf_holes enable row level security;
 
 drop policy if exists "anon full access" on players;
 create policy "anon full access" on players for all using (true) with check (true);
@@ -143,6 +176,10 @@ drop policy if exists "anon full access" on course_tees;
 create policy "anon full access" on course_tees for all using (true) with check (true);
 drop policy if exists "anon full access" on favorite_courses;
 create policy "anon full access" on favorite_courses for all using (true) with check (true);
+drop policy if exists "anon full access" on wolf_games;
+create policy "anon full access" on wolf_games for all using (true) with check (true);
+drop policy if exists "anon full access" on wolf_holes;
+create policy "anon full access" on wolf_holes for all using (true) with check (true);
 
 -- Push changes to every subscribed phone: scores as they post, and the round's
 -- card/course selection when the organizer picks a course.

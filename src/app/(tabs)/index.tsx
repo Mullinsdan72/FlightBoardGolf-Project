@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
+import { WolfPrompt } from '@/components/WolfPrompt';
 import { useRound } from '@/context/RoundContext';
 import { ROUND_NAME } from '@/data/seed';
 import { useSignoff } from '@/hooks/useSignoff';
@@ -11,8 +12,24 @@ import { colors, font, fmtToPar, scoreName } from '@/theme';
 type Mode = 'self' | 'scorer';
 
 export default function ScoreEntryScreen() {
-  const { myId, choose, clear, scores, setScores, postScore, live, connected, players, holes, pendingCount } =
-    useRound();
+  const {
+    myId,
+    choose,
+    clear,
+    scores,
+    setScores,
+    postScore,
+    live,
+    connected,
+    players,
+    holes,
+    pendingCount,
+    wolf,
+    wolfFor,
+    wolfDecisionFor,
+    wolfDecide,
+    wolfUndecide,
+  } = useRound();
   const { signedAt } = useSignoff(myId);
 
   const [holeIndex, setHoleIndex] = useState(0);
@@ -155,6 +172,20 @@ export default function ScoreEntryScreen() {
             <Text style={styles.thru}>THRU {thru}</Text>
           </View>
         </View>
+
+        {wolf.enabled && (
+          <WolfPrompt
+            hole={hole}
+            players={players}
+            myId={myId}
+            wolfId={wolfFor(hole)}
+            decision={wolfDecisionFor(hole)}
+            stake={wolf.stake}
+            loneMultiplier={wolf.loneMultiplier}
+            onDecide={(w, p) => wolfDecide(hole, w, p)}
+            onUndo={() => wolfUndecide(hole)}
+          />
+        )}
 
         <View style={styles.modeRow}>
           <Pressable style={[styles.modeBtn, styles.modeBtnDivider]} onPress={() => setMode('self')}>

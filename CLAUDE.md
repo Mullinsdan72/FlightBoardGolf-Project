@@ -122,6 +122,30 @@ everywhere in this codebase, not just the screens they were first written for.
 - Known simplification: `strokesReceivedFor` allocates strokes off the full course handicap
   even on a 9-hole round, where convention is to halve it. Fine for gross play and for the
   net figures shown today; revisit if net becomes a competitive format.
-- `npm run check` runs the typecheck plus both verification scripts (course parsing, score
-  outbox). Worth running before pushing anything that touches scoring or course data.
+- `npm run check` runs the typecheck plus all three verification scripts (course parsing,
+  score outbox, wolf money). Worth running before pushing anything that touches scoring,
+  course data, or money.
+
+## Wolf
+
+`src/lib/wolf.ts` is pure and covered by `npm run check:wolf` — 30 assertions including the
+design's own worked figures. Change the maths there and run it.
+
+- **No money is ever stored.** `wolf_games` holds the terms (stake, multiplier, rotation),
+  `wolf_holes` holds the decision per hole (who was wolf, who they took, null = alone).
+  Everything else — what a hole paid, running totals, who owes whom — is recomputed from
+  those plus posted scores. A stored total is a total that drifts.
+- **A hole pays only when the whole group has posted it.** Outcome is `pending` otherwise,
+  never a win. Equal best ball is a `push` and moves nothing.
+- **Every hole sums to exactly zero.** Amounts are in cents and remainders are handed out
+  deterministically, because a paired win in an odd-sized group divides unevenly. Money that
+  doesn't balance is money someone argues about.
+- **The wolf is recorded, not derived, once a hole is decided.** This deviates from the
+  prototype on purpose: there the wolf came from the live rotation for every hole, so
+  shuffling rewrote holes already played. Upcoming holes still follow the rotation, so
+  shuffling before the round behaves as designed while shuffling mid-round can't rewrite
+  history.
+- Eighteen holes don't divide by four, so a fixed rotation stacks most par 3s on one seat —
+  at Gladstan, holes 3, 7 and 11 all land on the same player. That's why the design shows the
+  par-3 draw and offers a shuffle; it's structural, not bad luck.
 - One screen per conversation. Small, finished, tested changes beat one big one.

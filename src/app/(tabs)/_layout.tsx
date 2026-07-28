@@ -10,6 +10,7 @@ const TAB_META: Record<string, { label: string; sub: string }> = {
   card: { label: 'CARD', sub: 'sign off' },
   players: { label: 'FIELD', sub: 'roster' },
   course: { label: 'COURSE', sub: 'the card' },
+  games: { label: 'GAMES', sub: 'wolf' },
 };
 
 function ModernistTabBar({ state, descriptors, navigation }: any) {
@@ -49,6 +50,7 @@ export default function TabLayout() {
         <Tabs.Screen name="card" options={{ title: 'Card' }} />
         <Tabs.Screen name="players" options={{ title: 'Field' }} />
         <Tabs.Screen name="course" options={{ title: 'Course' }} />
+        <Tabs.Screen name="games" options={{ title: 'Games' }} />
       </Tabs>
     </RoundProvider>
   );

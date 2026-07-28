@@ -1,13 +1,15 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
 import { useRoundCourse } from '@/hooks/useRoundCourse';
 import { useRoundPlayers } from '@/hooks/useRoundPlayers';
+import { useWolf } from '@/hooks/useWolf';
 
 type RoundContextValue = ReturnType<typeof useLiveScores> &
   ReturnType<typeof useRoundPlayers> &
   ReturnType<typeof useRoundCourse> &
-  ReturnType<typeof usePlayerIdentity>;
+  ReturnType<typeof usePlayerIdentity> &
+  ReturnType<typeof useWolf>;
 
 const RoundContext = createContext<RoundContextValue | null>(null);
 
@@ -27,8 +29,10 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   const scores = useLiveScores();
   const roster = useRoundPlayers();
   const course = useRoundCourse(identity.myId);
+  const playerIds = useMemo(() => roster.players.map((p) => p.id), [roster.players]);
+  const wolf = useWolf(playerIds, course.holes, scores.scores);
   return (
-    <RoundContext.Provider value={{ ...identity, ...scores, ...roster, ...course }}>
+    <RoundContext.Provider value={{ ...identity, ...scores, ...roster, ...course, ...wolf }}>
       {children}
     </RoundContext.Provider>
   );

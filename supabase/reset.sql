@@ -14,6 +14,8 @@
 
 begin;
 
+delete from wolf_holes;
+delete from wolf_games;
 delete from scores;
 delete from signoffs;
 delete from round_players;

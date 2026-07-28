@@ -46,7 +46,8 @@
     "typecheck": "tsc --noEmit",
     "check:courses": "node scripts/check-course-parse.js",
     "check:outbox": "node scripts/check-outbox.js",
-    "check": "npm run typecheck && npm run check:courses && npm run check:outbox"
+    "check": "npm run typecheck && npm run check:courses && npm run check:outbox && npm run check:wolf",
+    "check:wolf": "node scripts/check-wolf.js"
   },
   "private": true
 }
