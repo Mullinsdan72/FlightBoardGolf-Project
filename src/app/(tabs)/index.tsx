@@ -4,7 +4,6 @@ import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
 import { WolfPrompt } from '@/components/WolfPrompt';
 import { useRound } from '@/context/RoundContext';
-import { ROUND_NAME } from '@/data/seed';
 import { useSignoff } from '@/hooks/useSignoff';
 import { thruFor, toParFor } from '@/lib/roundMath';
 import { colors, font, fmtToPar, scoreName } from '@/theme';
@@ -29,8 +28,10 @@ export default function ScoreEntryScreen() {
     wolfDecisionFor,
     wolfDecide,
     wolfUndecide,
+    activeRound,
+    activeRoundId,
   } = useRound();
-  const { signedAt } = useSignoff(myId);
+  const { signedAt } = useSignoff(activeRoundId, myId);
 
   const [holeIndex, setHoleIndex] = useState(0);
   const [mode, setMode] = useState<Mode>('self');
@@ -62,7 +63,7 @@ export default function ScoreEntryScreen() {
     return (
       <View style={styles.screen}>
         <View style={styles.lockedWrap}>
-          <Text style={styles.headerLabel}>{ROUND_NAME} · Group 12</Text>
+          <Text style={styles.headerLabel}>{activeRound?.name || 'Round'} · Group 12</Text>
           <Text style={styles.lockedTitle}>Your card is signed and locked</Text>
           <Text style={styles.lockedNote}>
             Signed {new Date(signedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Reopening it
@@ -77,7 +78,7 @@ export default function ScoreEntryScreen() {
     return (
       <View style={styles.screen}>
         <View style={styles.lockedWrap}>
-          <Text style={styles.headerLabel}>{ROUND_NAME}</Text>
+          <Text style={styles.headerLabel}>{activeRound?.name || 'Round'}</Text>
           <Text style={styles.lockedTitle}>No course picked yet</Text>
           <Text style={styles.lockedNote}>
             Choose a course on the Course tab and its card fills in here — par, yardage and stroke index for every hole.
@@ -138,7 +139,7 @@ export default function ScoreEntryScreen() {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
-          <Text style={styles.headerLabel}>{ROUND_NAME} · Group 12</Text>
+          <Text style={styles.headerLabel}>{activeRound?.name || 'Round'} · Group 12</Text>
           {/* Says what's actually true: queued scores are saved on the phone
               and will sync — not lost, and not silently pending either. */}
           {pendingCount > 0 ? (

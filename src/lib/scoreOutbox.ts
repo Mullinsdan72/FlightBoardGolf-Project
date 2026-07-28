@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ROUND_ID } from '@/data/seed';
 
 // Durable local storage for scores, so CLAUDE.md rule 1 is actually true:
 // "the write succeeds on the phone and syncs later."
@@ -15,8 +14,10 @@ import { ROUND_ID } from '@/data/seed';
 // hole. On a course in a canyon that means losing real strokes from a real
 // round, which is the one bug that would make a golfer stop trusting the app.
 
-const SCORES_KEY = `flightboard.scores.${ROUND_ID}`;
-const OUTBOX_KEY = `flightboard.outbox.${ROUND_ID}`;
+// Keyed per round, so switching rounds can't show one round's scores against
+// another's card, and an unsynced hole stays attached to the round it belongs to.
+const scoresKey = (roundId: string) => `flightboard.scores.${roundId}`;
+const outboxKey = (roundId: string) => `flightboard.outbox.${roundId}`;
 
 export type ScoreMap = Record<number, Record<string, number>>; // hole -> playerId -> strokes
 
@@ -50,30 +51,47 @@ async function writeJson(key: string, value: unknown): Promise<void> {
   }
 }
 
-export const loadCachedScores = () => readJson<ScoreMap>(SCORES_KEY, {});
-export const saveCachedScores = (scores: ScoreMap) => writeJson(SCORES_KEY, scores);
+export const loadCachedScores = (roundId: string) => readJson<ScoreMap>(scoresKey(roundId), {});
+export const saveCachedScores = (roundId: string, scores: ScoreMap) =>
+  writeJson(scoresKey(roundId), scores);
 
-export const loadOutbox = () => readJson<PendingScore[]>(OUTBOX_KEY, []);
-export const saveOutbox = (queue: PendingScore[]) => writeJson(OUTBOX_KEY, queue);
+export const loadOutbox = (roundId: string) => readJson<PendingScore[]>(outboxKey(roundId), []);
+export const saveOutbox = (roundId: string, queue: PendingScore[]) =>
+  writeJson(outboxKey(roundId), queue);
 
 // One entry per hole+player: re-entering a score replaces the queued one rather
 // than stacking a second write for the same cell.
-export async function enqueue(entry: Omit<PendingScore, 'queuedAt'>): Promise<PendingScore[]> {
-  const queue = await loadOutbox();
+export async function enqueue(
+  roundId: string,
+  entry: Omit<PendingScore, 'queuedAt'>,
+): Promise<PendingScore[]> {
+  const queue = await loadOutbox(roundId);
   const next = queue.filter((q) => keyOf(q) !== keyOf(entry));
   next.push({ ...entry, queuedAt: Date.now() });
-  await saveOutbox(next);
+  await saveOutbox(roundId, next);
   return next;
 }
 
-export async function dequeue(entries: PendingScore[]): Promise<PendingScore[]> {
-  if (!entries.length) return loadOutbox();
+// A deleted round takes its local cache with it. Otherwise an unsynced hole
+// would sit in that round's outbox retrying forever against a row that no
+// longer exists (the server rejects it on the foreign key), and the phone would
+// keep storing a card nobody can open.
+export async function clearRound(roundId: string): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([scoresKey(roundId), outboxKey(roundId)]);
+  } catch (err) {
+    console.warn(`Could not clear local storage for round ${roundId}:`, err);
+  }
+}
+
+export async function dequeue(roundId: string, entries: PendingScore[]): Promise<PendingScore[]> {
+  if (!entries.length) return loadOutbox(roundId);
   const done = new Set(entries.map(keyOf));
-  const queue = await loadOutbox();
+  const queue = await loadOutbox(roundId);
   // Only drop an entry if it hasn't been re-queued with a newer score since the
   // flush started — otherwise a correction made mid-sync would be discarded.
   const sentAt = new Map(entries.map((e) => [keyOf(e), e.queuedAt]));
   const next = queue.filter((q) => !(done.has(keyOf(q)) && q.queuedAt <= (sentAt.get(keyOf(q)) ?? 0)));
-  await saveOutbox(next);
+  await saveOutbox(roundId, next);
   return next;
 }

@@ -1,13 +1,23 @@
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router } from 'expo-router';
 import { useRound } from '@/context/RoundContext';
-import { ROUND_NAME } from '@/data/seed';
 import { thruFor } from '@/lib/roundMath';
 import { colors, font } from '@/theme';
 
 export default function PlayersScreen() {
-  const { myId, players, addPlayer, removePlayer, scores, holes, organizerId, amOrganizer, claimOrganizer } =
-    useRound();
+  const {
+    myId,
+    players,
+    addPlayer,
+    removePlayer,
+    scores,
+    holes,
+    organizerId,
+    amOrganizer,
+    claimOrganizer,
+    activeRound,
+  } = useRound();
   const [name, setName] = useState('');
   const [handicap, setHandicap] = useState('');
   const [busy, setBusy] = useState(false);
@@ -51,7 +61,10 @@ export default function PlayersScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.kicker}>{ROUND_NAME}</Text>
+        {/* The round name is the way to Rounds, since the tab bar is full. */}
+        <Pressable onPress={() => router.push('/rounds')} hitSlop={8}>
+          <Text style={styles.kicker}>{activeRound?.name || 'Round'} · SWITCH ›</Text>
+        </Pressable>
         <Text style={styles.title}>The field</Text>
       </View>
 

@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { useActiveRound } from '@/hooks/useActiveRound';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
 import { useRoundCourse } from '@/hooks/useRoundCourse';
@@ -9,11 +10,16 @@ type RoundContextValue = ReturnType<typeof useLiveScores> &
   ReturnType<typeof useRoundPlayers> &
   ReturnType<typeof useRoundCourse> &
   ReturnType<typeof usePlayerIdentity> &
-  ReturnType<typeof useWolf>;
+  ReturnType<typeof useWolf> &
+  ReturnType<typeof useActiveRound>;
 
 const RoundContext = createContext<RoundContextValue | null>(null);
 
 // One source of round state for the whole app, mounted once at the tabs layout.
+//
+// Everything hangs off `activeRoundId`. Each hook takes it and resets its own
+// state when it changes, so switching rounds can't leave one round's scores,
+// roster, card or wolf ledger showing against another's.
 //
 // Two reasons this is a provider rather than a hook each screen calls:
 //
@@ -21,18 +27,22 @@ const RoundContext = createContext<RoundContextValue | null>(null);
 //    instances open two channels with the same name, and Supabase rejects the
 //    second `postgres_changes` subscription on a topic that already has one —
 //    which crashed the app as soon as two tabs were mounted.
-// 2. Identity and roster are shared state. Picking a player, adding one, or
-//    choosing a course has to be visible on every tab immediately, not just
-//    the one that made the change.
+// 2. Identity, roster and the active round are shared state. Picking a player,
+//    adding one, choosing a course or switching round has to be visible on every
+//    tab immediately, not just the one that made the change.
 export function RoundProvider({ children }: { children: ReactNode }) {
   const identity = usePlayerIdentity();
-  const scores = useLiveScores();
-  const roster = useRoundPlayers(identity.myId);
-  const course = useRoundCourse(identity.myId);
+  const round = useActiveRound();
+  const roundId = round.activeRoundId;
+  const scores = useLiveScores(roundId);
+  const roster = useRoundPlayers(roundId, identity.myId);
+  const course = useRoundCourse(roundId, identity.myId);
   const playerIds = useMemo(() => roster.players.map((p) => p.id), [roster.players]);
-  const wolf = useWolf(playerIds, course.holes, scores.scores);
+  const wolf = useWolf(roundId, playerIds, course.holes, scores.scores);
   return (
-    <RoundContext.Provider value={{ ...identity, ...scores, ...roster, ...course, ...wolf }}>
+    <RoundContext.Provider
+      value={{ ...identity, ...round, ...scores, ...roster, ...course, ...wolf }}
+    >
       {children}
     </RoundContext.Provider>
   );

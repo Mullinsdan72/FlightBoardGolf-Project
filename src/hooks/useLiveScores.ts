@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import { ROUND_ID } from '@/data/seed';
 import {
   dequeue,
   enqueue,
@@ -32,7 +31,7 @@ const RETRY_MS = 15_000;
 // immediately, survives a force-quit or a flat battery, and syncs whenever
 // signal comes back. A golfer never waits on a network to record a four, and
 // never loses one to a canyon.
-export function useLiveScores() {
+export function useLiveScores(roundId: string | null | undefined) {
   const [scores, setScores] = useState<ScoreMap>({});
   const [connected, setConnected] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -40,39 +39,48 @@ export function useLiveScores() {
   const flushing = useRef(false);
 
   // Local disk first, so a round is on screen before any network call resolves.
+  // Re-runs on a round switch, and replaces rather than merges — one round's
+  // scores must never appear against another round's card.
   useEffect(() => {
+    if (!roundId) {
+      setScores({});
+      setPendingCount(0);
+      setHydrated(false);
+      return;
+    }
     let cancelled = false;
+    setHydrated(false);
     (async () => {
-      const [cached, queue] = await Promise.all([loadCachedScores(), loadOutbox()]);
+      const [cached, queue] = await Promise.all([loadCachedScores(roundId), loadOutbox(roundId)]);
       if (cancelled) return;
-      setScores((prev) => ({ ...cached, ...prev }));
+      setScores(cached);
       setPendingCount(queue.length);
       setHydrated(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [roundId]);
 
   // Mirror every change back to disk once hydration has happened — writing
   // before then would persist an empty map over a real cached round.
   useEffect(() => {
-    if (!hydrated) return;
-    saveCachedScores(scores);
-  }, [scores, hydrated]);
+    if (!hydrated || !roundId) return;
+    saveCachedScores(roundId, scores);
+  }, [scores, hydrated, roundId]);
 
   const flushOutbox = useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase || flushing.current) return;
+    if (!isSupabaseConfigured || !supabase || flushing.current || !roundId) return;
     const client = supabase;
     flushing.current = true;
     try {
-      const queue = await loadOutbox();
+      const queue = await loadOutbox(roundId);
       if (!queue.length) {
         setPendingCount(0);
         return;
       }
       const rows = queue.map((q) => ({
-        round_id: ROUND_ID,
+        round_id: roundId,
         hole: q.hole,
         player_id: q.playerId,
         strokes: q.strokes,
@@ -85,27 +93,27 @@ export function useLiveScores() {
         setPendingCount(queue.length);
         return;
       }
-      const remaining = await dequeue(queue as PendingScore[]);
+      const remaining = await dequeue(roundId, queue as PendingScore[]);
       setPendingCount(remaining.length);
     } finally {
       flushing.current = false;
     }
-  }, []);
+  }, [roundId]);
 
   // Pull the server's copy, then subscribe. Anything queued locally wins on
   // merge, since it may not have reached the server yet.
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase || !hydrated) return;
+    if (!isSupabaseConfigured || !supabase || !hydrated || !roundId) return;
     const client = supabase;
     let cancelled = false;
 
     client
       .from('scores')
       .select('hole, player_id, strokes')
-      .eq('round_id', ROUND_ID)
+      .eq('round_id', roundId)
       .then(async ({ data, error }) => {
         if (cancelled || error || !data) return;
-        const queue = await loadOutbox();
+        const queue = await loadOutbox(roundId);
         const queuedKeys = new Set(queue.map((q) => `${q.hole}:${q.playerId}`));
         const serverRows = (data as Row[]).filter((r) => !queuedKeys.has(`${r.hole}:${r.player_id}`));
         setScores((prev) => mergeRows(prev, serverRows));
@@ -113,10 +121,10 @@ export function useLiveScores() {
       });
 
     const channel = client
-      .channel(`scores:${ROUND_ID}`)
+      .channel(`scores:${roundId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'scores', filter: `round_id=eq.${ROUND_ID}` },
+        { event: '*', schema: 'public', table: 'scores', filter: `round_id=eq.${roundId}` },
         (payload) => {
           const row = (payload.new ?? payload.old) as Row | null;
           if (!row) return;
@@ -133,7 +141,7 @@ export function useLiveScores() {
       cancelled = true;
       client.removeChannel(channel);
     };
-  }, [hydrated, flushOutbox]);
+  }, [hydrated, roundId, flushOutbox]);
 
   // Keep trying on a timer, and again whenever the app comes back to the
   // foreground — signal usually returns while the phone is in a pocket.
@@ -154,11 +162,12 @@ export function useLiveScores() {
   // Never throws and never awaits the network: queue it, then try to send.
   const postScore = useCallback(
     async (hole: number, playerId: string, strokes: number) => {
-      const queue = await enqueue({ hole, playerId, strokes });
+      if (!roundId) return;
+      const queue = await enqueue(roundId, { hole, playerId, strokes });
       setPendingCount(queue.length);
       flushOutbox();
     },
-    [flushOutbox],
+    [roundId, flushOutbox],
   );
 
   return {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { HOLES as FALLBACK_HOLES, ROUND_ID, type Hole } from '@/data/seed';
+import { HOLES as FALLBACK_HOLES, type Hole } from '@/data/seed';
 import type { CourseDetail, TeeSet } from '@/lib/courseApi';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
@@ -37,7 +37,7 @@ const teeRowToSet = (r: any): TeeSet => ({
 // resulting 18 (or 9) holes. `holes` is the round's own snapshot from
 // round_holes, not the course record — see the note on that table in
 // supabase/schema.sql for why those are deliberately separate.
-export function useRoundCourse(myId: string | null | undefined) {
+export function useRoundCourse(roundId: string | null | undefined, myId: string | null | undefined) {
   // Empty until the database says otherwise. The sample card is only a stand-in
   // for running with no backend at all — using it as a default meant a round
   // with no course still showed 18 invented holes, which is both wrong and
@@ -49,7 +49,7 @@ export function useRoundCourse(myId: string | null | undefined) {
   const [loading, setLoading] = useState(true);
 
   const loadRound = useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase) {
+    if (!isSupabaseConfigured || !supabase || !roundId) {
       setLoading(false);
       return;
     }
@@ -57,9 +57,9 @@ export function useRoundCourse(myId: string | null | undefined) {
       supabase
         .from('rounds')
         .select('course_id, course_name, course_meta, tee_name, tee_gender, holes_in_play')
-        .eq('id', ROUND_ID)
+        .eq('id', roundId)
         .maybeSingle(),
-      supabase.from('round_holes').select('hole, par, yards, handicap').eq('round_id', ROUND_ID).order('hole'),
+      supabase.from('round_holes').select('hole, par, yards, handicap').eq('round_id', roundId).order('hole'),
     ]);
 
     if (roundRes.data) {
@@ -78,7 +78,7 @@ export function useRoundCourse(myId: string | null | undefined) {
     // let a deleted course keep supplying a scorecard.
     setAllHoles((holesRes.data as Hole[] | null) ?? []);
     setLoading(false);
-  }, []);
+  }, [roundId]);
 
   const loadSavedCourses = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -110,6 +110,16 @@ export function useRoundCourse(myId: string | null | undefined) {
     );
   }, [myId]);
 
+  // Clear the card before refetching on a round switch — showing the last
+  // round's holes against a new round would be worse than showing none.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    setAllHoles([]);
+    setCourse(null);
+    setHolesInPlayState('all18');
+    setLoading(true);
+  }, [roundId]);
+
   useEffect(() => {
     loadRound();
   }, [loadRound]);
@@ -121,21 +131,21 @@ export function useRoundCourse(myId: string | null | undefined) {
   // Follow course changes made on another phone — the organizer picking a
   // course has to reach everyone already in the round.
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!isSupabaseConfigured || !supabase || !roundId) return;
     const client = supabase;
     const channel = client
-      .channel(`round-card:${ROUND_ID}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'round_holes', filter: `round_id=eq.${ROUND_ID}` }, () =>
+      .channel(`round-card:${roundId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'round_holes', filter: `round_id=eq.${roundId}` }, () =>
         loadRound(),
       )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rounds', filter: `id=eq.${ROUND_ID}` }, () =>
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rounds', filter: `id=eq.${roundId}` }, () =>
         loadRound(),
       )
       .subscribe();
     return () => {
       client.removeChannel(channel);
     };
-  }, [loadRound]);
+  }, [roundId, loadRound]);
 
   // The holes that actually count for this round's scoring and totals.
   const holes = useMemo(() => {
@@ -146,10 +156,10 @@ export function useRoundCourse(myId: string | null | undefined) {
 
   const setHolesInPlay = useCallback(async (value: HolesInPlay) => {
     setHolesInPlayState(value);
-    if (!isSupabaseConfigured || !supabase) return;
-    const { error } = await supabase.from('rounds').update({ holes_in_play: value }).eq('id', ROUND_ID);
+    if (!isSupabaseConfigured || !supabase || !roundId) return;
+    const { error } = await supabase.from('rounds').update({ holes_in_play: value }).eq('id', roundId);
     if (error) console.warn('setHolesInPlay failed:', error.message);
-  }, []);
+  }, [roundId]);
 
   // Writes a fetched course into the permanent cache. After this the course
   // costs zero API calls forever, which is the whole caching strategy.
@@ -203,7 +213,7 @@ export function useRoundCourse(myId: string | null | undefined) {
       setAllHoles(tee.holes);
       setCourse({ courseId, courseName: name, courseMeta: meta, teeName: tee.teeName, teeGender: tee.gender });
 
-      if (!isSupabaseConfigured || !supabase) return;
+      if (!isSupabaseConfigured || !supabase || !roundId) return;
       const { error: roundErr } = await supabase
         .from('rounds')
         .update({
@@ -213,16 +223,16 @@ export function useRoundCourse(myId: string | null | undefined) {
           tee_name: tee.teeName,
           tee_gender: tee.gender,
         })
-        .eq('id', ROUND_ID);
+        .eq('id', roundId);
       if (roundErr) console.warn('selectCourseTee (round) failed:', roundErr.message);
 
       // Replace the round's card wholesale — a different tee is a different
       // set of yardages, and leaving stale holes behind would mix two cards.
-      const { error: delErr } = await supabase.from('round_holes').delete().eq('round_id', ROUND_ID);
+      const { error: delErr } = await supabase.from('round_holes').delete().eq('round_id', roundId);
       if (delErr) console.warn('selectCourseTee (clear holes) failed:', delErr.message);
       const { error: insErr } = await supabase.from('round_holes').insert(
         tee.holes.map((h) => ({
-          round_id: ROUND_ID,
+          round_id: roundId,
           hole: h.hole,
           par: h.par,
           yards: h.yards,
@@ -232,7 +242,7 @@ export function useRoundCourse(myId: string | null | undefined) {
       if (insErr) console.warn('selectCourseTee (write holes) failed:', insErr.message);
       await loadRound();
     },
-    [loadRound],
+    [roundId, loadRound],
   );
 
   // Returns a message on failure, null on success. A star that silently does

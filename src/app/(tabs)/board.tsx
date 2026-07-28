@@ -4,14 +4,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
-import { ROUND_NAME } from '@/data/seed';
 import { netToParFor, thruFor, toParFor } from '@/lib/roundMath';
 import { colors, font, fmtToPar } from '@/theme';
 
 type Tab = 'group' | 'field';
 
 export default function LeaderboardScreen() {
-  const { myId, choose, clear, scores, live, connected, players, playersLoaded, holes } = useRound();
+  const { myId, choose, clear, scores, live, connected, players, playersLoaded, holes, activeRound } =
+    useRound();
   const [tab, setTab] = useState<Tab>('field');
   const amInRound = !myId || players.some((p) => p.id === myId);
 
@@ -62,7 +62,7 @@ export default function LeaderboardScreen() {
     <View style={styles.screen}>
       <View style={styles.headerRow}>
         <View style={styles.headerTop}>
-          <Text style={styles.headerLabel}>{ROUND_NAME}</Text>
+          <Text style={styles.headerLabel}>{activeRound?.name || 'Round'}</Text>
           <View style={styles.liveBadge}>
             <View style={[styles.liveDot, { backgroundColor: live && connected ? colors.accent : colors.mutedFaint }]} />
             <Text style={styles.liveText}>{live ? (connected ? 'LIVE' : 'CONNECTING') : 'LOCAL ONLY'}</Text>

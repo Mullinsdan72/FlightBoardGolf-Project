@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ROUND_ID } from '@/data/seed';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import {
   buildLedger,
@@ -32,23 +31,28 @@ const DEFAULTS: WolfState = {
 // Wolf's live state for the round. Settings and per-hole decisions are stored;
 // every figure of money is derived (src/lib/wolf.ts) so it can never drift from
 // the scores it came from.
-export function useWolf(playerIds: string[], holes: Hole[], scores: ScoreMap) {
+export function useWolf(
+  roundId: string | null | undefined,
+  playerIds: string[],
+  holes: Hole[],
+  scores: ScoreMap,
+) {
   const [state, setState] = useState<WolfState>(DEFAULTS);
   const [decisions, setDecisions] = useState<WolfDecision[]>([]);
   const [loaded, setLoaded] = useState(!isSupabaseConfigured);
 
   const load = useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!isSupabaseConfigured || !supabase || !roundId) return;
     const [gameRes, holesRes] = await Promise.all([
       supabase
         .from('wolf_games')
         .select('enabled, stake, lone_multiplier, player_order, reshuffle_each_round')
-        .eq('round_id', ROUND_ID)
+        .eq('round_id', roundId)
         .maybeSingle(),
       supabase
         .from('wolf_holes')
         .select('hole, wolf_player_id, partner_player_id')
-        .eq('round_id', ROUND_ID)
+        .eq('round_id', roundId)
         .order('hole'),
     ]);
     if (gameRes.data) {
@@ -69,7 +73,15 @@ export function useWolf(playerIds: string[], holes: Hole[], scores: ScoreMap) {
       })),
     );
     setLoaded(true);
-  }, []);
+  }, [roundId]);
+
+  // Wolf terms and decisions belong to one round; reset before refetching.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    setState(DEFAULTS);
+    setDecisions([]);
+    setLoaded(false);
+  }, [roundId]);
 
   useEffect(() => {
     load();
@@ -78,22 +90,22 @@ export function useWolf(playerIds: string[], holes: Hole[], scores: ScoreMap) {
   // Follow decisions made on someone else's phone — the wolf picks a partner on
   // their own device and the rest of the group needs to see it.
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!isSupabaseConfigured || !supabase || !roundId) return;
     const client = supabase;
     const channel = client
-      .channel(`wolf:${ROUND_ID}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wolf_holes', filter: `round_id=eq.${ROUND_ID}` }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wolf_games', filter: `round_id=eq.${ROUND_ID}` }, () => load())
+      .channel(`wolf:${roundId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wolf_holes', filter: `round_id=eq.${roundId}` }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wolf_games', filter: `round_id=eq.${roundId}` }, () => load())
       .subscribe();
     return () => {
       client.removeChannel(channel);
     };
-  }, [load]);
+  }, [roundId, load]);
 
   const persist = useCallback(async (patch: Partial<WolfState>) => {
     setState((prev) => ({ ...prev, ...patch }));
-    if (!isSupabaseConfigured || !supabase) return;
-    const row: Record<string, unknown> = { round_id: ROUND_ID };
+    if (!isSupabaseConfigured || !supabase || !roundId) return;
+    const row: Record<string, unknown> = { round_id: roundId };
     if (patch.enabled !== undefined) row.enabled = patch.enabled;
     if (patch.stake !== undefined) row.stake = patch.stake;
     if (patch.loneMultiplier !== undefined) row.lone_multiplier = patch.loneMultiplier;
@@ -101,7 +113,7 @@ export function useWolf(playerIds: string[], holes: Hole[], scores: ScoreMap) {
     if (patch.reshuffleEachRound !== undefined) row.reshuffle_each_round = patch.reshuffleEachRound;
     const { error } = await supabase.from('wolf_games').upsert(row, { onConflict: 'round_id' });
     if (error) console.warn('wolf settings save failed:', error.message);
-  }, []);
+  }, [roundId]);
 
   // The rotation only covers players actually in the round. Anyone added later
   // is appended rather than reshuffled in, so joining mid-round can't rewrite
@@ -133,22 +145,22 @@ export function useWolf(playerIds: string[], holes: Hole[], scores: ScoreMap) {
   const decide = useCallback(
     async (hole: number, wolfId: string, partnerId: string | null) => {
       setDecisions((prev) => [...prev.filter((d) => d.hole !== hole), { hole, wolfId, partnerId }]);
-      if (!isSupabaseConfigured || !supabase) return;
+      if (!isSupabaseConfigured || !supabase || !roundId) return;
       const { error } = await supabase.from('wolf_holes').upsert(
-        { round_id: ROUND_ID, hole, wolf_player_id: wolfId, partner_player_id: partnerId },
+        { round_id: roundId, hole, wolf_player_id: wolfId, partner_player_id: partnerId },
         { onConflict: 'round_id,hole' },
       );
       if (error) console.warn('wolf decision save failed:', error.message);
     },
-    [],
+    [roundId],
   );
 
   const undecide = useCallback(async (hole: number) => {
     setDecisions((prev) => prev.filter((d) => d.hole !== hole));
-    if (!isSupabaseConfigured || !supabase) return;
-    const { error } = await supabase.from('wolf_holes').delete().eq('round_id', ROUND_ID).eq('hole', hole);
+    if (!isSupabaseConfigured || !supabase || !roundId) return;
+    const { error } = await supabase.from('wolf_holes').delete().eq('round_id', roundId).eq('hole', hole);
     if (error) console.warn('wolf undo failed:', error.message);
-  }, []);
+  }, [roundId]);
 
   const shuffleOrder = useCallback(() => persist({ order: shuffled(order) }), [order, persist]);
 

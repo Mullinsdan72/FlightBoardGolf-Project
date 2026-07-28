@@ -8,6 +8,7 @@ import {
   Archivo_600SemiBold,
   Archivo_800ExtraBold,
 } from '@expo-google-fonts/archivo';
+import { RoundProvider } from '@/context/RoundContext';
 import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -25,9 +26,13 @@ export default function RootLayout() {
 
   if (!fontsLoaded) return null;
 
+  // The provider sits above the router, not inside the tabs, so /rounds can read
+  // and change the active round too.
   return (
     <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+      <RoundProvider>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+      </RoundProvider>
     </SafeAreaProvider>
   );
 }

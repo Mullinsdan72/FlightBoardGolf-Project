@@ -1,7 +1,8 @@
 import { Tabs } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RoundProvider } from '@/context/RoundContext';
+import { Redirect } from 'expo-router';
+import { useRound } from '@/context/RoundContext';
 import { colors, font } from '@/theme';
 
 const TAB_META: Record<string, { label: string; sub: string }> = {
@@ -42,17 +43,22 @@ function ModernistTabBar({ state, descriptors, navigation }: any) {
 }
 
 export default function TabLayout() {
+  const { activeRoundId, roundsLoaded } = useRound();
+
+  // Nothing to score against until a round exists, so send a first-time user
+  // (or anyone who just deleted their last round) to create one.
+  if (activeRoundId === undefined || !roundsLoaded) return null;
+  if (activeRoundId === null) return <Redirect href="/rounds" />;
+
   return (
-    <RoundProvider>
-      <Tabs tabBar={(props) => <ModernistTabBar {...props} />} screenOptions={{ headerShown: false }}>
+    <Tabs tabBar={(props) => <ModernistTabBar {...props} />} screenOptions={{ headerShown: false }}>
         <Tabs.Screen name="index" options={{ title: 'Score' }} />
         <Tabs.Screen name="board" options={{ title: 'Board' }} />
         <Tabs.Screen name="card" options={{ title: 'Card' }} />
         <Tabs.Screen name="players" options={{ title: 'Field' }} />
         <Tabs.Screen name="course" options={{ title: 'Course' }} />
-        <Tabs.Screen name="games" options={{ title: 'Games' }} />
-      </Tabs>
-    </RoundProvider>
+      <Tabs.Screen name="games" options={{ title: 'Games' }} />
+    </Tabs>
   );
 }
 

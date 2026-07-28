@@ -28,7 +28,7 @@ const HOLD_STEP = 8;
 const HOLD_INTERVAL_MS = 40;
 
 export default function ScorecardScreen() {
-  const { myId, choose, clear, scores, players, holes, course, amOrganizer } = useRound();
+  const { myId, choose, clear, scores, players, holes, course, amOrganizer, activeRoundId } = useRound();
 
   // Which player's card is on screen. Defaults to you, but any player in the
   // round can be viewed — reading a partner's card is normal at the turn.
@@ -68,7 +68,7 @@ export default function ScorecardScreen() {
   // Signing is only ever your own card, so this tracks the *viewed* player to
   // show their status truthfully while the hold-to-sign control stays gated to
   // your own (CLAUDE.md rules 2 and 8).
-  const { signedAt, sign, reopen } = useSignoff(shownId);
+  const { signedAt, sign, reopen } = useSignoff(activeRoundId, shownId);
   const [hold, setHold] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 

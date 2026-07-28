@@ -10,11 +10,22 @@ decision matters. `design/Build Guide.dc.html` is the phased build plan this pro
 
 ## Current state
 
-Built so far, as five tabs — **Score** (`src/app/(tabs)/index.tsx`), **Board**
+Rounds are created in the app (`src/app/rounds.tsx`). Everything keys off
+`useRound().activeRoundId` — **never a hardcoded round id.** `ROUND_ID` in
+`src/data/seed.ts` survives only as the no-backend fallback. Each hook takes the round id
+and resets its own state when it changes, so switching rounds can't leave one round's
+scores, roster, card or wolf ledger showing against another's; the score outbox is keyed
+per round for the same reason. Creating a round makes you its organizer and puts you in the
+field, which is why there's no seeded round in `schema.sql` any more — a round nobody
+created is what forced the "claim the organizer role" button to exist.
+
+Built so far, as six tabs — **Score** (`src/app/(tabs)/index.tsx`), **Board**
 (`src/app/(tabs)/board.tsx`), **Card** (`src/app/(tabs)/card.tsx`, the final scorecard and
-hold-to-sign), **Field** (`src/app/(tabs)/players.tsx`, the round's roster), and **Course**
-(`src/app/(tabs)/course.tsx`, search/favourites/tees/holes-in-play/manual card entry) — all
-wired to Supabase (Postgres + Realtime). No sign-in yet — each device picks which player in
+hold-to-sign), **Field** (`src/app/(tabs)/players.tsx`, the round's roster), **Course**
+(`src/app/(tabs)/course.tsx`, search/favourites/tees/holes-in-play/manual card entry) and
+**Games** (`src/app/(tabs)/games.tsx`, Wolf) — all wired to Supabase (Postgres + Realtime),
+plus `/rounds` outside the tabs, reached by tapping the round name on FIELD (the tab bar is
+full at six). No sign-in yet — each device picks which player in
 the round it is (`src/components/PlayerPicker.tsx`) as a stand-in until real phone-number
 auth is built. Teams and side games are not built yet — see `design/Build Guide.dc.html` for
 the intended phase order and don't jump ahead of it without discussing scope first.
@@ -30,7 +41,8 @@ nothing may assume 18 holes or par 72. `HOLES` in `src/data/seed.ts` is only the
 fallback for when Supabase isn't configured.
 
 **Every screen shares one live-data connection and one roster** via `RoundProvider`
-(`src/context/RoundContext.tsx`), mounted once at the tabs layout. Don't call
+(`src/context/RoundContext.tsx`), mounted once at the **root** layout — not the tabs layout,
+because `/rounds` sits outside the tabs and needs the same round list. Don't call
 `useLiveScores()` or `useRoundPlayers()` directly from a screen — go through `useRound()`
 instead. Two independent calls to `useLiveScores()` open two Supabase realtime channels with
 the identical name, which crashes the app the moment both screens are mounted (this actually
@@ -82,9 +94,11 @@ everywhere in this codebase, not just the screens they were first written for.
    and only appears for `amOrganizer`. The change *log* half isn't built.
    - A player signs only their own card. The organizer can reopen **any** card, which is
      what the rule actually says.
-   - `rounds.organizer_player_id` holds the role, claimed on the FIELD tab. With no sign-in
-     anyone can take it, so today it records who's running the round rather than restricting
-     anything — move it into RLS once accounts exist.
+   - `rounds.organizer_player_id` holds the role, set to whoever created the round. The
+     FIELD tab can still hand it over, which is also the escape hatch for the rounds that
+     predate Create Round. With no sign-in anyone can take it, so today it records who's
+     running the round rather than restricting anything — move it into RLS once accounts
+     exist.
    - Empty means nobody is organizer, not everybody. A card must not become unlockable just
      because the role is unclaimed.
 
@@ -95,8 +109,9 @@ everywhere in this codebase, not just the screens they were first written for.
   the screens fall back to local-only state — they should keep working either way.
 - `supabase/schema.sql` is the source of truth for the database shape; run it in the
   Supabase SQL editor after creating a project (safe to re-run — every statement is
-  idempotent). It seeds the same round/players the app expects (`src/data/seed.ts` — the
-  IDs must match).
+  idempotent). It seeds nothing: rounds and players are both created in the app, and a
+  seeded row nobody created is what caused the filler data that couldn't be deleted.
+  `supabase/reset.sql` wipes everything back to that empty state.
 - RLS policies in `supabase/schema.sql` currently allow full anon access. That's deliberate
   for now — there's no sign-in yet, so there's no identity to scope by — but it must be
   replaced with policies scoped to a real signed-in user before anyone but the developer

@@ -67,6 +67,14 @@ create table if not exists rounds (
   course_meta text not null default ''
 );
 
+-- Rounds are created in the app now, so ids are generated server-side and each
+-- round carries when it was made and the date it's played. Existing rows keep
+-- working: created_at backfills to now(), played_on stays null.
+alter table rounds alter column id set default gen_random_uuid();
+alter table rounds alter column course_name set default '';
+alter table rounds add column if not exists created_at timestamptz not null default now();
+alter table rounds add column if not exists played_on date;
+
 -- Which course/tee the round is played on, and which holes count.
 -- Added separately so databases created before the course screen pick them up.
 alter table rounds add column if not exists course_id text references courses(id);
@@ -207,11 +215,10 @@ begin
   end loop;
 end $$;
 
--- The round row itself must exist for anything to attach to, but it starts with
--- no course and no players. Sample data (the Gladstan card, four named golfers)
--- lives in seed.sql and is optional on purpose — it used to be in this file,
--- which meant re-running the schema silently resurrected players you had just
--- deleted.
-insert into rounds (id, name, course_name, course_meta, holes_in_play) values
-  ('11111111-1111-4111-8111-111111111111', 'Gladstan Grudge Match', '', '', 'all18')
-on conflict (id) do nothing;
+-- Nothing is inserted here. Rounds are created in the app now, and creating one
+-- makes you its organizer and puts you in the field — so a seeded round would be
+-- a round nobody made, which is exactly the gap that forced a "claim the
+-- organizer role" button to exist in the first place.
+--
+-- Sample data (the Gladstan card, four named golfers, one round) lives in
+-- seed.sql if you want something to click through.
