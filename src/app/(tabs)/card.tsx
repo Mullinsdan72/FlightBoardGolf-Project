@@ -277,6 +277,20 @@ export default function ScorecardScreen() {
               ))}
               <Text style={styles.blockTotLabel}>TOT</Text>
             </View>
+            {/* The tee actually being played, off the round's own card — the
+                same yardages the course setup wrote down, not the course's
+                longest tee. */}
+            {b.yardsTotal > 0 && (
+              <View style={styles.blockRow}>
+                <Text style={styles.ydsRowLabel}>YDS</Text>
+                {b.holes.map((h) => (
+                  <Text key={h.hole} style={styles.ydsCell}>
+                    {h.yards || '–'}
+                  </Text>
+                ))}
+                <Text style={styles.ydsTot}>{b.yardsTotal}</Text>
+              </View>
+            )}
             <View style={styles.blockRow}>
               <Text style={styles.parRowLabel}>PAR</Text>
               {b.holes.map((h) => (
@@ -307,12 +321,16 @@ export default function ScorecardScreen() {
             <Text style={styles.totalVal}>{complete ? gross : '–'}</Text>
             <Text style={styles.totalLabel}>Gross</Text>
           </View>
+          {/* Every figure here belongs to the card on screen, not to whoever is
+              holding the phone. These two read `me`/`myId` once, which showed
+              your own Stableford and your own handicap on a partner's card while
+              the gross and net beside them were theirs. */}
           <View style={styles.totalCell}>
             <Text style={styles.totalVal}>{complete ? net : '–'}</Text>
-            <Text style={styles.totalLabel}>Net ({me.handicap})</Text>
+            <Text style={styles.totalLabel}>Net ({who.handicap})</Text>
           </View>
           <View style={[styles.totalCell, { borderRightWidth: 0 }]}>
-            <Text style={styles.totalVal}>{complete ? stablefordFor(holes, scores, myId) : '–'}</Text>
+            <Text style={styles.totalVal}>{complete ? stablefordFor(holes, scores, cardId) : '–'}</Text>
             <Text style={styles.totalLabel}>Stableford</Text>
           </View>
         </View>
@@ -452,6 +470,10 @@ const styles = StyleSheet.create({
   blockHoleNum: { flex: 1, textAlign: 'center', fontFamily: font.heading, fontSize: 10, color: colors.muted },
   blockTotLabel: { width: 42, textAlign: 'center', fontFamily: font.heading, fontSize: 9.5, letterSpacing: 0.6, color: colors.muted },
   blockRow: { flexDirection: 'row', paddingVertical: 9, paddingLeft: 20, borderTopWidth: 1, borderColor: colors.divider },
+  // Yardage sits quieter than par — it's reference, not a number you read off.
+  ydsRowLabel: { width: 46, fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 0.8, color: colors.mutedFaint },
+  ydsCell: { flex: 1, textAlign: 'center', fontFamily: font.body, fontSize: 9.5, color: colors.mutedFaint },
+  ydsTot: { width: 42, textAlign: 'center', fontFamily: font.bodySemi, fontSize: 9.5, color: colors.mutedFaint },
   parRowLabel: { width: 46, fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 0.8, color: colors.muted },
   parCell: { flex: 1, textAlign: 'center', fontFamily: font.body, fontSize: 12, color: 'rgba(32,30,29,0.7)' },
   parTot: { width: 42, textAlign: 'center', fontFamily: font.bodySemi, fontSize: 12, color: 'rgba(32,30,29,0.7)' },

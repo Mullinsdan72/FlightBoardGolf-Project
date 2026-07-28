@@ -90,8 +90,15 @@ export function stablefordFor(holes: Hole[], scores: ScoreMap, playerId: string)
   return total;
 }
 
-export type CardHole = { hole: number; par: number; strokes: number | null };
-export type CardBlock = { label: string; holes: CardHole[]; parTotal: number; total: number | null };
+export type CardHole = { hole: number; par: number; yards: number; strokes: number | null };
+export type CardBlock = {
+  label: string;
+  holes: CardHole[];
+  parTotal: number;
+  /** Yardage of the tee actually being played, straight off the round's card. */
+  yardsTotal: number;
+  total: number | null;
+};
 
 // Splits the holes in play into the card's labelled blocks. A full 18 reads
 // OUT/IN; a nine-hole round is a single block, since there is no "in" half to
@@ -103,6 +110,7 @@ export function cardBlocksFor(holes: Hole[], scores: ScoreMap, playerId: string)
     const rows: CardHole[] = subset.map((h) => ({
       hole: h.hole,
       par: h.par,
+      yards: h.yards,
       strokes: scores[h.hole]?.[playerId] ?? null,
     }));
     const played = rows.filter((r) => r.strokes != null);
@@ -110,6 +118,7 @@ export function cardBlocksFor(holes: Hole[], scores: ScoreMap, playerId: string)
       label,
       holes: rows,
       parTotal: parTotalFor(subset),
+      yardsTotal: subset.reduce((a, h) => a + (h.yards ?? 0), 0),
       total: played.length === rows.length && rows.length > 0
         ? played.reduce((a, r) => a + (r.strokes ?? 0), 0)
         : null,
