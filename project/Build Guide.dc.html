@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-a3d13524-5781-4b6a-b5a5-88eacd84a504/styles.css">
+<script src="_ds/modernist-a3d13524-5781-4b6a-b5a5-88eacd84a504/_ds_bundle.js"></script>
+<script src="./doc-page.js"></script>
+<style>
+doc-page:not(:defined){visibility:hidden}
+a{color:#ec3013}
+a:hover{color:#ae1800}
+.keep{break-inside:avoid;orphans:3;widows:3}
+</style>
+</helmet>
+
+<doc-page margin="0.8in">
+
+<div slot="footer" style="display:flex;justify-content:space-between;align-items:baseline;padding-top:8px;border-top:2px solid var(--color-divider);font-family:var(--font-body)">
+<span style="font:600 9px/1 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:rgba(32,30,29,.5)">Flight Board · Build Guide</span>
+<span style="font:600 9px/1 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:rgba(32,30,29,.5)">Draft one</span>
+</div>
+
+<div style="font:800 10px/1 var(--font-heading);letter-spacing:.18em;color:var(--color-accent);margin-bottom:14px">BUILD GUIDE · FOR SOMEONE WHO HAS NEVER SHIPPED AN APP</div>
+
+<h1 style="font:800 42px/1.05 var(--font-heading);letter-spacing:-.03em;margin:0 0 16px">Flight Board, from design to a round played for real</h1>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">You have finished the part most first-time builders never finish. Every screen is decided, every edge case has an answer, and the copy is written. What remains is translation, and you are doing it with Claude Code — which means your real skill is not typing code, it is describing precisely what you already designed and knowing when what comes back is wrong.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 26px;max-width:44em">Read this once end to end before you start. Then work one phase at a time, in order. Each phase ends at something you can hold and show somebody, on purpose.</p>
+
+<hr style="height:2px;border:0;background:var(--color-divider);margin:0 0 26px">
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px">The honest shape of this</h2>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 16px;max-width:44em">Expect eight to twelve weeks of evenings to reach a round played by real golfers, and a few months beyond that for a 300-player tournament. The live-scoring part is easier than it sounds — that problem is solved by tools you will not have to write. The genuinely hard parts, in order: getting a build onto a physical iPhone, handling a phone that loses signal on the back nine, and the unglamorous question of state — who may change which number, and when.</p>
+
+<div class="keep" style="border-top:2px solid var(--color-text);border-bottom:2px solid var(--color-text);padding:16px 0;margin:0 0 26px">
+<div style="font:800 11px/1 var(--font-heading);letter-spacing:.14em;color:var(--color-accent);margin-bottom:10px">THE ONE RULE</div>
+<p style="font:400 15px/1.6 var(--font-body);margin:0;max-width:44em">Build the smallest thing a real person can use, then put it in front of a real person. The pull toward building the tournament layer first will be strong — you designed for 300 players. Resist it. One foursome at Gladstan will teach you more than three months of scaffolding.</p>
+</div>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px">What you will build it with</h2>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 16px;max-width:44em">Four pieces. You do not need to understand them deeply yet — you need to know what each is for, so you can tell whose fault a problem is.</p>
+
+<table style="width:100%;border-collapse:collapse;font-family:var(--font-body);margin:0 0 12px">
+<thead>
+<tr>
+<th style="text-align:left;font:800 10px/1 var(--font-heading);letter-spacing:.1em;text-transform:uppercase;color:rgba(32,30,29,.55);padding:8px 10px 8px 0;border-bottom:2px solid var(--color-divider);width:20%">Piece</th>
+<th style="text-align:left;font:800 10px/1 var(--font-heading);letter-spacing:.1em;text-transform:uppercase;color:rgba(32,30,29,.55);padding:8px 10px;border-bottom:2px solid var(--color-divider);width:18%">Job</th>
+<th style="text-align:left;font:800 10px/1 var(--font-heading);letter-spacing:.1em;text-transform:uppercase;color:rgba(32,30,29,.55);padding:8px 0 8px 10px;border-bottom:2px solid var(--color-divider)">Why this one</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="padding:11px 10px 11px 0;border-bottom:1px solid var(--color-divider);font:800 13px/1.3 var(--font-heading);vertical-align:top">Expo<br><span style="font:400 11px/1.35 var(--font-body);color:rgba(32,30,29,.55)">React Native</span></td>
+<td style="padding:11px 10px;border-bottom:1px solid var(--color-divider);font:400 13px/1.5 var(--font-body);vertical-align:top">The app</td>
+<td style="padding:11px 0 11px 10px;border-bottom:1px solid var(--color-divider);font:400 13px/1.5 var(--font-body);vertical-align:top">One codebase becomes both the iOS and Android app, written in the same language as your prototype. Expo removes most of the setup pain that makes native development miserable for a beginner, and lets you test on your own phone in seconds.</td>
+</tr>
+<tr>
+<td style="padding:11px 10px 11px 0;border-bottom:1px solid var(--color-divider);font:800 13px/1.3 var(--font-heading);vertical-align:top">Supabase</td>
+<td style="padding:11px 10px;border-bottom:1px solid var(--color-divider);font:400 13px/1.5 var(--font-body);vertical-align:top">The backend</td>
+<td style="padding:11px 0 11px 10px;border-bottom:1px solid var(--color-divider);font:400 13px/1.5 var(--font-body);vertical-align:top">Database, phone-number sign-in, and live updates in one service. The live part matters most: when one golfer posts a score, Supabase pushes it to every other phone and you write none of that machinery. Free until you have real usage.</td>
+</tr>
+<tr>
+<td style="padding:11px 10px 11px 0;border-bottom:1px solid var(--color-divider);font:800 13px/1.3 var(--font-heading);vertical-align:top">GolfCourseAPI</td>
+<td style="padding:11px 10px;border-bottom:1px solid var(--color-divider);font:400 13px/1.5 var(--font-body);vertical-align:top">Course data</td>
+<td style="padding:11px 0 11px 10px;border-bottom:1px solid var(--color-divider);font:400 13px/1.5 var(--font-body);vertical-align:top">Already chosen. Free tier, roughly 300 lookups a day, about 30,000 courses. Because you designed caching and favourites, a normal week costs a handful of calls.</td>
+</tr>
+<tr>
+<td style="padding:11px 10px 11px 0;border-bottom:1px solid var(--color-divider);font:800 13px/1.3 var(--font-heading);vertical-align:top">Claude Code</td>
+<td style="padding:11px 10px;border-bottom:1px solid var(--color-divider);font:400 13px/1.5 var(--font-body);vertical-align:top">How you write it</td>
+<td style="padding:11px 0 11px 10px;border-bottom:1px solid var(--color-divider);font:400 13px/1.5 var(--font-body);vertical-align:top">You describe a screen; it writes the code into your project and explains what it did. This is what makes the plan realistic for a first-timer. The section on working with it well is the most important page here.</td>
+</tr>
+</tbody>
+</table>
+
+<p style="font:400 13px/1.6 var(--font-body);color:rgba(32,30,29,.6);margin:0 0 26px;max-width:44em">You will also want a free GitHub account. It is where the code lives, and it is your undo button when something breaks badly.</p>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px;break-before:page">Phase 0 · Setup</h2>
+<p style="font:400 13px/1.5 var(--font-body);color:rgba(32,30,29,.55);margin:0 0 16px">About an hour. Do it in one sitting — it removes every later excuse.</p>
+
+<div style="border-top:2px solid var(--color-divider);margin:0 0 12px">
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">01</span><span style="font:400 14px/1.55 var(--font-body)"><strong style="font-family:var(--font-heading);font-weight:800">Open the accounts.</strong> GitHub, Supabase, GolfCourseAPI, Expo. All free. Put every password and key into one password-manager entry now.</span></div>
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">02</span><span style="font:400 14px/1.55 var(--font-body)"><strong style="font-family:var(--font-heading);font-weight:800">Install the tools.</strong> Node.js (the LTS version), Git, VS Code, and Claude Code. If an install fails, paste the error straight into Claude Code — diagnosing setup errors is one of the things it is genuinely excellent at.</span></div>
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">03</span><span style="font:400 14px/1.55 var(--font-body)"><strong style="font-family:var(--font-heading);font-weight:800">Install Expo Go on your phone.</strong> This is the app that runs your app while you build. Getting your own phone showing your own code is the moment this stops feeling theoretical.</span></div>
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">04</span><span style="font:400 14px/1.55 var(--font-body)"><strong style="font-family:var(--font-heading);font-weight:800">Create the project and put the design in it.</strong> Ask Claude Code to create a new Expo app with expo-router, initialise a Git repository, and push it to GitHub. Then export this project's prototype and drop it in a <code style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:rgba(32,30,29,.07);padding:1px 4px">design/</code> folder inside it, so Claude Code can read the actual screens rather than your description of them.</span></div>
+</div>
+
+<div class="keep" style="background:rgba(32,30,29,.05);padding:16px;margin:0 0 26px">
+<div style="font:800 10px/1 var(--font-heading);letter-spacing:.14em;color:var(--color-accent);margin-bottom:9px">DONE WHEN</div>
+<p style="font:400 14px/1.6 var(--font-body);margin:0">Your phone displays a blank screen with your own text on it, and changing that text on your laptop changes it on your phone within a second or two.</p>
+</div>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px">Phase 1 · One screen, no backend</h2>
+<p style="font:400 13px/1.5 var(--font-body);color:rgba(32,30,29,.55);margin:0 0 16px">A week or two of evenings.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">Build the hole-by-hole score entry screen and nothing else. No sign-in, no database, no other players — four hard-coded names and a score you can change with the plus and minus buttons. The numbers reset every time you reload, and that is fine.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">This is the right first screen because it is the one that has to be perfect. It is also where you learn what "state" means in practice: the score lives in memory, the buttons change it, the screen redraws. Everything else you build is a variation on that loop.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">Take it to a course and enter a fake round on the walk. In sunlight, with one hand, wearing a glove. You will find two or three things the design got wrong that no amount of desk review would have surfaced.</p>
+
+<div class="keep" style="background:rgba(32,30,29,.05);padding:16px;margin:0 0 26px">
+<div style="font:800 10px/1 var(--font-heading);letter-spacing:.14em;color:var(--color-accent);margin-bottom:9px">DONE WHEN</div>
+<p style="font:400 14px/1.6 var(--font-body);margin:0">You can walk eighteen holes tapping in your own score, and the running total is right at the end.</p>
+</div>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px;break-before:page">Phase 2 · Sign in, and scores that survive</h2>
+<p style="font:400 13px/1.5 var(--font-body);color:rgba(32,30,29,.55);margin:0 0 16px">Two to three weeks. The steepest part of the climb.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">Now connect Supabase. Phone-number sign-in with a texted code is a feature it provides directly — you configure it rather than build it. Then design the database: rounds, players, groups, holes, scores. Ask Claude Code to propose the tables from your prototype's screens, then read the proposal back and check it against reality. If it cannot express "one scorer entering for four people", it is wrong.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">Two things here will cost you real money if you get them wrong, so slow down for both. First, <strong style="font-family:var(--font-heading);font-weight:800">row-level security</strong> — the rules that stop a player editing somebody else's score. Get these right before anyone but you uses the app. Second, <strong style="font-family:var(--font-heading);font-weight:800">SMS costs</strong>: every sign-in code and every invite is a paid text. At 300 players that is a real number. Check it before you promise a tournament to anyone.</p>
+
+<div class="keep" style="background:rgba(32,30,29,.05);padding:16px;margin:0 0 26px">
+<div style="font:800 10px/1 var(--font-heading);letter-spacing:.14em;color:var(--color-accent);margin-bottom:9px">DONE WHEN</div>
+<p style="font:400 14px/1.6 var(--font-body);margin:0">You sign in with your real phone number, enter a score, force-quit the app, reopen it, and the score is still there.</p>
+</div>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px">Phase 3 · Live</h2>
+<p style="font:400 13px/1.5 var(--font-body);color:rgba(32,30,29,.55);margin:0 0 16px">A week. The most satisfying week.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">Turn on Supabase realtime so a score posted on one phone appears on another. Build the group leaderboard. Then the moment worth waiting for: put the app on two phones, hand one to somebody, and watch a number you type appear in their hand. That is the product. Everything else is around it.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">Add both scoring modes here, because they are the same data seen two ways — everyone entering their own, or one scorer entering for the group.</p>
+
+<div class="keep" style="background:rgba(32,30,29,.05);padding:16px;margin:0 0 26px">
+<div style="font:800 10px/1 var(--font-heading);letter-spacing:.14em;color:var(--color-accent);margin-bottom:9px">DONE WHEN</div>
+<p style="font:400 14px/1.6 var(--font-body);margin:0">Two phones, one round, and neither person ever presses refresh.</p>
+</div>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px">Phase 4 · A whole round, start to signature</h2>
+<p style="font:400 13px/1.5 var(--font-body);color:rgba(32,30,29,.55);margin:0 0 16px">Two to three weeks. This is the MVP.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">Fill in the path around the middle: create a round, search the course and auto-fill the holes (with the favourites-and-cache tiers from the design), add players by phone number or from contacts, send the invite link, and — the one that makes this replace paper — the final scorecard and digital sign-off.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">Two smaller pieces belong here because they are load-bearing rather than decorative. The <strong style="font-family:var(--font-heading);font-weight:800">bottom navigation</strong> — Score, Board, Games — is what the app actually is once a round is live; build it before you have three screens to move between, not after. And the <strong style="font-family:var(--font-heading);font-weight:800">first-run name screen</strong>, one step after the texted code, because every card, board and signature depends on a name existing.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">Offline belongs here too, and it is the hardest thing in the build. The rule to hold onto: the phone writes the score locally first and always succeeds, then syncs when it can. Never make a golfer wait on a network to record a four. Tell Claude Code that rule explicitly and in those words — it changes how the whole data layer gets written, and retrofitting it later is genuinely painful.</p>
+
+<div class="keep" style="background:rgba(32,30,29,.05);padding:16px;margin:0 0 26px">
+<div style="font:800 10px/1 var(--font-heading);letter-spacing:.14em;color:var(--color-accent);margin-bottom:9px">DONE WHEN</div>
+<p style="font:400 14px/1.6 var(--font-body);margin:0">A real foursome plays a real round at Gladstan on their own phones, in aeroplane mode for part of it, and all four sign their cards at the end. Buy them a drink and listen to everything they complain about.</p>
+</div>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px;break-before:page">Phase 5 · The tournament layer</h2>
+<p style="font:400 13px/1.5 var(--font-body);color:rgba(32,30,29,.55);margin:0 0 16px">Four to six weeks, and only after phase 4 has survived contact.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">Everything you designed and deferred: bulk roster import, groups at scale, shotgun and double-shotgun starting-hole assignment with A/B lettering, flights, the full-field board and tapping into any player's round, day-of no-shows and swaps, teams and the re-draw at the turn, the spectator web view, and the spreadsheet export.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">Side games deserve their own week inside this phase, because they are three different shapes of money wearing one label. <strong style="font-family:var(--font-heading);font-weight:800">Hole games</strong> (closest to the pin, longest drive) run on several holes at once and pay from a field-wide pot. <strong style="font-family:var(--font-heading);font-weight:800">Wolf</strong> settles person-to-person every hole, off a rotation that must be reshufflable. <strong style="font-family:var(--font-heading);font-weight:800">Team challenge</strong> settles team-to-team across three separate wagers. Build Wolf first — if your data model can express Wolf, it can express the other two.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">The settle-up screen is where these converge, and it is the one place a bug is embarrassing in front of people holding cash. It nets every game down to the fewest payments that clear the group, and it deliberately excludes the pot games. Test it with lopsided numbers before you trust it.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 14px;max-width:44em">One new technical problem appears at this size and it is worth naming now: three hundred phones all watching one leaderboard is a different load than four. Expect to batch updates rather than push every single score to every single phone the instant it lands. Do not solve it in advance — but do not be surprised by it either.</p>
+
+<div class="keep" style="background:rgba(32,30,29,.05);padding:16px;margin:0 0 26px">
+<div style="font:800 10px/1 var(--font-heading);letter-spacing:.14em;color:var(--color-accent);margin-bottom:9px">DONE WHEN</div>
+<p style="font:400 14px/1.6 var(--font-body);margin:0">A club scramble runs on it and the pro shop asks to use it again.</p>
+</div>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px">Phase 6 · The stores</h2>
+<p style="font:400 13px/1.5 var(--font-body);color:rgba(32,30,29,.55);margin:0 0 16px">Three to four weeks, mostly waiting.</p>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 16px;max-width:44em">Apple charges 99 dollars a year, Google 25 dollars once. You will need an icon, screenshots, a privacy policy, and a description. Two specific things to prepare for, given what this app does:</p>
+
+<div style="border-top:2px solid var(--color-divider);margin:0 0 26px">
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">The wager question</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">Both stores scrutinise anything that looks like gambling. Your design is already on the right side of this — Flight Board tracks who owes whom and moves no money — but say so plainly in the review notes, and keep it that way. The day you add payments you are in a different category of app with a different review.</p></div>
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">The contacts permission</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">Apple wants a clear reason. You already wrote it, in the picker sheet: names and mobile numbers only, only while the sheet is open, only for the ones you tap. Use that sentence.</p></div>
+</div>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px;break-before:page">Working with Claude Code</h2>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 16px;max-width:44em">This is the part that decides whether the plan works. Six habits, in rough order of how much they matter.</p>
+
+<div style="border-top:2px solid var(--color-divider);margin:0 0 20px">
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:14px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">01</span><span><span style="display:block;font:800 14px/1.3 var(--font-heading);margin-bottom:5px">Give it the design, not a description of the design</span><span style="display:block;font:400 13.5px/1.55 var(--font-body);max-width:44em">Keep the prototype in the repo and point at it: "build this screen, matching <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;background:rgba(32,30,29,.07);padding:1px 4px">design/</code> exactly." Every hour spent describing a layout in prose is an hour spent badly.</span></span></div>
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:14px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">02</span><span><span style="display:block;font:800 14px/1.3 var(--font-heading);margin-bottom:5px">One screen per conversation</span><span style="display:block;font:400 13.5px/1.55 var(--font-body);max-width:44em">"Build the app" produces something impressive that you do not understand and cannot fix. "Build the score entry screen, no backend yet, four hard-coded players" produces something you can read. Small requests, finished and tested, then the next one.</span></span></div>
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:14px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">03</span><span><span style="display:block;font:800 14px/1.3 var(--font-heading);margin-bottom:5px">Commit every time something works</span><span style="display:block;font:400 13.5px/1.55 var(--font-body);max-width:44em">Ask it to commit to Git after each working piece. When a change breaks everything — and it will — you can return to the last good state instead of unpicking it. This single habit will save you a weekend.</span></span></div>
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:14px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">04</span><span><span style="display:block;font:800 14px/1.3 var(--font-heading);margin-bottom:5px">Make it explain before it builds</span><span style="display:block;font:400 13.5px/1.55 var(--font-body);max-width:44em">"Before you write anything, tell me in plain English what you are about to do and why." You are the one who knows how golf works. If the plan says a score belongs to a group rather than a player, you will catch it in the plan and not three screens later.</span></span></div>
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:14px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">05</span><span><span style="display:block;font:800 14px/1.3 var(--font-heading);margin-bottom:5px">Paste errors whole</span><span style="display:block;font:400 13.5px/1.55 var(--font-body);max-width:44em">The entire red block, not your summary of it. Then say what you were doing when it appeared. Never apologise for not understanding an error — that is what the error is for.</span></span></div>
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:14px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">06</span><span><span style="display:block;font:800 14px/1.3 var(--font-heading);margin-bottom:5px">Write down the rules that must not drift</span><span style="display:block;font:400 13.5px/1.55 var(--font-body);max-width:44em">Keep a <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;background:rgba(32,30,29,.07);padding:1px 4px">CLAUDE.md</code> file at the top of the project holding the decisions that apply everywhere. Claude Code reads it every session, so you stop re-explaining and it stops forgetting. The current list is on the next page — paste it in as-is.</span></span></div>
+</div>
+
+<div class="keep" style="border-top:2px solid var(--color-text);border-bottom:2px solid var(--color-text);padding:16px 0;margin:0 0 26px">
+<div style="font:800 11px/1 var(--font-heading);letter-spacing:.14em;color:var(--color-accent);margin-bottom:10px">WHEN YOU ARE STUCK FOR MORE THAN AN HOUR</div>
+<p style="font:400 14.5px/1.6 var(--font-body);margin:0;max-width:44em">Stop and ask it to explain the problem to you as if you had never seen code, then ask for the two simplest options and their trade-offs. Beginners lose whole weekends to a problem that had an easy answer nobody offered them. You are allowed to ask for the easy answer.</p>
+</div>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px;break-before:page">The rules the design already decided</h2>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 16px;max-width:44em">These came out of building the prototype, and several were arrived at by getting them wrong first. Put them in <code style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:rgba(32,30,29,.07);padding:1px 4px">CLAUDE.md</code> verbatim.</p>
+
+<div style="border-top:2px solid var(--color-divider);margin:0 0 26px">
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">Scores write locally first, always</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">The write succeeds on the phone and syncs later. Never make a golfer wait on a network to record a four.</p></div>
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">A player edits only their own score</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">Unless they are the group's designated scorer. Any hole can be disputed for five minutes after it posts.</p></div>
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">One number, one source</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">Never store a figure that can be derived. The wolf for a hole is computed from the rotation, not saved against the hole; a player's card is derived from their standing; per-nine totals are summed from that nine. Every duplicate became a contradiction on screen.</p></div>
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">Never show a score for a hole that has not been played</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">Unplayed holes are blank. Withdrawals show WD. A round in progress has no net or Stableford total.</p></div>
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">Say what a number is</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">"Thru 6" only on tee times; on a shotgun it is "6 played". A pot is not a per-team exposure. Label each one for what it actually represents.</p></div>
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">The app never moves money</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">It tracks who owes whom and nets it to the fewest payments. Field-pot games settle at turn-in and stay out of the group tally.</p></div>
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">Rotations must be reshufflable</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">Wolf order, starting holes, team draws. Anything fixed hands the same player the same advantage every week at the same course.</p></div>
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">A signed card is locked</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">Reopening it takes the organizer. Every day-of change is logged with the name of whoever made it.</p></div>
+</div>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px">Where first-timers actually get stuck</h2>
+
+<div style="border-top:2px solid var(--color-divider);margin:0 0 26px">
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">Getting a real build onto an iPhone</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">Expo Go covers you for months. The day you need a proper installable build, Apple's certificates and provisioning profiles are a genuinely miserable afternoon. Set that afternoon aside and do not schedule it the day before a tournament.</p></div>
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">Two people scoring the same hole</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">A player enters a five while the group scorer enters a six. Decide the rule now, before it happens: last write wins, the scorer wins, or the app flags it and asks. Your design already has a five-minute dispute window — build to that.</p></div>
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">Testing alone</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">A multiplayer app cannot be tested by one person. Keep an old phone, or a simulator, or a patient friend permanently on call. From phase 3 onward you need at least two devices to know anything at all.</p></div>
+<div class="keep" style="padding:12px 0;border-bottom:1px solid var(--color-divider)"><div style="font:800 13px/1.3 var(--font-heading);margin-bottom:5px">Building the fun parts first</div><p style="font:400 13.5px/1.55 var(--font-body);margin:0;max-width:44em">Wolf and the side games are more fun to build than sign-in. Build sign-in.</p></div>
+</div>
+
+<h2 style="font:800 26px/1.1 var(--font-heading);letter-spacing:-.02em;margin:0 0 12px">Your next three hours</h2>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0 0 16px;max-width:44em">Not the next three months. Three hours, this week:</p>
+
+<div style="border-top:2px solid var(--color-divider);margin:0 0 20px">
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">01</span><span style="font:400 14px/1.55 var(--font-body)">Open the four accounts and install the four tools.</span></div>
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">02</span><span style="font:400 14px/1.55 var(--font-body)">Ask Claude Code for a new Expo project, pushed to GitHub, with the prototype in a <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;background:rgba(32,30,29,.07);padding:1px 4px">design/</code> folder and a <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;background:rgba(32,30,29,.07);padding:1px 4px">CLAUDE.md</code> holding the four rules above.</span></div>
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">03</span><span style="font:400 14px/1.55 var(--font-body)">Get your own name onto your own phone through Expo Go.</span></div>
+<div class="keep" style="display:grid;grid-template-columns:30px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--color-divider)"><span style="font:800 15px/1.4 var(--font-heading);color:var(--color-accent)">04</span><span style="font:400 14px/1.55 var(--font-body)">Ask for the score entry screen, hard-coded, no backend. Walk nine holes with it.</span></div>
+</div>
+
+<p style="font:400 15px/1.65 var(--font-body);margin:0;max-width:44em">That is phase 0 and most of phase 1, and it is genuinely a week of evenings rather than a season. Come back when the score entry screen is on your phone and we will work through what phase 2 asks of the database, screen by screen.</p>
+
+</doc-page>
+</x-dc>
+</body>
+</html>
