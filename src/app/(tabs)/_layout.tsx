@@ -7,6 +7,7 @@ import { colors, font } from '@/theme';
 const TAB_META: Record<string, { label: string; sub: string }> = {
   index: { label: 'SCORE', sub: 'hole-by-hole' },
   board: { label: 'BOARD', sub: 'live' },
+  card: { label: 'CARD', sub: 'final scorecard' },
 };
 
 function ModernistTabBar({ state, descriptors, navigation }: any) {
@@ -43,6 +44,7 @@ export default function TabLayout() {
       <Tabs tabBar={(props) => <ModernistTabBar {...props} />} screenOptions={{ headerShown: false }}>
         <Tabs.Screen name="index" options={{ title: 'Score' }} />
         <Tabs.Screen name="board" options={{ title: 'Board' }} />
+        <Tabs.Screen name="card" options={{ title: 'Card' }} />
       </Tabs>
     </RoundProvider>
   );

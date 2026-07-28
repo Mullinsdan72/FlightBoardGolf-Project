@@ -10,15 +10,19 @@ project's working rules.
 
 ## What's built so far
 
-- **Score entry** (`src/app/(tabs)/index.tsx`) — hole-by-hole, big +/− stepper, traditional
+Three tabs, once you've picked which seeded player you are:
+
+- **Score** (`src/app/(tabs)/index.tsx`) — hole-by-hole, big +/− stepper, traditional
   circle/square notation (birdie, eagle, bogey...), both "everyone scores" and "one scorer
   for the group" modes.
-- **Live leaderboard** (`src/app/(tabs)/board.tsx`) — My Group and Field tabs, live via
+- **Board** (`src/app/(tabs)/board.tsx`) — My Group and Field leaderboard tabs, live via
   Supabase Realtime.
+- **Card** (`src/app/(tabs)/card.tsx`) — the final scorecard (OUT/IN, gross/net/Stableford)
+  and a hold-to-sign gesture that locks it once all 18 holes are posted.
 
 No sign-in yet (see `src/components/PlayerPicker.tsx` for the stand-in), and no course
-setup, teams, side games, or sign-off — those come later, in the order `design/Build
-Guide.dc.html` lays out.
+setup, teams, or side games — those come later, in the order `design/Build Guide.dc.html`
+lays out.
 
 ## Running it
 

@@ -10,12 +10,31 @@ decision matters. `design/Build Guide.dc.html` is the phased build plan this pro
 
 ## Current state
 
-Built so far: **score entry** (`src/app/(tabs)/index.tsx`) and **live leaderboard**
-(`src/app/(tabs)/board.tsx`), both wired to Supabase. No sign-in yet — each device picks
-which of four seeded players it is (`src/components/PlayerPicker.tsx`) as a stand-in until
-real phone-number auth is built. Course setup, teams, side games, and sign-off are not built
-yet — see `design/Build Guide.dc.html` for the intended phase order and don't jump ahead of
-it without discussing scope first.
+Built so far, as three tabs — **Score** (`src/app/(tabs)/index.tsx`), **Board**
+(`src/app/(tabs)/board.tsx`), and **Card** (`src/app/(tabs)/card.tsx`, the final scorecard
+and hold-to-sign) — all wired to Supabase (Postgres + Realtime). No sign-in yet — each
+device picks which of four seeded players it is (`src/components/PlayerPicker.tsx`) as a
+stand-in until real phone-number auth is built. Course setup, teams, and side games are not
+built yet — see `design/Build Guide.dc.html` for the intended phase order and don't jump
+ahead of it without discussing scope first.
+
+**Score and Board share one live-data connection** via `RoundProvider`
+(`src/context/RoundContext.tsx`), mounted once at the tabs layout. Don't call
+`useLiveScores()` directly from a screen — go through `useRound()` instead. Two independent
+calls to `useLiveScores()` open two Supabase realtime channels with the identical name,
+which crashes the app the moment both screens are mounted (this actually happened and took
+a while to track down — Supabase's client rejects the second `postgres_changes`
+subscription on a topic that already has one).
+
+**Expo SDK is pinned to 54, not whatever `create-expo-app` scaffolds by default.** The
+`expo` package on npm is regularly ahead of what the published Expo Go app actually
+supports — check Expo Go's own Settings → App Info → "Supported SDK" on a real device
+before bumping this, not just the npm version number. Bumping the SDK without checking that
+first breaks the app on every physical phone still on the older Expo Go build, with a
+misleading "requires a newer version of Expo Go" error that looks like the user's fault. If
+package versions ever get out of sync, `node_modules/expo/bundledNativeModules.json` (after
+installing the target `expo` version) has the exact compatible version of every other
+expo-*/react-native-* package — hand-align to that rather than guessing.
 
 ## Rules that must not drift
 
@@ -38,7 +57,9 @@ everywhere in this codebase, not just the screens they were first written for.
 7. **Rotations must be reshufflable.** Anything fixed (wolf order, starting holes, team
    draws) hands the same advantage to the same person every time, at the same course.
 8. **A signed card is locked.** Reopening it takes the organizer, and every day-of change is
-   logged with the name of whoever made it. (Not yet built — sign-off is a later phase.)
+   logged with the name of whoever made it. Enforced today by `signoffs` (one row = locked,
+   checked in the Score tab via `useSignoff`) — the "takes the organizer to reopen" and
+   "day-of change log" halves aren't built yet, since there's no organizer role at all.
 
 ## Working notes
 
@@ -46,8 +67,9 @@ everywhere in this codebase, not just the screens they were first written for.
   see `.env.example`). Until they're set, `src/lib/supabase.ts` exports `supabase: null` and
   the screens fall back to local-only state — they should keep working either way.
 - `supabase/schema.sql` is the source of truth for the database shape; run it in the
-  Supabase SQL editor after creating a project. It seeds the same round/players the app
-  expects (`src/data/seed.ts` — the IDs must match).
+  Supabase SQL editor after creating a project (safe to re-run — every statement is
+  idempotent). It seeds the same round/players the app expects (`src/data/seed.ts` — the
+  IDs must match).
 - RLS policies in `supabase/schema.sql` currently allow full anon access. That's deliberate
   for now — there's no sign-in yet, so there's no identity to scope by — but it must be
   replaced with policies scoped to a real signed-in user before anyone but the developer

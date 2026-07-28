@@ -5,7 +5,8 @@ import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
 import { HOLES, PLAYERS, ROUND_NAME } from '@/data/seed';
 import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
-import { parFor, thruFor, toParFor } from '@/lib/roundMath';
+import { useSignoff } from '@/hooks/useSignoff';
+import { thruFor, toParFor } from '@/lib/roundMath';
 import { colors, font, fmtToPar, scoreName } from '@/theme';
 
 type Mode = 'self' | 'scorer';
@@ -13,6 +14,7 @@ type Mode = 'self' | 'scorer';
 export default function ScoreEntryScreen() {
   const { myId, choose } = usePlayerIdentity();
   const { scores, setScores, postScore, live, connected } = useRound();
+  const { signedAt } = useSignoff(myId);
 
   const [hole, setHole] = useState(1);
   const [mode, setMode] = useState<Mode>('self');
@@ -30,8 +32,23 @@ export default function ScoreEntryScreen() {
     }
   }, [scores, myId]);
 
-  if (myId === undefined) return <View style={styles.screen} />;
+  if (myId === undefined || signedAt === undefined) return <View style={styles.screen} />;
   if (!myId) return <PlayerPicker onChoose={choose} />;
+
+  if (signedAt) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.lockedWrap}>
+          <Text style={styles.headerLabel}>{ROUND_NAME} · Group 12</Text>
+          <Text style={styles.lockedTitle}>Your card is signed and locked</Text>
+          <Text style={styles.lockedNote}>
+            Signed {new Date(signedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Reopening it
+            needs the organizer — check the Card tab for your final scorecard.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   const holeInfo = HOLES[hole - 1];
   const par = holeInfo.par;
@@ -203,6 +220,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   headerLabel: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase', color: colors.muted },
+  lockedWrap: { paddingTop: 58, paddingHorizontal: 20 },
+  lockedTitle: { fontFamily: font.heading, fontSize: 24, color: colors.accent, marginTop: 16 },
+  lockedNote: { fontFamily: font.body, fontSize: 13, lineHeight: 20, color: colors.muted, marginTop: 10 },
   offlineBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   offlineDot: { width: 7, height: 7, backgroundColor: colors.accent },
   offlineText: { fontFamily: font.heading, fontSize: 9.5, letterSpacing: 1.2, color: colors.accent },

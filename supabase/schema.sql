@@ -49,11 +49,22 @@ create table if not exists scores (
   unique (round_id, hole, player_id)
 );
 
+-- Presence of a row = that player's card is signed and locked (CLAUDE.md
+-- rule 8). Nothing else is stored here — gross/net/Stableford totals are
+-- always recomputed from `scores`, never saved, so they can't drift.
+create table if not exists signoffs (
+  round_id uuid not null references rounds(id) on delete cascade,
+  player_id uuid not null references players(id) on delete cascade,
+  signed_at timestamptz not null default now(),
+  primary key (round_id, player_id)
+);
+
 alter table players enable row level security;
 alter table rounds enable row level security;
 alter table round_holes enable row level security;
 alter table round_players enable row level security;
 alter table scores enable row level security;
+alter table signoffs enable row level security;
 
 drop policy if exists "anon full access" on players;
 create policy "anon full access" on players for all using (true) with check (true);
@@ -65,6 +76,8 @@ drop policy if exists "anon full access" on round_players;
 create policy "anon full access" on round_players for all using (true) with check (true);
 drop policy if exists "anon full access" on scores;
 create policy "anon full access" on scores for all using (true) with check (true);
+drop policy if exists "anon full access" on signoffs;
+create policy "anon full access" on signoffs for all using (true) with check (true);
 
 -- Push every score change to every subscribed phone.
 alter publication supabase_realtime add table scores;
