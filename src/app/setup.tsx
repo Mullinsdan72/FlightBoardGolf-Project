@@ -27,6 +27,7 @@ import {
   stepAfter,
   type SetupStep,
 } from '@/lib/invite';
+import { Wordmark } from '@/components/Wordmark';
 import { colors, font } from '@/theme';
 
 type Invitee = { name: string; phone: string | null };
@@ -168,7 +169,8 @@ export default function SetupScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.kicker}>{activeRound?.name || 'New round'}</Text>
+        <Wordmark />
+        <Text style={[styles.kicker, { marginTop: 14 }]}>{activeRound?.name || 'New round'}</Text>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Set up the round</Text>
           <Pressable onPress={goBack} style={styles.doneBtn} hitSlop={8}>

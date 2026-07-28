@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
 import { cleanName } from '@/lib/invite';
+import { Wordmark } from '@/components/Wordmark';
 import { colors, font } from '@/theme';
 
 // Where an invite link lands: flightboard://join?round=<id>
@@ -57,7 +58,8 @@ export default function JoinScreen() {
     return (
       <View style={styles.screen}>
         <View style={styles.header}>
-          <Text style={styles.kicker}>Invite</Text>
+          <Wordmark />
+          <Text style={[styles.kicker, { marginTop: 14 }]}>Invite</Text>
           <Text style={styles.title}>That link is missing a round</Text>
         </View>
         <Text style={styles.note}>
@@ -76,7 +78,8 @@ export default function JoinScreen() {
     return (
       <View style={styles.screen}>
         <View style={styles.header}>
-          <Text style={styles.kicker}>Invite</Text>
+          <Wordmark />
+          <Text style={[styles.kicker, { marginTop: 14 }]}>Invite</Text>
           <Text style={styles.title}>Finding the round…</Text>
         </View>
       </View>
@@ -87,7 +90,8 @@ export default function JoinScreen() {
     return (
       <View style={styles.screen}>
         <View style={styles.header}>
-          <Text style={styles.kicker}>Invite</Text>
+          <Wordmark />
+          <Text style={[styles.kicker, { marginTop: 14 }]}>Invite</Text>
           <Text style={styles.title}>That round isn't here</Text>
         </View>
         <Text style={styles.note}>
@@ -107,7 +111,8 @@ export default function JoinScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.kicker}>You're invited to</Text>
+        <Wordmark />
+        <Text style={[styles.kicker, { marginTop: 14 }]}>You're invited to</Text>
         <Text style={styles.title}>{target.name || 'a round'}</Text>
         <Text style={styles.sub}>
           {[target.playedOn, target.courseName].filter(Boolean).join(' · ') || 'Course to be confirmed'}
