@@ -29,7 +29,19 @@ const HOLD_INTERVAL_MS = 40;
 
 export default function ScorecardScreen() {
   const { myId, choose, clear, scores, players, holes, course } = useRound();
-  const { signedAt, sign } = useSignoff(myId);
+
+  // Which player's card is on screen. Defaults to you, but any player in the
+  // round can be viewed — reading a partner's card is normal at the turn.
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+
+  const shownId = viewingId ?? myId ?? null;
+  const isOwnCard = !!myId && shownId === myId;
+
+  // Signing is only ever your own card, so this tracks the *viewed* player to
+  // show their status truthfully while the hold-to-sign control stays gated to
+  // your own (CLAUDE.md rules 2 and 8).
+  const { signedAt, sign } = useSignoff(shownId);
   const [hold, setHold] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -38,6 +50,7 @@ export default function ScorecardScreen() {
   }, []);
 
   const me = myId ? players.find((p) => p.id === myId) : undefined;
+  const viewed = shownId ? players.find((p) => p.id === shownId) : undefined;
 
   // If this device's chosen player was removed from the round elsewhere,
   // fall back to the picker rather than crash on a missing player.
@@ -45,19 +58,36 @@ export default function ScorecardScreen() {
     if (myId && players.length && !me) clear();
   }, [myId, players, me]);
 
+  // Likewise if the player being viewed leaves the round: snap back to your own
+  // card instead of rendering a card for someone who isn't in it.
+  useEffect(() => {
+    if (viewingId && players.length && !players.some((p) => p.id === viewingId)) setViewingId(null);
+  }, [viewingId, players]);
+
+  // Reset the hold when switching cards, so a part-filled bar can't carry over
+  // from one player to another.
+  useEffect(() => {
+    if (timer.current) clearInterval(timer.current);
+    setHold(0);
+  }, [shownId]);
+
   if (myId === undefined || signedAt === undefined) return <View style={styles.screen} />;
   if (!myId || !me) return <PlayerPicker players={players} onChoose={choose} />;
 
-  const thru = thruFor(holes, scores, myId);
+  const who = viewed ?? me;
+  const cardId = who.id;
+
+  const thru = thruFor(holes, scores, cardId);
   const complete = holes.length > 0 && thru === holes.length;
   const parTotal = parTotalFor(holes);
-  const gross = grossFor(holes, scores, myId);
-  const net = gross - strokesReceivedFor(holes, scores, myId, me.handicap);
-  const blocks = cardBlocksFor(holes, scores, myId);
+  const gross = grossFor(holes, scores, cardId);
+  const net = gross - strokesReceivedFor(holes, scores, cardId, who.handicap);
+  const blocks = cardBlocksFor(holes, scores, cardId);
   const signed = !!signedAt;
 
   const holdStart = () => {
-    if (signed || !complete) return;
+    // Never sign for somebody else, whatever the UI happens to be showing.
+    if (!isOwnCard || signed || !complete) return;
     if (timer.current) clearInterval(timer.current);
     timer.current = setInterval(() => {
       setHold((prev) => {
@@ -83,7 +113,19 @@ export default function ScorecardScreen() {
           {[course?.courseName, course?.courseMeta].filter(Boolean).join(' · ') || 'No course picked'}
         </Text>
         <View style={styles.headerRow}>
-          <Text style={styles.name}>{me.name}</Text>
+          <Pressable
+            onPress={() => setSwitcherOpen((v) => !v)}
+            style={styles.nameBtn}
+            hitSlop={8}
+            disabled={players.length < 2}
+          >
+            <Text style={styles.name}>{who.name}</Text>
+            {players.length > 1 && (
+              <Text style={styles.nameHint}>
+                {isOwnCard ? 'YOUR CARD' : 'VIEWING'} · TAP TO SWITCH {switcherOpen ? '▲' : '▼'}
+              </Text>
+            )}
+          </Pressable>
           {complete ? (
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={styles.grossHero}>{gross}</Text>
@@ -96,6 +138,33 @@ export default function ScorecardScreen() {
           )}
         </View>
       </View>
+
+      {switcherOpen && (
+        <View style={styles.switcher}>
+          {players.map((p) => {
+            const on = p.id === cardId;
+            return (
+              <Pressable
+                key={p.id}
+                onPress={() => {
+                  setViewingId(p.id === myId ? null : p.id);
+                  setSwitcherOpen(false);
+                }}
+                style={[styles.switchRow, on && styles.switchRowOn]}
+              >
+                <View style={[styles.switchDot, { backgroundColor: on ? colors.accent : 'transparent' }]} />
+                <Text style={styles.switchName}>
+                  {p.name}
+                  {p.id === myId ? ' (you)' : ''}
+                </Text>
+                <Text style={styles.switchMeta}>
+                  HCP {p.handicap} · {thruFor(holes, scores, p.id)} played
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
 
       <ScrollView style={styles.scroll}>
         {blocks.map((b) => (
@@ -180,10 +249,15 @@ export default function ScorecardScreen() {
             <>
               <Text style={styles.signedTitle}>Card signed and locked</Text>
               <Text style={styles.signedNote}>
-                {me.name} · {new Date(signedAt!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · posted to{' '}
+                {who.name} · {new Date(signedAt!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · posted to{' '}
                 {course?.courseName || 'this round'}.
               </Text>
             </>
+          ) : !isOwnCard ? (
+            <Text style={styles.signNote}>
+              {who.name} hasn't signed yet. Only they can sign their own card — this is their round to look at, not to
+              confirm.
+            </Text>
           ) : complete ? (
             <Text style={styles.signNote}>By signing you confirm every number above. This is the paper card — once it's in, it's in.</Text>
           ) : holes.length ? (
@@ -198,7 +272,12 @@ export default function ScorecardScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        {signed ? (
+        {!isOwnCard ? (
+          <Pressable style={styles.footerBtnDark} onPress={() => setViewingId(null)}>
+            <Text style={styles.footerBtnDarkLabel}>BACK TO MY CARD</Text>
+            <Text style={styles.footerBtnDarkArrow}>→</Text>
+          </Pressable>
+        ) : signed ? (
           <Pressable style={styles.footerBtnDark} onPress={() => router.push('/(tabs)/board')}>
             <Text style={styles.footerBtnDarkLabel}>BACK TO THE LEADERBOARD</Text>
             <Text style={styles.footerBtnDarkArrow}>→</Text>
@@ -230,6 +309,28 @@ const styles = StyleSheet.create({
   headerLabel: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase', color: colors.muted },
   headerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 8 },
   name: { fontFamily: font.heading, fontSize: 28, letterSpacing: -0.6, color: colors.text },
+  nameBtn: { flex: 1 },
+  nameHint: {
+    fontFamily: font.heading,
+    fontSize: 9,
+    letterSpacing: 1.1,
+    color: colors.accent,
+    marginTop: 6,
+  },
+  switcher: { borderTopWidth: 2, borderColor: colors.divider },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderColor: colors.divider,
+  },
+  switchRowOn: { backgroundColor: 'rgba(236,48,19,0.06)' },
+  switchDot: { width: 9, height: 9 },
+  switchName: { flex: 1, fontFamily: font.heading, fontSize: 15, color: colors.text },
+  switchMeta: { fontFamily: font.body, fontSize: 11, color: colors.muted },
   grossHero: { fontFamily: font.heading, fontSize: 34, color: colors.text, textAlign: 'right' },
   toParHero: { fontFamily: font.heading, fontSize: 11, color: colors.accent, marginTop: 5, textAlign: 'right' },
   progressNote: { fontFamily: font.bodySemi, fontSize: 12, color: colors.muted },
