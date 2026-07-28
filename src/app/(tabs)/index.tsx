@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
+import { useRound } from '@/context/RoundContext';
 import { HOLES, PLAYERS, ROUND_NAME } from '@/data/seed';
-import { useLiveScores } from '@/hooks/useLiveScores';
 import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
 import { parFor, thruFor, toParFor } from '@/lib/roundMath';
 import { colors, font, fmtToPar, scoreName } from '@/theme';
@@ -12,7 +12,7 @@ type Mode = 'self' | 'scorer';
 
 export default function ScoreEntryScreen() {
   const { myId, choose } = usePlayerIdentity();
-  const { scores, setScores, postScore, live, connected } = useLiveScores();
+  const { scores, setScores, postScore, live, connected } = useRound();
 
   const [hole, setHole] = useState(1);
   const [mode, setMode] = useState<Mode>('self');

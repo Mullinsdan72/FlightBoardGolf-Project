@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { RoundProvider } from '@/context/RoundContext';
 import { colors, font } from '@/theme';
 
 const TAB_META: Record<string, { label: string; sub: string }> = {
@@ -38,10 +39,12 @@ function ModernistTabBar({ state, descriptors, navigation }: any) {
 
 export default function TabLayout() {
   return (
-    <Tabs tabBar={(props) => <ModernistTabBar {...props} />} screenOptions={{ headerShown: false }}>
-      <Tabs.Screen name="index" options={{ title: 'Score' }} />
-      <Tabs.Screen name="board" options={{ title: 'Board' }} />
-    </Tabs>
+    <RoundProvider>
+      <Tabs tabBar={(props) => <ModernistTabBar {...props} />} screenOptions={{ headerShown: false }}>
+        <Tabs.Screen name="index" options={{ title: 'Score' }} />
+        <Tabs.Screen name="board" options={{ title: 'Board' }} />
+      </Tabs>
+    </RoundProvider>
   );
 }
 

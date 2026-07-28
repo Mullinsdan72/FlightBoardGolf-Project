@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
+import { useRound } from '@/context/RoundContext';
 import { FIELD_DEMO_ROWS, HOLES, PLAYERS, ROUND_NAME } from '@/data/seed';
-import { useLiveScores } from '@/hooks/useLiveScores';
 import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
 import { thruFor, toParFor } from '@/lib/roundMath';
 import { colors, font, fmtToPar } from '@/theme';
@@ -12,7 +12,7 @@ type Tab = 'group' | 'field';
 
 export default function LeaderboardScreen() {
   const { myId, choose } = usePlayerIdentity();
-  const { scores, live, connected } = useLiveScores();
+  const { scores, live, connected } = useRound();
   const [tab, setTab] = useState<Tab>('field');
 
   if (myId === undefined) return <View style={styles.screen} />;
