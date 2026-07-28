@@ -154,6 +154,27 @@ export default function TeamsScreen() {
           which changes score entry rather than teams.
         </Text>
 
+        <Text style={styles.sectionLabel}>Gross or net</Text>
+        <View style={styles.sizeRow}>
+          {(['gross', 'net'] as const).map((mode) => (
+            <Pressable
+              key={mode}
+              onPress={() => amOrganizer && teamSetSettings({ handicapMode: mode })}
+              disabled={!amOrganizer}
+              style={[styles.modeBtn, teams.handicapMode === mode && styles.sizeBtnOn]}
+            >
+              <Text style={[styles.modeLabel, teams.handicapMode === mode && styles.sizeLabelOn]}>
+                {mode.toUpperCase()}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.note}>
+          {teams.handicapMode === 'net'
+            ? 'Each player gets their handicap strokes hole by hole, off the stroke index — the same allocation as the net figure on their own card. In a best ball the low net ball wins the hole, which is not always the low gross one.'
+            : 'Strokes as played, handicaps ignored. Fine when everyone plays off much the same mark; a mixed group usually wants net.'}
+        </Text>
+
         <Text style={styles.sectionLabel}>Team size</Text>
         <View style={styles.sizeRow}>
           {SIZES.map((s) => (
@@ -364,7 +385,9 @@ export default function TeamsScreen() {
 
         {teams.enabled && (
           <>
-            <Text style={styles.sectionLabel}>Standings · {formatName(teams.format)}</Text>
+            <Text style={styles.sectionLabel}>
+              Standings · {formatName(teams.format)} · {teams.handicapMode === 'net' ? 'net' : 'gross'}
+            </Text>
             {teamStandings.map((s, i) => (
               <View key={s.teamIndex} style={styles.standingRow}>
                 <Text style={styles.pos}>{s.toPar == null ? '–' : i + 1}</Text>
@@ -392,7 +415,9 @@ export default function TeamsScreen() {
               number would drop the moment the last player posts. To-par is measured over the holes that counted, so a
               team two holes behind isn't flattered by the ones it hasn't played.
               {teams.format === 'total' ? " A team total is measured against par for every card, not one." : ''}
-              {' '}Handicaps aren't applied yet — these are gross figures.
+              {teams.handicapMode === 'net'
+                ? ' Net: each score has that player’s handicap strokes for the hole taken off before the team’s is worked out.'
+                : ' Gross: handicaps are not applied.'}
             </Text>
           </>
         )}
@@ -457,6 +482,8 @@ const styles = StyleSheet.create({
   optionNote: { fontFamily: font.body, fontSize: 11, lineHeight: 16, color: colors.muted, marginTop: 5 },
   sizeRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 10 },
   sizeBtn: { flex: 1, borderWidth: 2, borderColor: colors.divider, paddingVertical: 14, alignItems: 'center' },
+  modeBtn: { flex: 1, borderWidth: 2, borderColor: colors.divider, paddingVertical: 15, alignItems: 'center' },
+  modeLabel: { fontFamily: font.heading, fontSize: 13, letterSpacing: 0.8, color: colors.text },
   sizeBtnOn: { borderColor: colors.accent, backgroundColor: colors.accent },
   sizeLabel: { fontFamily: font.heading, fontSize: 18, color: colors.text },
   sizeLabelOn: { color: '#fff' },

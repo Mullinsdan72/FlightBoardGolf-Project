@@ -170,7 +170,7 @@ export default function PlayersScreen() {
             <Text style={styles.teamsLabel}>TEAMS</Text>
             <Text style={styles.teamsNote}>
               {teams.enabled
-                ? `${formatName(teams.format)} · ${teams.count} team${teams.count === 1 ? '' : 's'} of ${teams.size}`
+                ? `${formatName(teams.format)} ${teams.handicapMode} · ${teams.count} team${teams.count === 1 ? '' : 's'} of ${teams.size}`
                 : 'Best ball or team total, drawn by handicap'}
             </Text>
           </View>

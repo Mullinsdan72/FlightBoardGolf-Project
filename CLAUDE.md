@@ -147,7 +147,7 @@ everywhere in this codebase, not just the screens they were first written for.
   even on a 9-hole round, where convention is to halve it. Fine for gross play and for the
   net figures shown today; revisit if net becomes a competitive format.
 - `npm run check` runs the typecheck plus all four verification scripts (course parsing,
-  score outbox, wolf money, teams) — 132 assertions. Worth running before pushing anything
+  score outbox, wolf money, teams) — 158 assertions. Worth running before pushing anything
   that touches scoring, course data, teams, or money.
 
 ## Who may change what
@@ -191,7 +191,7 @@ design's own worked figures. Change the maths there and run it.
 
 ## Teams
 
-`src/lib/teams.ts` is pure and covered by `npm run check:teams` — 66 assertions. `/teams`
+`src/lib/teams.ts` is pure and covered by `npm run check:teams` — 92 assertions. `/teams`
 (`src/app/teams.tsx`) is organizer-only to edit and read-only to everyone else, same as Wolf
 setup.
 
@@ -216,8 +216,19 @@ setup.
 - Balance and variety genuinely conflict in a small group — four players have three possible
   pairings and only one is fair. The screen says so rather than quietly handing out a lopsided
   re-draw.
-- Handicaps are **not** applied to team scoring yet; the figures are gross. Net best ball is
-  the obvious next step and is the format most mixed-handicap groups actually play.
+- **Gross or net is a setting** (`team_games.handicap_mode`), and gross is the zero-strokes
+  case of the same code path rather than a separate branch. The allocation comes from
+  `strokesOnHole` in `roundMath.ts` — the one definition of the rule — so a player's net in
+  the team's best ball always matches the net on their own card.
+- **In a net best ball the low net ball wins the hole, not the low gross one.** Taking the
+  low gross and deducting a stroke afterwards credits the wrong player's shot; there's an
+  assertion for exactly that.
+- `roundMath.ts` imports `ScoreMap` from `@/lib/scoreOutbox`, not from `@/hooks/useLiveScores`
+  which merely re-exports it. A pure maths module must not pull React and Supabase in behind
+  a type import — it breaks the isolated builds the check scripts do.
+- Handicap **allowance** is full, not the 85–90% many fourball competitions use, and there's
+  no "off the low man" option. Full strokes off the stroke index is what the design specifies
+  and what the rest of the app already does.
 - `team_members`' primary key is `(round_id, segment, player_id)` — a player is on at most one
   team per segment. Two teams for one player would make a best ball count their score twice,
   so the database refuses it rather than trusting every screen to.

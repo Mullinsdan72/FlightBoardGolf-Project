@@ -1,3 +1,4 @@
+import { strokesOnHole } from '@/lib/roundMath';
 import { shuffled } from '@/lib/wolf';
 import type { Hole } from '@/data/seed';
 
@@ -13,6 +14,9 @@ import type { Hole } from '@/data/seed';
 // recomputed from those plus posted scores (CLAUDE.md rule 3).
 
 export type TeamFormat = 'bestball' | 'total';
+
+/** Gross plays the ball as it lies. Net applies each player's handicap strokes. */
+export type HandicapMode = 'gross' | 'net';
 
 export type DraftPlayer = { id: string; handicap: number };
 
@@ -216,6 +220,30 @@ export function moveToTeam(teams: string[][], playerId: string, teamIndex: numbe
 
 export type ScoreLookup = (hole: number, playerId: string) => number | null;
 
+/** Handicap strokes a player gets on a hole. Gross play is the zero case. */
+export type StrokesLookup = (hole: number, playerId: string) => number;
+
+export const NO_STROKES: StrokesLookup = () => 0;
+
+/**
+ * Strokes each player receives per hole, off the stroke index.
+ *
+ * Uses `strokesOnHole` from roundMath rather than repeating the allocation rule,
+ * so a player's net here always matches the net on their own card.
+ *
+ * Known simplification, shared with the rest of the app: the full course
+ * handicap is used even on a nine-hole round, where convention is to halve it.
+ */
+export function strokesLookupFor(holes: Hole[], players: DraftPlayer[]): StrokesLookup {
+  const byHole = new Map(holes.map((h) => [h.hole, h]));
+  const hcp = new Map(players.map((p) => [p.id, p.handicap]));
+  return (hole, playerId) => {
+    const h = byHole.get(hole);
+    if (!h) return 0;
+    return strokesOnHole(h, hcp.get(playerId) ?? 0);
+  };
+}
+
 /**
  * What a team scored on one hole, or null if the hole isn't finished.
  *
@@ -223,19 +251,25 @@ export type ScoreLookup = (hole: number, playerId: string) => number | null;
  * best ball — the number would drop the moment the last player posts, so showing
  * it as the team's score would be showing a score for a hole that hasn't been
  * played (CLAUDE.md rule 4). This is the same rule Wolf uses for a pending hole.
+ *
+ * With `strokesFor` supplied the comparison is on net scores, which is the whole
+ * point of a net best ball: the low *net* ball wins the hole, not the low gross
+ * one. Taking the low gross and then deducting a stroke would credit the wrong
+ * player's shot.
  */
 export function teamHoleScore(
   format: TeamFormat,
   playerIds: string[],
   hole: number,
   scoreFor: ScoreLookup,
+  strokesFor: StrokesLookup = NO_STROKES,
 ): number | null {
   if (!playerIds.length) return null;
   const strokes: number[] = [];
   for (const id of playerIds) {
     const s = scoreFor(hole, id);
     if (s == null) return null;
-    strokes.push(s);
+    strokes.push(s - strokesFor(hole, id));
   }
   return format === 'bestball' ? Math.min(...strokes) : strokes.reduce((a, b) => a + b, 0);
 }
@@ -254,6 +288,7 @@ export function teamScoreOver(
   segmentHoles: number[],
   holes: Hole[],
   scoreFor: ScoreLookup,
+  strokesFor: StrokesLookup = NO_STROKES,
 ): { strokes: number | null; toPar: number | null; holesCounted: number; holesPending: number } {
   const parOf = new Map(holes.map((h) => [h.hole, h.par]));
   let strokes = 0;
@@ -262,7 +297,7 @@ export function teamScoreOver(
   let pending = 0;
 
   for (const hole of segmentHoles) {
-    const s = teamHoleScore(format, playerIds, hole, scoreFor);
+    const s = teamHoleScore(format, playerIds, hole, scoreFor, strokesFor);
     if (s == null) {
       pending++;
       continue;
@@ -288,10 +323,11 @@ export function teamStandings(
   segmentHoles: number[],
   holes: Hole[],
   scoreFor: ScoreLookup,
+  strokesFor: StrokesLookup = NO_STROKES,
 ): TeamStanding[] {
   return teams
     .map((playerIds, teamIndex) => {
-      const score = teamScoreOver(format, playerIds, segmentHoles, holes, scoreFor);
+      const score = teamScoreOver(format, playerIds, segmentHoles, holes, scoreFor, strokesFor);
       return { teamIndex, letter: teamLetter(teamIndex), playerIds, ...score };
     })
     .sort((a, b) => {

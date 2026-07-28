@@ -59,11 +59,13 @@ const check = (label, actual, expected) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'}  ${label}`);
 };
 
-// Gladstan's card, which is what the app was built against.
+// Gladstan's card, which is what the app was built against. `handicap` on a hole
+// is its stroke index — the field name the rest of the app uses.
 const PARS = [4, 5, 3, 4, 4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 4];
-const holes18 = PARS.map((par, i) => ({ hole: i + 1, par, yards: 300, strokeIndex: i + 1 }));
+const SI = [9, 3, 17, 7, 13, 1, 11, 15, 5, 10, 18, 4, 6, 2, 14, 16, 12, 8];
+const holes18 = PARS.map((par, i) => ({ hole: i + 1, par, yards: 300, handicap: SI[i] }));
 const holes9 = holes18.slice(0, 9);
-const backNine = PARS.slice(9).map((par, i) => ({ hole: i + 10, par, yards: 300, strokeIndex: i + 1 }));
+const backNine = PARS.slice(9).map((par, i) => ({ hole: i + 10, par, yards: 300, handicap: SI[i + 9] }));
 
 // ---------------------------------------------------------------- segments
 
@@ -225,6 +227,130 @@ const nineStandings = t.teamStandings([['c', 'd'], ['a', 'b']], 'bestball', [1, 
 check('the better team leads regardless of team order', nineStandings[0].playerIds.sort(), ['a', 'b']);
 check('and the worse team is second', nineStandings[1].playerIds.sort(), ['c', 'd']);
 check('best ball over a nine', nineStandings[0].strokes, 36);
+
+// ---------------------------------------------------------------- net scoring
+
+// Hole 1 is stroke index 9; hole 6 is stroke index 1 (the hardest).
+const netPlayers = [
+  { id: 'scratch', handicap: 0 },
+  { id: 'bogey', handicap: 18 },
+  { id: 'mid', handicap: 9 },
+  { id: 'high', handicap: 27 },
+];
+const strokesFor = t.strokesLookupFor(holes18, netPlayers);
+
+check('a scratch player gets nothing', strokesFor(1, 'scratch'), 0);
+check('an 18 handicap gets a stroke on every hole', strokesFor(1, 'bogey'), 1);
+check('and on the hardest hole too', strokesFor(6, 'bogey'), 1);
+// A 9 handicap gets strokes on stroke index 1-9 only.
+check('a 9 handicap gets a stroke on stroke index 9', strokesFor(1, 'mid'), 1);
+check('but nothing on stroke index 17', strokesFor(3, 'mid'), 0);
+// Above 18 the allocation wraps: two strokes on the hardest nine.
+check('a 27 handicap gets two strokes on stroke index 1', strokesFor(6, 'high'), 2);
+check('and one on stroke index 17', strokesFor(3, 'high'), 1);
+check('an unknown hole gives no strokes rather than crashing', strokesFor(99, 'mid'), 0);
+check('an unknown player gives no strokes', strokesFor(1, 'nobody'), 0);
+
+// The case net scoring exists for: the low gross ball and the low net ball
+// belong to different players. Hole 1 is stroke index 9, so the 9 handicap gets
+// a shot there and the scratch player doesn't.
+const netScores = { 1: { scratch: 4, mid: 5 } };
+const netLookup = (hole, id) => netScores[hole]?.[id] ?? null;
+
+check('gross best ball takes the scratch player', t.teamHoleScore('bestball', ['scratch', 'mid'], 1, netLookup), 4);
+check(
+  'net best ball takes the shot into account',
+  t.teamHoleScore('bestball', ['scratch', 'mid'], 1, netLookup, strokesFor),
+  4,
+);
+// A 5 with a shot is a net 4, level with the scratch player's gross 4 — so the
+// team score is the same but for a different reason. Make the tie explicit by
+// moving the mid-handicapper a shot better.
+const tieBreak = { 1: { scratch: 4, mid: 4 } };
+check(
+  'a shot received beats an equal gross score',
+  t.teamHoleScore('bestball', ['scratch', 'mid'], 1, (h, id) => tieBreak[h]?.[id] ?? null, strokesFor),
+  3,
+);
+// The bug this guards against: taking the low gross first and deducting after
+// would credit the scratch player's 4 and hand it the mid-handicapper's stroke.
+const wrongBall = { 1: { scratch: 3, mid: 6 } };
+check(
+  'the low net ball wins, not the low gross one with a stroke taken off it',
+  t.teamHoleScore('bestball', ['scratch', 'mid'], 1, (h, id) => wrongBall[h]?.[id] ?? null, strokesFor),
+  3, // scratch 3 net 3 beats mid 6 net 5 — not 3 - 1 = 2
+);
+
+// Net team total subtracts every player's strokes.
+check(
+  'net team total deducts each players shots',
+  t.teamHoleScore('total', ['scratch', 'mid'], 1, netLookup, strokesFor),
+  8, // 4 + (5 - 1)
+);
+
+// Net over a stretch of holes, and its to-par.
+const roundScores = {};
+for (let h = 1; h <= 9; h++) roundScores[h] = { scratch: 5, mid: 5 };
+const roundLookup = (hole, id) => roundScores[hole]?.[id] ?? null;
+const frontNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const grossNine = t.teamScoreOver('bestball', ['scratch', 'mid'], frontNine, holes18, roundLookup);
+const netNine = t.teamScoreOver('bestball', ['scratch', 'mid'], frontNine, holes18, roundLookup, strokesFor);
+check('gross best ball over the front nine', grossNine.strokes, 45);
+// The 9 handicap has a shot on six of these nine holes (stroke index 1,3,5,7,9
+// among them): holes 1,2,4,6,7,9 by this card.
+check('net best ball is lower than gross', netNine.strokes < grossNine.strokes, true);
+check('net counts the same holes', netNine.holesCounted, 9);
+check('net to par is measured against the same par', netNine.toPar, netNine.strokes - 36);
+
+// A pending hole stays pending regardless of handicap — a stroke doesn't
+// substitute for a score nobody has posted.
+const halfPosted = { 1: { scratch: 4 } };
+check(
+  'a missing score is still pending in net play',
+  t.teamHoleScore('bestball', ['scratch', 'mid'], 1, (h, id) => halfPosted[h]?.[id] ?? null, strokesFor),
+  null,
+);
+
+// Standings sort on net when strokes are supplied. Team A is two scratch
+// players shooting 5s; Team B two 18 handicaps shooting 6s.
+const evenField = [
+  { id: 's1', handicap: 0 },
+  { id: 's2', handicap: 0 },
+  { id: 'h1', handicap: 18 },
+  { id: 'h2', handicap: 18 },
+];
+const evenStrokes = t.strokesLookupFor(holes18, evenField);
+const fieldScores = {};
+for (let h = 1; h <= 9; h++) fieldScores[h] = { s1: 5, s2: 5, h1: 6, h2: 6 };
+const fieldLookup = (hole, id) => fieldScores[hole]?.[id] ?? null;
+const evenTeams = [['s1', 's2'], ['h1', 'h2']];
+
+const grossTable = t.teamStandings(evenTeams, 'bestball', frontNine, holes18, fieldLookup);
+check('gross standings put the scratch pair well ahead', grossTable[0].letter, 'A');
+check('nine shots ahead, in fact', grossTable[1].strokes - grossTable[0].strokes, 9);
+
+// An 18 handicap gets exactly one stroke a hole, so a 6 is a net 5 — dead level
+// with the scratch pair's 5. That is what net scoring is *for*, and a tie is the
+// correct answer rather than a flip.
+const evenTable = t.teamStandings(evenTeams, 'bestball', frontNine, holes18, fieldLookup, evenStrokes);
+check('net makes those two teams level', evenTable[0].strokes, evenTable[1].strokes);
+check('and level is 45 apiece', evenTable[0].strokes, 45);
+
+// Give the high pair 27 and they take two strokes on the hardest nine, which is
+// enough to actually overturn the gross order.
+const highField = [
+  { id: 's1', handicap: 0 },
+  { id: 's2', handicap: 0 },
+  { id: 'h1', handicap: 27 },
+  { id: 'h2', handicap: 27 },
+];
+const highStrokes = t.strokesLookupFor(holes18, highField);
+const netTable = t.teamStandings(evenTeams, 'bestball', frontNine, holes18, fieldLookup, highStrokes);
+check('net standings can overturn the gross order', netTable[0].letter, 'B');
+// Five of the front nine are stroke index 9 or lower, so five holes net 4 and
+// four net 5.
+check('two strokes on the hard holes, one on the rest', netTable[0].strokes, 40);
+check('and the scratch pair are unchanged at 45', netTable[1].strokes, 45);
 
 console.log('');
 if (failures.length) {

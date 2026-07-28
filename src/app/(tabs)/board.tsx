@@ -124,7 +124,7 @@ export default function LeaderboardScreen() {
         {/* Only when there's a team game on — an empty tab is worse than no tab. */}
         {teamsOn && (
           <Pressable style={styles.tabBtn} onPress={() => setTab('teams')}>
-            <Text style={styles.tabLabel}>TEAMS</Text>
+            <Text style={styles.tabLabel}>TEAMS · {teams.handicapMode === 'net' ? 'NET' : 'GROSS'}</Text>
             {tab === 'teams' && <View style={styles.tabUnderline} />}
           </Pressable>
         )}
@@ -200,13 +200,12 @@ export default function LeaderboardScreen() {
               );
             })}
             <Text style={styles.teamsNote}>
-              {formatName(teams.format)}. A hole counts once every player on the team has posted it, so a team waiting
-              on somebody sits behind until that score lands — the figure would otherwise drop the moment it did.
-              To-par is measured over the holes that counted.
+              {formatName(teams.format)}, {teams.handicapMode === 'net' ? 'net' : 'gross'}. A hole counts once every
+              player on the team has posted it, so a team waiting on somebody sits behind until that score lands — the
+              figure would otherwise drop the moment it did. To-par is measured over the holes that counted.
               {teamSegments.length > 1
                 ? ' The two halves are separate contests between different teams, so there is no combined total.'
                 : ''}
-              {' '}Gross, not net.
             </Text>
           </>
         )}

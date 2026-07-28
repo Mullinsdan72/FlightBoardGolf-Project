@@ -3,11 +3,14 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import {
   draftTeams,
   segmentsFor,
+  strokesLookupFor,
   teamStandings,
   unassignedFrom,
   moveToTeam,
   maxTeamsFor,
+  NO_STROKES,
   type DraftPlayer,
+  type HandicapMode,
   type Segment,
   type TeamFormat,
   type TeamStanding,
@@ -18,6 +21,7 @@ import type { Hole } from '@/data/seed';
 export type TeamsState = {
   enabled: boolean;
   format: TeamFormat;
+  handicapMode: HandicapMode;
   size: number;
   count: number;
   redrawAtTurn: boolean;
@@ -26,6 +30,7 @@ export type TeamsState = {
 const DEFAULTS: TeamsState = {
   enabled: false,
   format: 'bestball',
+  handicapMode: 'gross',
   size: 2,
   count: 2,
   redrawAtTurn: false,
@@ -53,7 +58,7 @@ export function useTeams(
     const [gameRes, memberRes] = await Promise.all([
       supabase
         .from('team_games')
-        .select('enabled, format, team_size, team_count, redraw_at_turn')
+        .select('enabled, format, handicap_mode, team_size, team_count, redraw_at_turn')
         .eq('round_id', roundId)
         .maybeSingle(),
       supabase
@@ -66,6 +71,7 @@ export function useTeams(
       setState({
         enabled: !!g.enabled,
         format: g.format === 'total' ? 'total' : 'bestball',
+        handicapMode: g.handicap_mode === 'net' ? 'net' : 'gross',
         size: Number(g.team_size) || 2,
         count: Number(g.team_count) || 2,
         redrawAtTurn: !!g.redraw_at_turn,
@@ -154,6 +160,7 @@ export function useTeams(
       const row: Record<string, unknown> = { round_id: roundId };
       if (patch.enabled !== undefined) row.enabled = patch.enabled;
       if (patch.format !== undefined) row.format = patch.format;
+      if (patch.handicapMode !== undefined) row.handicap_mode = patch.handicapMode;
       if (patch.size !== undefined) row.team_size = patch.size;
       if (patch.count !== undefined) row.team_count = patch.count;
       if (patch.redrawAtTurn !== undefined) row.redraw_at_turn = patch.redrawAtTurn;
@@ -244,9 +251,16 @@ export function useTeams(
     [scores],
   );
 
+  // Gross play is the zero-strokes case, so the scoring code has one path rather
+  // than a branch everywhere a score is compared.
+  const strokesFor = useMemo(
+    () => (state.handicapMode === 'net' ? strokesLookupFor(holes, players) : NO_STROKES),
+    [state.handicapMode, holes, players],
+  );
+
   const standings: TeamStanding[] = useMemo(
-    () => teamStandings(teams, state.format, segments[activeSeg]?.holes ?? [], holes, scoreFor),
-    [teams, state.format, segments, activeSeg, holes, scoreFor],
+    () => teamStandings(teams, state.format, segments[activeSeg]?.holes ?? [], holes, scoreFor, strokesFor),
+    [teams, state.format, segments, activeSeg, holes, scoreFor, strokesFor],
   );
 
   /**
@@ -258,8 +272,15 @@ export function useTeams(
    */
   const standingsFor = useCallback(
     (seg: number) =>
-      teamStandings(teamsForSegment(seg), state.format, segments[seg]?.holes ?? [], holes, scoreFor),
-    [teamsForSegment, state.format, segments, holes, scoreFor],
+      teamStandings(
+        teamsForSegment(seg),
+        state.format,
+        segments[seg]?.holes ?? [],
+        holes,
+        scoreFor,
+        strokesFor,
+      ),
+    [teamsForSegment, state.format, segments, holes, scoreFor, strokesFor],
   );
 
   /** Whether a segment's teams were actually drawn, rather than just suggested. */
@@ -279,6 +300,7 @@ export function useTeams(
     teamStandingsFor: standingsFor,
     teamsForSegment,
     teamMaxCount: maxTeamsFor(players.length, state.size),
+    teamStrokesFor: strokesFor,
     teamSetSettings: persistSettings,
     teamAutoDraw: autoDraw,
     teamRedraw: redraw,

@@ -1,5 +1,7 @@
 import type { Hole } from '@/data/seed';
-import type { ScoreMap } from '@/hooks/useLiveScores';
+// From the lib that owns it, not from the hook that re-exports it — this module
+// is pure maths and must not pull React and Supabase in behind a type import.
+import type { ScoreMap } from '@/lib/scoreOutbox';
 
 // Every function here takes the round's holes explicitly rather than reading a
 // global. The card a round is played on comes from the course the organizer
@@ -43,10 +45,22 @@ export function grossFor(holes: Hole[], scores: ScoreMap, playerId: string): num
   return total;
 }
 
-// Standard stroke allocation: a player gets a stroke on any hole whose
-// difficulty ranking (stroke index) is at or under their handicap. A handicap
-// above 18 wraps, taking a second stroke on the hardest holes. Only counts
-// holes actually played, so net is never computed for a hole that hasn't posted.
+// Standard stroke allocation for one hole: a player gets a stroke on any hole
+// whose difficulty ranking (`hole.handicap`, the stroke index) is at or under
+// their handicap. A handicap above 18 wraps, taking a second stroke on the
+// hardest holes.
+//
+// This is the single definition of the rule. Net team scoring uses it too
+// (src/lib/teams.ts) — a second implementation would eventually disagree with
+// this one, and a player's net on their card would stop matching their net in
+// the team's best ball.
+export function strokesOnHole(hole: Hole, handicap: number): number {
+  if (handicap <= 0) return 0;
+  return Math.floor(handicap / 18) + (hole.handicap <= handicap % 18 ? 1 : 0);
+}
+
+// Strokes a player receives across the holes they've actually played. Only
+// counts played holes, so net is never computed for a hole that hasn't posted.
 export function strokesReceivedFor(
   holes: Hole[],
   scores: ScoreMap,
@@ -56,8 +70,7 @@ export function strokesReceivedFor(
   let count = 0;
   for (const hole of holes) {
     if (scores[hole.hole]?.[playerId] == null) continue;
-    count += Math.floor(handicap / 18);
-    if (hole.handicap <= handicap % 18) count += 1;
+    count += strokesOnHole(hole, handicap);
   }
   return count;
 }

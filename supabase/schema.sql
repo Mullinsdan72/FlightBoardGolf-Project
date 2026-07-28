@@ -175,10 +175,12 @@ create table if not exists team_games (
   round_id uuid primary key references rounds(id) on delete cascade,
   enabled boolean not null default false,
   format text not null default 'bestball',
+  handicap_mode text not null default 'gross',
   team_size int not null default 2,
   team_count int not null default 2,
   redraw_at_turn boolean not null default false,
   constraint team_format_is_known check (format in ('bestball', 'total')),
+  constraint team_handicap_mode_is_known check (handicap_mode in ('gross', 'net')),
   constraint team_size_is_sane check (team_size between 1 and 4),
   constraint team_count_is_sane check (team_count between 1 and 26)
 );
@@ -189,6 +191,16 @@ create table if not exists team_games (
 -- The primary key is (round, segment, player): a player is on at most one team
 -- per segment. Two teams for one player would make a best ball count their score
 -- twice, so the database refuses it rather than trusting every screen to.
+-- Added after team_games shipped, so existing rounds pick it up on a re-run.
+alter table team_games add column if not exists handicap_mode text not null default 'gross';
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'team_handicap_mode_is_known') then
+    alter table team_games add constraint team_handicap_mode_is_known
+      check (handicap_mode in ('gross', 'net'));
+  end if;
+end $$;
+
 create table if not exists team_members (
   round_id uuid not null references rounds(id) on delete cascade,
   segment int not null default 0,
