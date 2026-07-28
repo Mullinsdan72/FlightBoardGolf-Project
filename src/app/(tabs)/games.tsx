@@ -10,6 +10,13 @@ import { colors, font } from '@/theme';
 
 type Tab = 'standings' | 'setup' | 'holes' | 'challenge';
 
+const TAB_LABEL: Record<Tab, string> = {
+  standings: 'WOLF',
+  holes: 'CTP · LD',
+  challenge: 'TEAMS',
+  setup: 'SET UP',
+};
+
 const MULTIPLIERS = [2, 3, 4];
 const HOLE_GAME_TYPES: HoleGameType[] = ['ctp', 'ld'];
 const WAGER_STEPS = [100, 200, 500, 1000, 2000];
@@ -45,7 +52,7 @@ export default function GamesScreen() {
     challengeFor,
     setChallengeSettings,
   } = useRound();
-  const [tab, setTab] = useState<Tab>('standings');
+  const [tab, setTab] = useState<Tab | null>(null);
   const [newType, setNewType] = useState<HoleGameType>('ctp');
   const [newWager, setNewWager] = useState(500);
   const [newHoles, setNewHoles] = useState<number[]>([]);
@@ -71,6 +78,18 @@ export default function GamesScreen() {
   const canEdit = amOrganizer;
   const organizerName = organizerId ? players.find((p) => p.id === organizerId)?.name : null;
 
+  // A game nobody has set up doesn't get a tab. Everything here is a bet the
+  // organizer opened; until they do, there's nothing for a player to look at,
+  // and four tabs of empty screens is worse than none.
+  const available: Tab[] = [];
+  if (wolf.enabled) available.push('standings');
+  if (holeGames.length) available.push('holes');
+  if (challenge.enabled) available.push('challenge');
+  if (canEdit) available.push('setup');
+
+  // Falls back as games are switched on and off under you.
+  const active: Tab | null = tab && available.includes(tab) ? tab : (available[0] ?? null);
+
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -78,7 +97,13 @@ export default function GamesScreen() {
           <View>
             <Text style={styles.kicker}>Side games</Text>
             <Text style={styles.title}>
-              {tab === 'holes' ? 'Hole games' : tab === 'challenge' ? 'Team challenge' : 'Wolf'}
+              {active === 'holes'
+                ? 'Hole games'
+                : active === 'challenge'
+                  ? 'Team challenge'
+                  : active === 'setup'
+                    ? 'Set up the games'
+                    : 'Wolf'}
             </Text>
           </View>
           {/* Every game converges here — the money is one screen, not one per game. */}
@@ -89,27 +114,31 @@ export default function GamesScreen() {
         </View>
       </View>
 
-      <View style={styles.tabRow}>
-        <Pressable style={[styles.tabBtn, styles.tabDivider]} onPress={() => setTab('standings')}>
-          <Text style={styles.tabLabel}>WOLF</Text>
-          {tab === 'standings' && <View style={styles.tabUnderline} />}
-        </Pressable>
-        <Pressable style={[styles.tabBtn, styles.tabDivider]} onPress={() => setTab('setup')}>
-          <Text style={styles.tabLabel}>SETUP</Text>
-          {tab === 'setup' && <View style={styles.tabUnderline} />}
-        </Pressable>
-        <Pressable style={[styles.tabBtn, styles.tabDivider]} onPress={() => setTab('holes')}>
-          <Text style={styles.tabLabel}>CTP · LD</Text>
-          {tab === 'holes' && <View style={styles.tabUnderline} />}
-        </Pressable>
-        <Pressable style={styles.tabBtn} onPress={() => setTab('challenge')}>
-          <Text style={styles.tabLabel}>TEAMS</Text>
-          {tab === 'challenge' && <View style={styles.tabUnderline} />}
-        </Pressable>
-      </View>
+      {available.length > 1 && (
+        <View style={styles.tabRow}>
+          {available.map((t, i) => (
+            <Pressable
+              key={t}
+              style={[styles.tabBtn, i < available.length - 1 && styles.tabDivider]}
+              onPress={() => setTab(t)}
+            >
+              <Text style={styles.tabLabel} numberOfLines={1}>
+                {TAB_LABEL[t]}
+              </Text>
+              {active === t && <View style={styles.tabUnderline} />}
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       <ScrollView>
-        {tab === 'challenge' && (
+        {active === null && (
+          <Text style={styles.note}>
+            No games are running. Whoever's organizing the round sets them up, and they'll show here the moment they do.
+          </Text>
+        )}
+
+        {(active === 'challenge' || active === 'setup') && (
           <>
             {!teams.enabled && (
               <Pressable onPress={() => router.push('/teams')} style={styles.linkRow}>
@@ -120,17 +149,24 @@ export default function GamesScreen() {
               </Pressable>
             )}
 
-            {!canEdit && (
-              <View style={styles.lockBanner}>
-                <View style={styles.lockDot} />
-                <Text style={styles.lockText}>
-                  {organizerName
-                    ? `${organizerName} sets the rates. You can see what's riding on it — you're in it — but changing it isn't a player's call.`
-                    : 'Nobody has taken the organizer role yet, so the rates are locked.'}
-                </Text>
-              </View>
+            {active === 'challenge' && (
+              <>
+                <Text style={styles.sectionLabel}>The rules</Text>
+                <View style={styles.rulesBlock}>
+                  <Text style={styles.rulesText}>
+                    Your team plays the other teams over these holes, in whatever format the teams are set to. Three
+                    bets run at once: {fmtMoney(challenge.perHoleCents).replace('+', '')} for every hole you finish up,
+                    {' '}{fmtMoney(challenge.perNineCents).replace('+', '')} for each nine you win, and{' '}
+                    {fmtMoney(challenge.overallCents).replace('+', '')} for the match. Each is per team and splits
+                    between its players. A nine pays only once that nine is finished and the match only once the round
+                    is.{organizerName ? ` ${organizerName} set the rates.` : ''}
+                  </Text>
+                </View>
+              </>
             )}
 
+            {active === 'setup' && (
+              <>
             <Pressable
               disabled={!canEdit}
               onPress={() => setChallengeSettings({ enabled: !challenge.enabled })}
@@ -192,8 +228,10 @@ export default function GamesScreen() {
                 ? ' A nine-hole match has no nines inside it, so only the holes and the match are in play.'
                 : ''}
             </Text>
+              </>
+            )}
 
-            {teamSegments.map((segment, seg) => {
+            {active === 'challenge' && teamSegments.map((segment, seg) => {
               if (!teamDrawSavedFor(seg)) {
                 return (
                   <View key={segment.label}>
@@ -311,11 +349,11 @@ export default function GamesScreen() {
           </>
         )}
 
-        {tab === 'holes' && (
+        {(active === 'holes' || active === 'setup') && (
           <>
-            {!holeGamesLoaded && <Text style={styles.note}>Loading…</Text>}
+            {active === 'holes' && !holeGamesLoaded && <Text style={styles.note}>Loading…</Text>}
 
-            {holeGames.map((game) => {
+            {active === 'holes' && holeGames.map((game) => {
               const ledger = holeGameLedgers.find((l) => l.gameId === game.id);
               return (
                 <View key={game.id} style={styles.gameBlock}>
@@ -409,22 +447,24 @@ export default function GamesScreen() {
               );
             })}
 
-            {!holeGames.length && holeGamesLoaded && (
+            {active === 'holes' && !holeGames.length && holeGamesLoaded && (
               <Text style={styles.note}>
                 No hole games yet. Closest to the pin on every par 3 is one game with several payouts, not one game per
                 hole.
               </Text>
             )}
 
+            {active === 'holes' && (
             <Text style={styles.note}>
               Tap a name to record who won a hole; tap them again to clear it. A hole nobody won pays nothing — the
               antes stay in your pockets rather than going to the least-bad miss. Anyone in the group can record a
               result; only the organizer adds or removes a game.
             </Text>
+            )}
 
-            {canEdit && (
+            {active === 'setup' && canEdit && (
               <>
-                <Text style={styles.sectionLabel}>Add a game</Text>
+                <Text style={styles.sectionLabel}>Add a hole game</Text>
                 <View style={styles.multRow}>
                   {HOLE_GAME_TYPES.map((t) => (
                     <Pressable
@@ -515,14 +555,14 @@ export default function GamesScreen() {
           </>
         )}
 
-        {!canPlay && tab !== 'holes' && (
+        {!canPlay && active !== 'holes' && (
           <Text style={styles.note}>
             Wolf needs at least three players — one wolf and two to play against. Add players on the FIELD tab. Closest
             to the pin and longest drive work with two.
           </Text>
         )}
 
-        {tab === 'setup' && canPlay && (
+        {active === 'setup' && (
           <>
             {!canEdit && (
               <View style={styles.lockBanner}>
@@ -649,9 +689,19 @@ export default function GamesScreen() {
           </>
         )}
 
-        {tab === 'standings' && canPlay && (
+        {active === 'standings' && (
           <>
-            {!wolf.enabled && <Text style={styles.note}>Wolf is off. Turn it on under SETUP.</Text>}
+            <Text style={styles.sectionLabel}>The rules</Text>
+            <View style={styles.rulesBlock}>
+              <Text style={styles.rulesText}>
+                The wolf tees off last, watches the drives, then picks a partner — or goes alone. Partners play the
+                other {Math.max(0, players.length - 2)} for{' '}
+                {fmtMoney(wolf.stake * 100).replace('+', '')} a man a hole; going alone is worth{' '}
+                {wolf.loneMultiplier}× that against everybody. A hole pays only once every player has posted it, and a
+                tie on best ball is a push that moves nothing. The wolf rotates every hole.
+                {organizerName ? ` ${organizerName} set the stake.` : ''}
+              </Text>
+            </View>
 
             <Text style={styles.sectionLabel}>Where everyone stands</Text>
             {players
@@ -762,6 +812,8 @@ const styles = StyleSheet.create({
   },
   linkText: { flex: 1, fontFamily: font.body, fontSize: 11.5, lineHeight: 17, color: colors.muted },
   linkArrow: { fontFamily: font.heading, fontSize: 18, color: colors.ghost },
+  rulesBlock: { paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 2, borderColor: colors.divider },
+  rulesText: { fontFamily: font.body, fontSize: 12, lineHeight: 19, color: colors.text },
   matchBlock: { borderTopWidth: 2, borderColor: colors.divider },
   matchHead: { paddingHorizontal: 20, paddingVertical: 12 },
   matchName: { fontFamily: font.heading, fontSize: 16, color: colors.text },

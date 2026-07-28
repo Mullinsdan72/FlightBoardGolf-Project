@@ -7,20 +7,26 @@ import { colors, font } from '@/theme';
 
 const TAB_META: Record<string, { label: string; sub: string }> = {
   index: { label: 'SCORE', sub: 'hole-by-hole' },
+  // Spelled out when there's room for it. At six tabs there isn't.
   board: { label: 'BOARD', sub: 'live' },
   card: { label: 'CARD', sub: 'sign off' },
   players: { label: 'FIELD', sub: 'roster' },
   course: { label: 'COURSE', sub: 'the card' },
-  games: { label: 'GAMES', sub: 'wolf' },
+  games: { label: 'GAMES', sub: 'side bets' },
 };
 
-function ModernistTabBar({ state, descriptors, navigation }: any) {
+function ModernistTabBar({ state, navigation, visible }: any) {
   const insets = useSafeAreaInsets();
+  // Hidden routes stay mounted and navigable — the leaderboard opens a player's
+  // card by pushing to it, and a route missing from the navigator would break
+  // that. They're only left out of the bar.
+  const routes = state.routes.filter((r: any) => visible.includes(r.name));
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-      {state.routes.map((route: any, i: number) => {
-        const focused = state.index === i;
+      {routes.map((route: any, i: number) => {
+        const focused = state.routes[state.index]?.key === route.key;
         const meta = TAB_META[route.name] ?? { label: route.name.toUpperCase(), sub: '' };
+        const label = route.name === 'board' && routes.length <= 4 ? 'LEADERBOARD' : meta.label;
         return (
           <Pressable
             key={route.key}
@@ -28,12 +34,16 @@ function ModernistTabBar({ state, descriptors, navigation }: any) {
               const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
               if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
             }}
-            style={[styles.tab, i < state.routes.length - 1 && styles.tabDivider]}
+            style={[styles.tab, i < routes.length - 1 && styles.tabDivider]}
           >
             <View style={[styles.topBar, { backgroundColor: focused ? colors.accent : 'transparent' }]} />
             <View style={styles.tabInner}>
-              <Text style={[styles.label, { color: focused ? colors.text : colors.mutedFaint }]}>{meta.label}</Text>
-              <Text style={styles.sub}>{meta.sub}</Text>
+              <Text style={[styles.label, { color: focused ? colors.text : colors.mutedFaint }]} numberOfLines={1}>
+                {label}
+              </Text>
+              <Text style={styles.sub} numberOfLines={1}>
+                {meta.sub}
+              </Text>
             </View>
           </Pressable>
         );
@@ -43,15 +53,32 @@ function ModernistTabBar({ state, descriptors, navigation }: any) {
 }
 
 export default function TabLayout() {
-  const { activeRoundId, roundsLoaded } = useRound();
+  const { activeRoundId, roundsLoaded, amOrganizer, wolf, challenge, holeGames } = useRound();
 
   // Nothing to score against until a round exists, so send a first-time user
   // (or anyone who just deleted their last round) to create one.
   if (activeRoundId === undefined || !roundsLoaded) return null;
   if (activeRoundId === null) return <Redirect href="/rounds" />;
 
+  // Setting the round up is the organizer's job, so the roster and the course
+  // are their tabs. A player gets the four screens they actually use, which is
+  // most of the point — six tabs of which two do nothing for you is clutter.
+  //
+  // This is a tidier screen, not a permission. With no sign-in any device can
+  // pick any player and become the organizer, and the routes stay reachable by
+  // URL. The real boundary arrives with accounts and RLS.
+  const anyGame = wolf.enabled || challenge.enabled || holeGames.length > 0;
+  const visible = ['index', 'board', 'card'];
+  // A game nobody has set up isn't worth a tab; the organizer keeps it to set
+  // one up with.
+  if (anyGame || amOrganizer) visible.push('games');
+  if (amOrganizer) visible.push('players', 'course');
+
   return (
-    <Tabs tabBar={(props) => <ModernistTabBar {...props} />} screenOptions={{ headerShown: false }}>
+    <Tabs
+      tabBar={(props) => <ModernistTabBar {...props} visible={visible} />}
+      screenOptions={{ headerShown: false }}
+    >
         <Tabs.Screen name="index" options={{ title: 'Score' }} />
         <Tabs.Screen name="board" options={{ title: 'Board' }} />
         <Tabs.Screen name="card" options={{ title: 'Card' }} />

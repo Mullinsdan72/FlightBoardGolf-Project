@@ -23,14 +23,22 @@ Built so far, as six tabs — **Score** (`src/app/(tabs)/index.tsx`), **Board**
 (`src/app/(tabs)/board.tsx`), **Card** (`src/app/(tabs)/card.tsx`, the final scorecard and
 hold-to-sign), **Field** (`src/app/(tabs)/players.tsx`, the round's roster), **Course**
 (`src/app/(tabs)/course.tsx`, search/favourites/tees/holes-in-play/manual card entry) and
-**Games** (`src/app/(tabs)/games.tsx`, Wolf) — all wired to Supabase (Postgres + Realtime),
-plus two screens outside the tabs, because the tab bar is full at six: `/rounds` (tap the
-round name on FIELD) and `/teams` (the TEAMS row at the bottom of FIELD, which follows the
-design's own players → teams → side games order). No sign-in yet — each device picks which
-player in the round it is (`src/components/PlayerPicker.tsx`) as a stand-in until real
-phone-number auth is built. The remaining side games aren't built — see
-`design/prototype/Build Guide.dc.html` for the intended phase order and don't jump ahead of
-it without discussing scope first.
+**Games** (`src/app/(tabs)/games.tsx`, every side game plus SET UP) — all wired to Supabase
+(Postgres + Realtime), plus three screens outside the tabs: `/rounds` (the round name on
+SCORE, or past rounds on CARD), `/teams` (the TEAMS row on FIELD, following the design's own
+players → teams → side games order) and `/settle` (SETTLE UP on GAMES).
+
+**A player sees four tabs, the organizer six.** SCORE, LEADERBOARD, CARD and GAMES are
+everyone's; FIELD and COURSE are the organizer's, because setting the round up is their job
+and two dead tabs is clutter for everyone else. GAMES itself only appears once a game exists.
+Inside GAMES the sub-tabs are built from the games actually running — each states its rules
+and shows its results — with the controls on an organizer-only SET UP tab.
+
+No sign-in yet: each device picks which player in the round it is
+(`src/components/PlayerPicker.tsx`) as a stand-in until real phone-number auth is built.
+Every side game the design calls for is built (Wolf, closest to the pin, longest drive, team
+challenge) and they converge on `/settle`. See `design/prototype/Build Guide.dc.html` for the
+phase order and don't jump ahead of it without discussing scope first.
 
 Only one group exists so far. The design's group-splitting, shotgun starting-hole
 assignment, flights, and 300-player roster tools are all deliberately deferred — the Field
@@ -162,8 +170,20 @@ Three different kinds of permission, and they don't collapse into one:
   the rotation, and reopening a signed card.
 
 Read access is deliberately wider than write. A player in a bet is owed sight of the stake
-and the rotation, so the Wolf setup tab stays visible to everyone and goes read-only rather
-than hiding. Hiding terms from someone playing for money would be the wrong instinct.
+and the rotation, so every game's tab states its terms in plain words — what it costs, when
+it pays, who set it. What players don't get is the *controls*, which live on GAMES → SET UP,
+an organizer-only tab. Hiding the terms from someone playing for money would still be the
+wrong instinct; hiding the knobs is just tidy.
+
+**Tab visibility is a tidier screen, not a permission.** FIELD and COURSE show only for
+`amOrganizer`, and GAMES only once a game exists (or you're the organizer). With no sign-in
+any device can pick any player and take the organizer role, and every route stays reachable
+by URL. The real boundary arrives with accounts and RLS — don't let this get mistaken for it.
+
+Because those tabs hide, two doors had to be cut elsewhere, and they must not be closed
+again: the round name on SCORE opens `/rounds`, and "NOT YOU?" at the bottom of SCORE is the
+only way back to the player picker. The Card's header opens past rounds. Before hiding any
+further tab, check what was only reachable through it.
 
 ## Wolf
 

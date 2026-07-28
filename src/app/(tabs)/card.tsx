@@ -28,12 +28,26 @@ const HOLD_STEP = 8;
 const HOLD_INTERVAL_MS = 40;
 
 export default function ScorecardScreen() {
-  const { myId, choose, clear, scores, players, holes, course, amOrganizer, activeRoundId } = useRound();
+  const {
+    myId,
+    choose,
+    clear,
+    scores,
+    players,
+    holes,
+    course,
+    amOrganizer,
+    activeRoundId,
+    activeRound,
+    rounds,
+    switchRound,
+  } = useRound();
 
   // Which player's card is on screen. Defaults to you, but any player in the
   // round can be viewed — reading a partner's card is normal at the turn.
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [roundOpen, setRoundOpen] = useState(false);
 
   // A leaderboard row can send a player here via the route. Tracked by last
   // applied value so arriving from the board doesn't fight with the in-page
@@ -155,6 +169,15 @@ export default function ScorecardScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
+        {/* Round history lives here because the card is the thing you go back to
+            look at. FIELD used to be the only way to Rounds and it's the
+            organizer's tab now, so a player needs this door. */}
+        <Pressable onPress={() => setRoundOpen((v) => !v)} hitSlop={8} disabled={rounds.length < 2}>
+          <Text style={styles.headerLabel}>
+            {activeRound?.name || 'Round'}
+            {rounds.length > 1 ? ` · PAST ROUNDS ${roundOpen ? '▲' : '▼'}` : ''}
+          </Text>
+        </Pressable>
         <Text style={styles.headerLabel}>
           {[course?.courseName, course?.courseMeta].filter(Boolean).join(' · ') || 'No course picked'}
         </Text>
@@ -184,6 +207,36 @@ export default function ScorecardScreen() {
           )}
         </View>
       </View>
+
+      {roundOpen && (
+        <View style={styles.switcher}>
+          {rounds.map((r) => {
+            const on = r.id === activeRoundId;
+            return (
+              <Pressable
+                key={r.id}
+                onPress={() => {
+                  switchRound(r.id);
+                  setRoundOpen(false);
+                  backToMyCard();
+                }}
+                style={[styles.switchRow, on && styles.switchRowOn]}
+              >
+                <View style={[styles.switchDot, { backgroundColor: on ? colors.accent : 'transparent' }]} />
+                <Text style={styles.switchName}>{r.name || 'Untitled round'}</Text>
+                <Text style={styles.switchMeta}>
+                  {r.playedOn ?? 'no date'}
+                  {r.courseName ? ` · ${r.courseName}` : ''}
+                </Text>
+              </Pressable>
+            );
+          })}
+          <Text style={styles.switchNote}>
+            Opening an older round switches the whole app to it — its scores, its board, its games. Come back the same
+            way.
+          </Text>
+        </View>
+      )}
 
       {switcherOpen && (
         <View style={styles.switcher}>
@@ -388,6 +441,7 @@ const styles = StyleSheet.create({
   switchDot: { width: 9, height: 9 },
   switchName: { flex: 1, fontFamily: font.heading, fontSize: 15, color: colors.text },
   switchMeta: { fontFamily: font.body, fontSize: 11, color: colors.muted },
+  switchNote: { fontFamily: font.body, fontSize: 11, lineHeight: 17, color: colors.muted, paddingHorizontal: 20, paddingVertical: 12 },
   grossHero: { fontFamily: font.heading, fontSize: 34, color: colors.text, textAlign: 'right' },
   toParHero: { fontFamily: font.heading, fontSize: 11, color: colors.accent, marginTop: 5, textAlign: 'right' },
   progressNote: { fontFamily: font.bodySemi, fontSize: 12, color: colors.muted },

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
@@ -139,7 +140,12 @@ export default function ScoreEntryScreen() {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
-          <Text style={styles.headerLabel}>{activeRound?.name || 'Round'} · Group 12</Text>
+          {/* The way to Rounds for everybody. FIELD used to be the only door to
+              it, and FIELD is the organizer's tab now — a player still has to be
+              able to switch to the round they're actually playing. */}
+          <Pressable onPress={() => router.push('/rounds')} hitSlop={8}>
+            <Text style={styles.headerLabel}>{activeRound?.name || 'Round'} · SWITCH ›</Text>
+          </Pressable>
           {/* Says what's actually true: queued scores are saved on the phone
               and will sync — not lost, and not silently pending either. */}
           {pendingCount > 0 ? (
@@ -258,6 +264,16 @@ export default function ScoreEntryScreen() {
             </Text>
           </View>
         )}
+
+        {/* The only way back to the player picker. It used to be reachable by
+            being removed from the roster on the FIELD tab, which is now the
+            organizer's — picking the wrong name would otherwise be permanent. */}
+        <Pressable onPress={clear} style={styles.whoRow} hitSlop={6}>
+          <Text style={styles.whoText}>
+            Scoring as {players.find((p) => p.id === myId)?.name ?? 'you'}
+          </Text>
+          <Text style={styles.whoSwitch}>NOT YOU?</Text>
+        </Pressable>
       </ScrollView>
 
       <View style={styles.holeChipsRow}>
@@ -365,6 +381,17 @@ const styles = StyleSheet.create({
   scorerGlyph: { fontFamily: font.heading, fontSize: 34, color: colors.text },
   scorerRingWrap: { width: 66, alignItems: 'center', justifyContent: 'center' },
   scorerNote: { fontFamily: font.body, fontSize: 11.5, lineHeight: 17, color: colors.muted, padding: 20 },
+  whoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderColor: colors.divider,
+  },
+  whoText: { fontFamily: font.body, fontSize: 11.5, color: colors.muted },
+  whoSwitch: { fontFamily: font.heading, fontSize: 10.5, letterSpacing: 0.9, color: colors.accent },
   holeChipsRow: { borderTopWidth: 2, borderBottomWidth: 1, borderColor: colors.divider },
   chip: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center', borderRightWidth: 1, borderColor: colors.divider },
   chipText: { fontFamily: font.heading, fontSize: 12 },
