@@ -18,6 +18,8 @@ export default function SettleScreen() {
     wolfLedger,
     holeGames,
     holeGameLedgers,
+    challenge,
+    challengePositions,
   } = useRound();
 
   const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? 'Unknown';
@@ -28,6 +30,9 @@ export default function SettleScreen() {
   const games: GamePositions[] = [];
   if (wolf.enabled) {
     games.push({ key: 'wolf', name: 'Wolf', positions: wolfLedger.totals });
+  }
+  if (challenge.enabled && Object.keys(challengePositions).length) {
+    games.push({ key: 'challenge', name: 'Team challenge', positions: challengePositions });
   }
   for (const ledger of holeGameLedgers) {
     const game = holeGames.find((g) => g.id === ledger.gameId);

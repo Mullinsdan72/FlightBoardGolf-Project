@@ -209,6 +209,19 @@ create table if not exists team_members (
   constraint team_index_is_sane check (team_index between 0 and 25)
 );
 
+-- Team challenge: match play between the round's teams, settling three wagers
+-- at once. Terms only — who won which hole, which nine and the match are all
+-- recomputed from the teams plus posted scores (src/lib/teamChallenge.ts).
+create table if not exists team_challenge (
+  round_id uuid primary key references rounds(id) on delete cascade,
+  enabled boolean not null default false,
+  per_hole_cents int not null default 500,
+  per_nine_cents int not null default 2000,
+  overall_cents int not null default 5000,
+  constraint challenge_rates_are_not_negative
+    check (per_hole_cents >= 0 and per_nine_cents >= 0 and overall_cents >= 0)
+);
+
 -- Hole games: closest to the pin, longest drive. One row per game, covering
 -- however many holes it runs on — closest to the pin on every par 3 is one game
 -- with four payouts, not four games.
@@ -250,6 +263,7 @@ alter table wolf_games enable row level security;
 alter table wolf_holes enable row level security;
 alter table team_games enable row level security;
 alter table team_members enable row level security;
+alter table team_challenge enable row level security;
 alter table hole_games enable row level security;
 alter table hole_game_winners enable row level security;
 
@@ -279,6 +293,8 @@ drop policy if exists "anon full access" on team_games;
 create policy "anon full access" on team_games for all using (true) with check (true);
 drop policy if exists "anon full access" on team_members;
 create policy "anon full access" on team_members for all using (true) with check (true);
+drop policy if exists "anon full access" on team_challenge;
+create policy "anon full access" on team_challenge for all using (true) with check (true);
 drop policy if exists "anon full access" on hole_games;
 create policy "anon full access" on hole_games for all using (true) with check (true);
 drop policy if exists "anon full access" on hole_game_winners;
@@ -297,7 +313,7 @@ begin
     -- partner on their own phone and the rest of the group has to see it, and
     -- the organizer's team draw has to reach everyone playing in it.
     'wolf_games', 'wolf_holes', 'team_games', 'team_members',
-    'hole_games', 'hole_game_winners'
+    'hole_games', 'hole_game_winners', 'team_challenge'
   ]) loop
     if not exists (
       select 1 from pg_publication_tables

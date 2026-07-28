@@ -16,6 +16,7 @@ import {
   type TeamFormat,
   type TeamStanding,
 } from '@/lib/teams';
+import { challengeLedger, type ChallengeLedger, type ChallengeTerms } from '@/lib/teamChallenge';
 import type { ScoreMap } from '@/lib/scoreOutbox';
 import type { Hole } from '@/data/seed';
 
@@ -40,6 +41,15 @@ const DEFAULTS: TeamsState = {
 /** Assignments per segment: segment index -> team index -> player ids. */
 type Assignments = Record<number, string[][]>;
 
+export type ChallengeState = ChallengeTerms & { enabled: boolean };
+
+const CHALLENGE_DEFAULTS: ChallengeState = {
+  enabled: false,
+  perHoleCents: 500,
+  perNineCents: 2000,
+  overallCents: 5000,
+};
+
 // Teams for the round. `team_games` holds the terms and `team_members` the
 // assignments; every figure is derived in src/lib/teams.ts so nothing stored can
 // drift from the scores it came from.
@@ -53,6 +63,24 @@ export function useTeams(
   const [assignments, setAssignments] = useState<Assignments>({});
   const [loaded, setLoaded] = useState(!isSupabaseConfigured);
   const [segIndex, setSegIndex] = useState(0);
+  const [challenge, setChallenge] = useState<ChallengeState>(CHALLENGE_DEFAULTS);
+
+  const loadChallenge = useCallback(async () => {
+    if (!isSupabaseConfigured || !supabase || !roundId) return;
+    const { data } = await supabase
+      .from('team_challenge')
+      .select('enabled, per_hole_cents, per_nine_cents, overall_cents')
+      .eq('round_id', roundId)
+      .maybeSingle();
+    if (!data) return;
+    const c = data as any;
+    setChallenge({
+      enabled: !!c.enabled,
+      perHoleCents: Number(c.per_hole_cents) || 0,
+      perNineCents: Number(c.per_nine_cents) || 0,
+      overallCents: Number(c.overall_cents) || 0,
+    });
+  }, [roundId]);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase || !roundId) return;
@@ -88,8 +116,9 @@ export function useTeams(
       next[seg][ti].push(row.player_id);
     }
     setAssignments(next);
+    await loadChallenge();
     setLoaded(true);
-  }, [roundId]);
+  }, [roundId, loadChallenge]);
 
   // Teams belong to one round; reset before refetching so one round's draw can
   // never show against another's scores.
@@ -98,6 +127,7 @@ export function useTeams(
     setState(DEFAULTS);
     setAssignments({});
     setSegIndex(0);
+    setChallenge(CHALLENGE_DEFAULTS);
     setLoaded(false);
   }, [roundId]);
 
@@ -114,11 +144,12 @@ export function useTeams(
       .channel(`teams:${roundId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_games', filter: `round_id=eq.${roundId}` }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members', filter: `round_id=eq.${roundId}` }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_challenge', filter: `round_id=eq.${roundId}` }, () => loadChallenge())
       .subscribe();
     return () => {
       client.removeChannel(channel);
     };
-  }, [roundId, load]);
+  }, [roundId, load, loadChallenge]);
 
   const segments: Segment[] = useMemo(
     () => segmentsFor(holes, state.redrawAtTurn),
@@ -302,9 +333,61 @@ export function useTeams(
   /** Whether a segment's teams were actually drawn, rather than just suggested. */
   const drawSavedFor = useCallback((seg: number) => assignments[seg] !== undefined, [assignments]);
 
+  const persistChallenge = useCallback(
+    async (patch: Partial<ChallengeState>) => {
+      setChallenge((prev) => ({ ...prev, ...patch }));
+      if (!isSupabaseConfigured || !supabase || !roundId) return;
+      const row: Record<string, unknown> = { round_id: roundId };
+      if (patch.enabled !== undefined) row.enabled = patch.enabled;
+      if (patch.perHoleCents !== undefined) row.per_hole_cents = patch.perHoleCents;
+      if (patch.perNineCents !== undefined) row.per_nine_cents = patch.perNineCents;
+      if (patch.overallCents !== undefined) row.overall_cents = patch.overallCents;
+      const { error } = await supabase.from('team_challenge').upsert(row, { onConflict: 'round_id' });
+      if (error) console.warn('challenge settings save failed:', error.message);
+    },
+    [roundId],
+  );
+
+  /**
+   * The challenge over one segment. A re-draw at the turn makes each half its own
+   * match between different teams, which is the only honest reading — you can't
+   * carry a margin across a change of partner.
+   */
+  const challengeFor = useCallback(
+    (seg: number): ChallengeLedger =>
+      challengeLedger(
+        teamsForSegment(seg),
+        segments[seg]?.holes ?? [],
+        state.format,
+        scoreFor,
+        strokesForSegment(seg),
+        challenge,
+      ),
+    [teamsForSegment, segments, state.format, scoreFor, strokesForSegment, challenge],
+  );
+
+  /** Every segment's challenge added together, per player — what settle-up needs. */
+  const challengePositions = useMemo(() => {
+    const totals: Record<string, number> = {};
+    if (!challenge.enabled) return totals;
+    segments.forEach((_, seg) => {
+      // Only a drawn segment is a real match; a suggested draft isn't a bet.
+      if (!drawSavedFor(seg)) return;
+      const { playerCents } = challengeFor(seg);
+      for (const [id, cents] of Object.entries(playerCents)) {
+        totals[id] = (totals[id] ?? 0) + cents;
+      }
+    });
+    return totals;
+  }, [challenge.enabled, segments, drawSavedFor, challengeFor]);
+
   return {
     teams: state,
     teamsLoaded: loaded,
+    challenge,
+    challengeFor,
+    challengePositions,
+    setChallengeSettings: persistChallenge,
     teamSegments: segments,
     teamSegIndex: activeSeg,
     setTeamSegIndex: setSegIndex,

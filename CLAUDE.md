@@ -146,8 +146,8 @@ everywhere in this codebase, not just the screens they were first written for.
 - Known simplification: `strokesReceivedFor` allocates strokes off the full course handicap
   even on a 9-hole round, where convention is to halve it. Fine for gross play and for the
   net figures shown today; revisit if net becomes a competitive format.
-- `npm run check` runs the typecheck plus all five verification scripts (course parsing,
-  score outbox, wolf money, teams, side games) — 241 assertions. Worth running before pushing anything
+- `npm run check` runs the typecheck plus all six verification scripts (course parsing,
+  score outbox, wolf money, teams, side games, team challenge) — 323 assertions. Worth running before pushing anything
   that touches scoring, course data, teams, or money.
 
 ## Who may change what
@@ -216,6 +216,27 @@ tab's third sub-tab.
 - Terms are the organizer's (adding, removing and pricing a game); **recording who won a hole
   is any player's**, like posting a score. That's the existing three-tier permission model, not
   a new one.
+
+### Team challenge
+
+`src/lib/teamChallenge.ts`, covered by `npm run check:challenge` — 82 assertions including the
+design's own worked figure ($5 a hole five down, plus a nine, plus the match).
+
+- **Three wagers settle on three different clocks.** The per-hole rate runs live, because the
+  margin is a fact about holes already played. A nine pays only when that nine is finished and
+  the match only when the round is — neither may settle early, which is the easiest thing here
+  to get wrong.
+- **A nine-hole match has no nines inside it.** `ninesOf` returns nothing below 18 holes,
+  because the per-nine wager and the match would otherwise be the same contest settled twice.
+- **The wager is per team and splits between its members** ("split it between the two of you",
+  per the design). `splitCents` hands out the remainder rather than rounding it away — a £25
+  win between two is 13 and 12.
+- **More than two teams: every pair plays.** The design assumes two; with three, "team to
+  team" can only mean each pairing, and it keeps the whole thing zero-sum.
+- **A re-drawn turn is two matches, not one.** You can't carry a margin across a change of
+  partner, so each segment settles its own three wagers.
+- Only a **saved** draw is a match. A suggested draft isn't a bet, so `challengePositions`
+  skips segments where `teamDrawSavedFor` is false.
 
 ## Teams
 

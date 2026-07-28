@@ -4,10 +4,11 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { useRound } from '@/context/RoundContext';
 import { holeGameName, holeGameShortName, type HoleGameType } from '@/lib/sideGames';
+import { matchStateLabel } from '@/lib/teamChallenge';
 import { fmtMoney, parThreeDraw } from '@/lib/wolf';
 import { colors, font } from '@/theme';
 
-type Tab = 'standings' | 'setup' | 'holes';
+type Tab = 'standings' | 'setup' | 'holes' | 'challenge';
 
 const MULTIPLIERS = [2, 3, 4];
 const HOLE_GAME_TYPES: HoleGameType[] = ['ctp', 'ld'];
@@ -37,6 +38,12 @@ export default function GamesScreen() {
     removeHoleGame,
     updateHoleGame,
     setHoleGameWinner,
+    teams,
+    teamSegments,
+    teamDrawSavedFor,
+    challenge,
+    challengeFor,
+    setChallengeSettings,
   } = useRound();
   const [tab, setTab] = useState<Tab>('standings');
   const [newType, setNewType] = useState<HoleGameType>('ctp');
@@ -70,7 +77,9 @@ export default function GamesScreen() {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.kicker}>Side games</Text>
-            <Text style={styles.title}>{tab === 'holes' ? 'Hole games' : 'Wolf'}</Text>
+            <Text style={styles.title}>
+              {tab === 'holes' ? 'Hole games' : tab === 'challenge' ? 'Team challenge' : 'Wolf'}
+            </Text>
           </View>
           {/* Every game converges here — the money is one screen, not one per game. */}
           <Pressable onPress={() => router.push('/settle')} style={styles.settleBtn} hitSlop={8}>
@@ -89,13 +98,219 @@ export default function GamesScreen() {
           <Text style={styles.tabLabel}>SETUP</Text>
           {tab === 'setup' && <View style={styles.tabUnderline} />}
         </Pressable>
-        <Pressable style={styles.tabBtn} onPress={() => setTab('holes')}>
+        <Pressable style={[styles.tabBtn, styles.tabDivider]} onPress={() => setTab('holes')}>
           <Text style={styles.tabLabel}>CTP · LD</Text>
           {tab === 'holes' && <View style={styles.tabUnderline} />}
+        </Pressable>
+        <Pressable style={styles.tabBtn} onPress={() => setTab('challenge')}>
+          <Text style={styles.tabLabel}>TEAMS</Text>
+          {tab === 'challenge' && <View style={styles.tabUnderline} />}
         </Pressable>
       </View>
 
       <ScrollView>
+        {tab === 'challenge' && (
+          <>
+            {!teams.enabled && (
+              <Pressable onPress={() => router.push('/teams')} style={styles.linkRow}>
+                <Text style={styles.linkText}>
+                  Teams aren't switched on. The challenge is played between them, so set them up first.
+                </Text>
+                <Text style={styles.linkArrow}>›</Text>
+              </Pressable>
+            )}
+
+            {!canEdit && (
+              <View style={styles.lockBanner}>
+                <View style={styles.lockDot} />
+                <Text style={styles.lockText}>
+                  {organizerName
+                    ? `${organizerName} sets the rates. You can see what's riding on it — you're in it — but changing it isn't a player's call.`
+                    : 'Nobody has taken the organizer role yet, so the rates are locked.'}
+                </Text>
+              </View>
+            )}
+
+            <Pressable
+              disabled={!canEdit}
+              onPress={() => setChallengeSettings({ enabled: !challenge.enabled })}
+              style={[styles.toggleRow, challenge.enabled && styles.toggleRowOn, !canEdit && styles.readOnly]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toggleTitle}>
+                  {challenge.enabled ? 'Challenge is running' : 'Challenge is off'}
+                </Text>
+                <Text style={styles.toggleSub}>
+                  {challenge.enabled
+                    ? 'Three wagers at once: the holes, each nine, and the match.'
+                    : 'Turn it on to play the teams against each other for money.'}
+                </Text>
+              </View>
+              <View style={[styles.switchBox, challenge.enabled && styles.switchBoxOn]}>
+                <Text style={[styles.switchMark, challenge.enabled && { color: colors.white }]}>
+                  {challenge.enabled ? '✓' : ''}
+                </Text>
+              </View>
+            </Pressable>
+
+            {(
+              [
+                { key: 'perHoleCents', label: 'A hole up', value: challenge.perHoleCents },
+                { key: 'perNineCents', label: 'Each nine', value: challenge.perNineCents },
+                { key: 'overallCents', label: 'The match', value: challenge.overallCents },
+              ] as const
+            ).map(({ key, label, value }) => (
+              <View key={key}>
+                <Text style={styles.sectionLabel}>{label}</Text>
+                <View style={styles.stepper}>
+                  <Pressable
+                    disabled={!canEdit}
+                    onPress={() => setChallengeSettings({ [key]: Math.max(0, value - 500) } as any)}
+                    style={[styles.stepBtn, styles.stepBtnRight, !canEdit && styles.readOnly]}
+                  >
+                    <Text style={styles.stepGlyph}>−</Text>
+                  </Pressable>
+                  <View style={styles.stepValue}>
+                    <Text style={styles.stepValueText}>{fmtMoney(value).replace('+', '')}</Text>
+                  </View>
+                  <Pressable
+                    disabled={!canEdit}
+                    onPress={() => setChallengeSettings({ [key]: Math.min(100000, value + 500) } as any)}
+                    style={[styles.stepBtn, styles.stepBtnLeft, !canEdit && styles.readOnly]}
+                  >
+                    <Text style={styles.stepGlyph}>+</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+
+            <Text style={styles.note}>
+              Each wager is per team and splits between its players. A nine pays when that nine is finished and the
+              match pays when the round is — neither settles early. The rate per hole runs live, because the margin is
+              a fact about the holes already played.
+              {teamSegments.length === 1 && holes.length < 18
+                ? ' A nine-hole match has no nines inside it, so only the holes and the match are in play.'
+                : ''}
+            </Text>
+
+            {teamSegments.map((segment, seg) => {
+              if (!teamDrawSavedFor(seg)) {
+                return (
+                  <View key={segment.label}>
+                    <Text style={styles.sectionLabel}>{segment.label}</Text>
+                    <Pressable onPress={() => router.push('/teams')} style={styles.linkRow}>
+                      <Text style={styles.linkText}>No teams drawn for these holes yet.</Text>
+                      <Text style={styles.linkArrow}>›</Text>
+                    </Pressable>
+                  </View>
+                );
+              }
+              const ledger = challengeFor(seg);
+              return (
+                <View key={segment.label}>
+                  <Text style={styles.sectionLabel}>
+                    {teamSegments.length > 1 ? segment.label : 'The match'}
+                  </Text>
+                  {!ledger.matches.length && (
+                    <Text style={styles.note}>Needs two teams with players on them.</Text>
+                  )}
+                  {ledger.matches.map((m) => {
+                    const letterA = String.fromCharCode(65 + m.teamA);
+                    const letterB = String.fromCharCode(65 + m.teamB);
+                    return (
+                      <View key={`${m.teamA}-${m.teamB}`} style={styles.matchBlock}>
+                        <View style={styles.matchHead}>
+                          <Text style={styles.matchName}>
+                            Team {letterA} v Team {letterB}
+                          </Text>
+                          <Text style={styles.matchState}>
+                            {matchStateLabel(m.up, m.holesPending)}
+                            {m.holesPending > 0 ? ` · ${m.holesCounted} in` : ''}
+                          </Text>
+                        </View>
+                        <View style={styles.matchRow}>
+                          <Text style={styles.matchLabel}>Holes</Text>
+                          <Text style={styles.matchDetail}>
+                            {m.holesWonA}–{m.holesWonB}
+                            {m.halved ? `, ${m.halved} halved` : ''}
+                          </Text>
+                          <Text style={styles.matchAmt}>{fmtMoney(m.breakdown.holes)}</Text>
+                        </View>
+                        {m.nines.map((nine) => (
+                          <View key={nine.label} style={styles.matchRow}>
+                            <Text style={styles.matchLabel}>{nine.label} nine</Text>
+                            <Text style={styles.matchDetail}>
+                              {!nine.complete
+                                ? 'still out there'
+                                : nine.winner === 'halved'
+                                  ? 'halved'
+                                  : `${nine.winner === 'a' ? letterA : letterB} took it ${Math.max(nine.wonA, nine.wonB)}–${Math.min(nine.wonA, nine.wonB)}`}
+                            </Text>
+                            <Text style={styles.matchAmt}>
+                              {nine.complete ? fmtMoney(nine.winner === 'a' ? challenge.perNineCents : nine.winner === 'b' ? -challenge.perNineCents : 0) : '–'}
+                            </Text>
+                          </View>
+                        ))}
+                        <View style={styles.matchRow}>
+                          <Text style={styles.matchLabel}>Match</Text>
+                          <Text style={styles.matchDetail}>
+                            {m.overall == null
+                              ? 'still being played'
+                              : m.overall === 'halved'
+                                ? 'halved'
+                                : `Team ${m.overall === 'a' ? letterA : letterB}`}
+                          </Text>
+                          <Text style={styles.matchAmt}>
+                            {m.overall == null ? '–' : fmtMoney(m.breakdown.overall)}
+                          </Text>
+                        </View>
+                        <View style={[styles.matchRow, styles.matchTotal]}>
+                          <Text style={styles.matchLabel}>Team {letterA}</Text>
+                          <Text style={styles.matchDetail} />
+                          <Text
+                            style={[
+                              styles.matchAmt,
+                              { color: m.centsA > 0 ? colors.accent : colors.text, fontSize: 16 },
+                            ]}
+                          >
+                            {fmtMoney(m.centsA)}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+
+                  {Object.keys(ledger.playerCents).length > 0 && (
+                    <>
+                      <Text style={styles.sectionLabel}>Split between players</Text>
+                      {players.map((p) => {
+                        const cents = ledger.playerCents[p.id];
+                        if (cents === undefined) return null;
+                        return (
+                          <View key={p.id} style={[styles.standRow, p.id === myId && styles.rowYou]}>
+                            <Text style={styles.standName}>
+                              {p.name}
+                              {p.id === myId ? ' (you)' : ''}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.standVal,
+                                { color: cents > 0 ? colors.accent : cents < 0 ? colors.text : colors.mutedFaint },
+                              ]}
+                            >
+                              {fmtMoney(cents)}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </>
+                  )}
+                </View>
+              );
+            })}
+          </>
+        )}
+
         {tab === 'holes' && (
           <>
             {!holeGamesLoaded && <Text style={styles.note}>Loading…</Text>}
@@ -535,6 +750,35 @@ export default function GamesScreen() {
 
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.divider,
+  },
+  linkText: { flex: 1, fontFamily: font.body, fontSize: 11.5, lineHeight: 17, color: colors.muted },
+  linkArrow: { fontFamily: font.heading, fontSize: 18, color: colors.ghost },
+  matchBlock: { borderTopWidth: 2, borderColor: colors.divider },
+  matchHead: { paddingHorizontal: 20, paddingVertical: 12 },
+  matchName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
+  matchState: { fontFamily: font.body, fontSize: 11.5, color: colors.muted, marginTop: 5 },
+  matchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderTopWidth: 1,
+    borderColor: colors.divider,
+  },
+  matchTotal: { borderTopWidth: 2, borderColor: colors.text },
+  matchLabel: { fontFamily: font.bodySemi, fontSize: 12, color: colors.text, width: 84 },
+  matchDetail: { flex: 1, fontFamily: font.body, fontSize: 11, color: colors.muted },
+  matchAmt: { fontFamily: font.heading, fontSize: 13.5, color: colors.text, minWidth: 62, textAlign: 'right' },
   settleBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingBottom: 4 },
   settleLabel: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.6, color: colors.accent },
   settleArrow: { fontFamily: font.heading, fontSize: 14, color: colors.accent },
