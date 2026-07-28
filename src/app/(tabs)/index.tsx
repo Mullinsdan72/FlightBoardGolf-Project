@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
-import { HOLES, PLAYERS, ROUND_NAME } from '@/data/seed';
+import { HOLES, ROUND_NAME } from '@/data/seed';
 import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
 import { useSignoff } from '@/hooks/useSignoff';
 import { thruFor, toParFor } from '@/lib/roundMath';
@@ -12,14 +12,15 @@ import { colors, font, fmtToPar, scoreName } from '@/theme';
 type Mode = 'self' | 'scorer';
 
 export default function ScoreEntryScreen() {
-  const { myId, choose } = usePlayerIdentity();
-  const { scores, setScores, postScore, live, connected } = useRound();
+  const { myId, choose, clear } = usePlayerIdentity();
+  const { scores, setScores, postScore, live, connected, players } = useRound();
   const { signedAt } = useSignoff(myId);
 
   const [hole, setHole] = useState(1);
   const [mode, setMode] = useState<Mode>('self');
   const [draft, setDraft] = useState<Record<number, Record<string, number>>>({});
   const startedAt = useRef(false);
+  const amInRound = !myId || players.some((p) => p.id === myId);
 
   // Jump to the first unplayed hole once, the first time this player's
   // posted scores load — after that, hole navigation is the golfer's own.
@@ -32,8 +33,14 @@ export default function ScoreEntryScreen() {
     }
   }, [scores, myId]);
 
+  // If this device's chosen player was removed from the round elsewhere,
+  // fall back to the picker rather than keep scoring as a ghost player.
+  useEffect(() => {
+    if (myId && players.length && !amInRound) clear();
+  }, [myId, players, amInRound]);
+
   if (myId === undefined || signedAt === undefined) return <View style={styles.screen} />;
-  if (!myId) return <PlayerPicker onChoose={choose} />;
+  if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} />;
 
   if (signedAt) {
     return (
@@ -70,7 +77,7 @@ export default function ScoreEntryScreen() {
   // hole via the chip strip — leaving a hole is the commit, not a separate
   // step you have to remember.
   const postCurrentHole = () => {
-    const entries = mode === 'self' ? [myId] : PLAYERS.map((p) => p.id);
+    const entries = mode === 'self' ? [myId] : players.map((p) => p.id);
     const nextScores = { ...scores, [hole]: { ...(scores[hole] || {}) } };
     for (const playerId of entries) {
       const strokes = valueFor(hole, playerId);
@@ -91,7 +98,7 @@ export default function ScoreEntryScreen() {
     setHole(h);
   };
 
-  const others = PLAYERS.filter((p) => p.id !== myId);
+  const others = players.filter((p) => p.id !== myId);
 
   return (
     <View style={styles.screen}>
@@ -161,7 +168,7 @@ export default function ScoreEntryScreen() {
           </>
         ) : (
           <View>
-            {PLAYERS.map((p) => {
+            {players.map((p) => {
               const val = valueFor(hole, p.id);
               const pToPar = toParFor(scores, p.id);
               return (

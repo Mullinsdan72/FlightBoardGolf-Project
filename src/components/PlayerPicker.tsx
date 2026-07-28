@@ -1,10 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { PLAYERS } from '@/data/seed';
+import type { SeedPlayer } from '@/data/seed';
 import { colors, font } from '@/theme';
 
 // Stands in for phone sign-in until Build Guide Phase 2 wires up Supabase
-// phone auth. Each device picks which seeded player it is, once.
-export function PlayerPicker({ onChoose }: { onChoose: (id: string) => void }) {
+// phone auth. Each device picks which player in the round it is, once.
+export function PlayerPicker({ players, onChoose }: { players: SeedPlayer[]; onChoose: (id: string) => void }) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.kicker}>No sign-in yet</Text>
@@ -13,7 +13,7 @@ export function PlayerPicker({ onChoose }: { onChoose: (id: string) => void }) {
         Phone-number sign-in comes later. For now, pick your name so your device knows which score is yours.
       </Text>
       <View style={styles.list}>
-        {PLAYERS.map((p) => (
+        {players.map((p) => (
           <Pressable key={p.id} onPress={() => onChoose(p.id)} style={styles.row}>
             <Text style={styles.rowName}>{p.name}</Text>
             <Text style={styles.rowMeta}>HCP {p.handicap}</Text>

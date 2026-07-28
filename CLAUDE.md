@@ -10,21 +10,30 @@ decision matters. `design/Build Guide.dc.html` is the phased build plan this pro
 
 ## Current state
 
-Built so far, as three tabs — **Score** (`src/app/(tabs)/index.tsx`), **Board**
-(`src/app/(tabs)/board.tsx`), and **Card** (`src/app/(tabs)/card.tsx`, the final scorecard
-and hold-to-sign) — all wired to Supabase (Postgres + Realtime). No sign-in yet — each
-device picks which of four seeded players it is (`src/components/PlayerPicker.tsx`) as a
-stand-in until real phone-number auth is built. Course setup, teams, and side games are not
-built yet — see `design/Build Guide.dc.html` for the intended phase order and don't jump
-ahead of it without discussing scope first.
+Built so far, as four tabs — **Score** (`src/app/(tabs)/index.tsx`), **Board**
+(`src/app/(tabs)/board.tsx`), **Card** (`src/app/(tabs)/card.tsx`, the final scorecard and
+hold-to-sign), and **Field** (`src/app/(tabs)/players.tsx`, add/remove players on the
+round) — all wired to Supabase (Postgres + Realtime). No sign-in yet — each device picks
+which player in the round it is (`src/components/PlayerPicker.tsx`) as a stand-in until real
+phone-number auth is built. Course setup, teams, and side games are not built yet — see
+`design/Build Guide.dc.html` for the intended phase order and don't jump ahead of it without
+discussing scope first.
 
-**Score and Board share one live-data connection** via `RoundProvider`
+Only one group exists so far. The design's group-splitting, shotgun starting-hole
+assignment, flights, and 300-player roster tools are all deliberately deferred — the Field
+tab is a single group's roster, not the full field tool from screen 04.
+
+**Every screen shares one live-data connection and one roster** via `RoundProvider`
 (`src/context/RoundContext.tsx`), mounted once at the tabs layout. Don't call
-`useLiveScores()` directly from a screen — go through `useRound()` instead. Two independent
-calls to `useLiveScores()` open two Supabase realtime channels with the identical name,
-which crashes the app the moment both screens are mounted (this actually happened and took
-a while to track down — Supabase's client rejects the second `postgres_changes`
-subscription on a topic that already has one).
+`useLiveScores()` or `useRoundPlayers()` directly from a screen — go through `useRound()`
+instead. Two independent calls to `useLiveScores()` open two Supabase realtime channels with
+the identical name, which crashes the app the moment both screens are mounted (this actually
+happened and took a while to track down — Supabase's client rejects the second
+`postgres_changes` subscription on a topic that already has one).
+
+Screens must tolerate their chosen player disappearing from the roster (removed on another
+device). Each one checks membership and falls back to `PlayerPicker` rather than indexing
+into a roster that no longer contains them.
 
 **Expo SDK is pinned to 54, not whatever `create-expo-app` scaffolds by default.** The
 `expo` package on npm is regularly ahead of what the published Expo Go app actually

@@ -12,10 +12,14 @@
 create extension if not exists pgcrypto;
 
 create table if not exists players (
-  id uuid primary key,
+  id uuid primary key default gen_random_uuid(),
   name text not null,
   handicap int not null default 0
 );
+
+-- Idempotent: if this table already existed (created before the players
+-- screen), it won't have picked up the default above.
+alter table players alter column id set default gen_random_uuid();
 
 create table if not exists rounds (
   id uuid primary key,

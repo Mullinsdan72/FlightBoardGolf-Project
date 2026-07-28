@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
-import { FIELD_DEMO_ROWS, HOLES, PLAYERS, ROUND_NAME } from '@/data/seed';
+import { FIELD_DEMO_ROWS, HOLES, ROUND_NAME } from '@/data/seed';
 import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
 import { thruFor, toParFor } from '@/lib/roundMath';
 import { colors, font, fmtToPar } from '@/theme';
@@ -11,14 +11,21 @@ import { colors, font, fmtToPar } from '@/theme';
 type Tab = 'group' | 'field';
 
 export default function LeaderboardScreen() {
-  const { myId, choose } = usePlayerIdentity();
-  const { scores, live, connected } = useRound();
+  const { myId, choose, clear } = usePlayerIdentity();
+  const { scores, live, connected, players } = useRound();
   const [tab, setTab] = useState<Tab>('field');
+  const amInRound = !myId || players.some((p) => p.id === myId);
+
+  // If this device's chosen player was removed from the round elsewhere,
+  // fall back to the picker rather than render a row for a ghost player.
+  useEffect(() => {
+    if (myId && players.length && !amInRound) clear();
+  }, [myId, players, amInRound]);
 
   if (myId === undefined) return <View style={styles.screen} />;
-  if (!myId) return <PlayerPicker onChoose={choose} />;
+  if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} />;
 
-  const realRows = PLAYERS.map((p) => ({
+  const realRows = players.map((p) => ({
     name: p.id === myId ? p.name + ' (you)' : p.name,
     club: 'Group 12',
     handicap: p.handicap,

@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
-import { COURSE_META, COURSE_NAME, PLAYERS } from '@/data/seed';
+import { COURSE_META, COURSE_NAME } from '@/data/seed';
 import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
 import { useSignoff } from '@/hooks/useSignoff';
 import { cardBlocksFor, netToParFor, stablefordFor, thruFor, toParFor } from '@/lib/roundMath';
@@ -22,8 +22,8 @@ const HOLD_STEP = 8;
 const HOLD_INTERVAL_MS = 40;
 
 export default function ScorecardScreen() {
-  const { myId, choose } = usePlayerIdentity();
-  const { scores } = useRound();
+  const { myId, choose, clear } = usePlayerIdentity();
+  const { scores, players } = useRound();
   const { signedAt, sign } = useSignoff(myId);
   const [hold, setHold] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -32,10 +32,17 @@ export default function ScorecardScreen() {
     if (timer.current) clearInterval(timer.current);
   }, []);
 
-  if (myId === undefined || signedAt === undefined) return <View style={styles.screen} />;
-  if (!myId) return <PlayerPicker onChoose={choose} />;
+  const me = myId ? players.find((p) => p.id === myId) : undefined;
 
-  const me = PLAYERS.find((p) => p.id === myId)!;
+  // If this device's chosen player was removed from the round elsewhere,
+  // fall back to the picker rather than crash on a missing player.
+  useEffect(() => {
+    if (myId && players.length && !me) clear();
+  }, [myId, players, me]);
+
+  if (myId === undefined || signedAt === undefined) return <View style={styles.screen} />;
+  if (!myId || !me) return <PlayerPicker players={players} onChoose={choose} />;
+
   const thru = thruFor(scores, myId);
   const complete = thru === 18;
   const gross = toParFor(scores, myId) + 72; // par 72 course
