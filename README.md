@@ -1,25 +1,43 @@
-# CODING AGENTS: READ THIS FIRST
+# Flight Board
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+A live, multiplayer golf scorecard app that replaces the paper card — built with
+[Expo](https://expo.dev) + [expo-router](https://docs.expo.dev/router/introduction/) and
+[Supabase](https://supabase.com) for the backend.
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+The design this app implements lives in [`design/`](./design) — a prototype exported from
+Claude Design, plus the chat that shaped it and a phased build guide. `CLAUDE.md` has the
+project's working rules.
 
-## What you should do — IMPORTANT
+## What's built so far
 
-**Read the chat transcripts first.** There are 1 chat transcript(s) in `chats/`. The transcripts show the full back-and-forth between the user and the design assistant — they tell you **what the user actually wants** and **where they landed** after iterating. Don't skip them. The final HTML files are the output, but the chat is where the intent lives.
+- **Score entry** (`src/app/(tabs)/index.tsx`) — hole-by-hole, big +/− stepper, traditional
+  circle/square notation (birdie, eagle, bogey...), both "everyone scores" and "one scorer
+  for the group" modes.
+- **Live leaderboard** (`src/app/(tabs)/board.tsx`) — My Group and Field tabs, live via
+  Supabase Realtime.
 
-**Read `project/Golf Scorecard.dc.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+No sign-in yet (see `src/components/PlayerPicker.tsx` for the stand-in), and no course
+setup, teams, side games, or sign-off — those come later, in the order `design/Build
+Guide.dc.html` lays out.
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+## Running it
 
-## About the design files
+1. Install dependencies:
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
+   ```bash
+   npm install
+   ```
 
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
+2. Copy `.env.example` to `.env` and fill in your Supabase project's URL and anon key
+   (Project Settings → API in the Supabase dashboard). See `supabase/schema.sql` for the
+   database setup — run that file once in the Supabase SQL editor. Until `.env` is filled
+   in, the app still runs, just without live sync between devices.
 
-## Bundle contents
+3. Start the app:
 
-- `README.md` — this file
-- `chats/` — conversation transcripts (read these!)
-- `project/` — the `Multiplayer Golf Scorecard App` project files (HTML prototypes, assets, components)
+   ```bash
+   npx expo start
+   ```
+
+   Then scan the QR code with [Expo Go](https://expo.dev/go) on your phone, or press `i` /
+   `a` for a simulator.

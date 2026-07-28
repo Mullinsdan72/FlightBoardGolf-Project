@@ -1,0 +1,179 @@
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { PlayerPicker } from '@/components/PlayerPicker';
+import { ScoreRing } from '@/components/ScoreRing';
+import { FIELD_DEMO_ROWS, HOLES, PLAYERS, ROUND_NAME } from '@/data/seed';
+import { useLiveScores } from '@/hooks/useLiveScores';
+import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
+import { thruFor, toParFor } from '@/lib/roundMath';
+import { colors, font, fmtToPar } from '@/theme';
+
+type Tab = 'group' | 'field';
+
+export default function LeaderboardScreen() {
+  const { myId, choose } = usePlayerIdentity();
+  const { scores, live, connected } = useLiveScores();
+  const [tab, setTab] = useState<Tab>('field');
+
+  if (myId === undefined) return <View style={styles.screen} />;
+  if (!myId) return <PlayerPicker onChoose={choose} />;
+
+  const realRows = PLAYERS.map((p) => ({
+    name: p.id === myId ? p.name + ' (you)' : p.name,
+    club: 'Group 12',
+    handicap: p.handicap,
+    toPar: toParFor(scores, p.id),
+    thru: thruFor(scores, p.id),
+    isYou: p.id === myId,
+  }));
+
+  const demoRows = FIELD_DEMO_ROWS.map((r) => ({
+    name: r.name,
+    club: r.club,
+    handicap: null as number | null,
+    toPar: r.toPar,
+    thru: r.thru === 'F' ? 18 : r.thru,
+    thruLabel: r.thru === 'F' ? 'F' : String(r.thru),
+    isYou: false,
+  }));
+
+  const fieldRows = [...realRows.map((r) => ({ ...r, thruLabel: r.thru === 18 ? 'F' : String(r.thru) })), ...demoRows]
+    .slice()
+    .sort((a, b) => a.toPar - b.toPar);
+
+  const groupRows = realRows
+    .slice()
+    .sort((a, b) => a.toPar - b.toPar)
+    .map((r) => {
+      const net = r.toPar - Math.round((r.handicap ?? 0) * (r.thru / 18));
+      return { ...r, note: `HCP ${r.handicap} · net ${fmtToPar(net)}` };
+    });
+
+  const myMini = HOLES.map((h) => ({ hole: h.hole, par: h.par, strokes: scores[h.hole]?.[myId] }));
+
+  return (
+    <View style={styles.screen}>
+      <View style={styles.headerRow}>
+        <View style={styles.headerTop}>
+          <Text style={styles.headerLabel}>{ROUND_NAME}</Text>
+          <View style={styles.liveBadge}>
+            <View style={[styles.liveDot, { backgroundColor: live && connected ? colors.accent : colors.mutedFaint }]} />
+            <Text style={styles.liveText}>{live ? (connected ? 'LIVE' : 'CONNECTING') : 'LOCAL ONLY'}</Text>
+          </View>
+        </View>
+        <Text style={styles.title}>Leaderboard</Text>
+      </View>
+
+      <View style={styles.tabRow}>
+        <Pressable style={[styles.tabBtn, styles.tabDivider]} onPress={() => setTab('group')}>
+          <Text style={styles.tabLabel}>MY GROUP</Text>
+          {tab === 'group' && <View style={styles.tabUnderline} />}
+        </Pressable>
+        <Pressable style={styles.tabBtn} onPress={() => setTab('field')}>
+          <Text style={styles.tabLabel}>FIELD · {fieldRows.length}</Text>
+          {tab === 'field' && <View style={styles.tabUnderline} />}
+        </Pressable>
+      </View>
+
+      <ScrollView>
+        {tab === 'field' &&
+          fieldRows.map((r, i) => (
+            <View key={r.name} style={[styles.fieldRow, r.isYou && styles.rowYou]}>
+              <Text style={styles.pos}>{i + 1}</Text>
+              <View style={styles.fieldNameCol}>
+                <Text style={styles.fieldName}>{r.name}</Text>
+                <Text style={styles.fieldClub}>{r.club}</Text>
+              </View>
+              <Text style={[styles.fieldToPar, { color: r.toPar < 0 ? colors.accent : colors.text }]}>
+                {fmtToPar(r.toPar)}
+              </Text>
+              <Text style={styles.fieldThru}>{r.thruLabel}</Text>
+            </View>
+          ))}
+
+        {tab === 'group' && (
+          <>
+            {groupRows.map((r) => (
+              <View key={r.name} style={[styles.groupRow, r.isYou && styles.rowYou]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.groupName}>{r.name}</Text>
+                  <Text style={styles.groupNote}>{r.note}</Text>
+                </View>
+                <Text style={[styles.groupToPar, { color: r.toPar < 0 ? colors.accent : colors.text }]}>
+                  {fmtToPar(r.toPar)}
+                </Text>
+                <Text style={styles.groupThru}>{r.thru === 18 ? 'F' : `thru ${r.thru}`}</Text>
+              </View>
+            ))}
+
+            <View style={styles.miniSection}>
+              <Text style={styles.miniLabel}>Hole by hole · you</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
+                {myMini.map((c) => (
+                  <View key={c.hole} style={styles.miniCell}>
+                    <Text style={styles.miniHole}>{c.hole}</Text>
+                    {c.strokes != null ? (
+                      <ScoreRing strokes={c.strokes} par={c.par} size={30} innerSize={25} fontSize={14} />
+                    ) : (
+                      <Text style={styles.miniDash}>–</Text>
+                    )}
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg },
+  headerRow: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerLabel: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase', color: colors.muted },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  liveDot: { width: 7, height: 7 },
+  liveText: { fontFamily: font.heading, fontSize: 9.5, letterSpacing: 1.1, color: colors.accent },
+  title: { fontFamily: font.heading, fontSize: 28, letterSpacing: -0.6, marginTop: 8, color: colors.text },
+  tabRow: { flexDirection: 'row', borderTopWidth: 2, borderBottomWidth: 2, borderColor: colors.divider },
+  tabBtn: { flex: 1, paddingVertical: 12, paddingHorizontal: 12 },
+  tabDivider: { borderRightWidth: 1, borderRightColor: colors.divider },
+  tabLabel: { fontFamily: font.heading, fontSize: 11, letterSpacing: 0.5, color: colors.text },
+  tabUnderline: { height: 3, backgroundColor: colors.accent, marginTop: 9 },
+  rowYou: { backgroundColor: 'rgba(236,48,19,0.08)' },
+  fieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 13,
+    paddingLeft: 14,
+    paddingRight: 20,
+    borderBottomWidth: 1,
+    borderColor: colors.divider,
+    gap: 4,
+  },
+  pos: { fontFamily: font.heading, fontSize: 13, width: 30, color: colors.mutedFaint },
+  fieldNameCol: { flex: 1 },
+  fieldName: { fontFamily: font.bodySemi, fontSize: 14.5, color: colors.text },
+  fieldClub: { fontFamily: font.body, fontSize: 10.5, color: colors.muted, marginTop: 4 },
+  fieldToPar: { fontFamily: font.heading, fontSize: 20, width: 56, textAlign: 'right' },
+  fieldThru: { fontFamily: font.body, fontSize: 11, width: 52, textAlign: 'right', color: colors.muted },
+  groupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 2,
+    borderColor: colors.divider,
+  },
+  groupName: { fontFamily: font.heading, fontSize: 17, color: colors.text },
+  groupNote: { fontFamily: font.body, fontSize: 11, color: colors.muted, marginTop: 5 },
+  groupToPar: { fontFamily: font.heading, fontSize: 26, marginLeft: 8 },
+  groupThru: { fontFamily: font.body, fontSize: 11, marginLeft: 8, color: colors.muted },
+  miniSection: { paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 2, borderColor: colors.divider },
+  miniLabel: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.1, textTransform: 'uppercase', color: colors.muted },
+  miniCell: { width: 38, alignItems: 'center', gap: 7, borderRightWidth: 1, borderColor: colors.divider, paddingVertical: 2 },
+  miniHole: { fontFamily: font.bodySemi, fontSize: 9.5, color: colors.muted },
+  miniDash: { fontFamily: font.heading, fontSize: 14, color: colors.ghost, height: 30, textAlignVertical: 'center' },
+});
