@@ -249,6 +249,22 @@ export function useTeams(
     [teams, state.format, segments, activeSeg, holes, scoreFor],
   );
 
+  /**
+   * Standings for any segment, not just the one being edited.
+   *
+   * The leaderboard needs every segment at once: re-drawing at the turn makes
+   * the two halves separate contests between different teams, so there is no
+   * honest way to add them into one table.
+   */
+  const standingsFor = useCallback(
+    (seg: number) =>
+      teamStandings(teamsForSegment(seg), state.format, segments[seg]?.holes ?? [], holes, scoreFor),
+    [teamsForSegment, state.format, segments, holes, scoreFor],
+  );
+
+  /** Whether a segment's teams were actually drawn, rather than just suggested. */
+  const drawSavedFor = useCallback((seg: number) => assignments[seg] !== undefined, [assignments]);
+
   return {
     teams: state,
     teamsLoaded: loaded,
@@ -258,7 +274,10 @@ export function useTeams(
     teamRoster: teams,
     teamUnassigned: unassigned,
     teamDrawSaved: isSaved,
+    teamDrawSavedFor: drawSavedFor,
     teamStandings: standings,
+    teamStandingsFor: standingsFor,
+    teamsForSegment,
     teamMaxCount: maxTeamsFor(players.length, state.size),
     teamSetSettings: persistSettings,
     teamAutoDraw: autoDraw,

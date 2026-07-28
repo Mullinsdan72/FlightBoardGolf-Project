@@ -224,3 +224,11 @@ setup.
 - Segments are what a re-draw at the turn produces. `segmentsFor` splits **by position, not by
   hole number** — the back nine is holes 10–18, and a round can legitimately start at hole 10.
   Nine holes get one segment however the setting is left, since there's no turn to re-draw at.
+- **Segments never total up.** A re-draw makes the two halves separate contests between
+  different teams, so BOARD lists them one after the other rather than adding them — a
+  combined figure would be summing two different competitions.
+- BOARD grows a TEAMS tab only while `teams.enabled`, and the tab shows a segment as "not
+  drawn yet" rather than falling back to the suggested draft. `teamsForSegment` *does* fall
+  back, which is right on the setup screen (you need something to accept) and wrong on a
+  leaderboard (it would show standings for teams nobody agreed to). Use `teamDrawSavedFor`
+  to tell them apart.
