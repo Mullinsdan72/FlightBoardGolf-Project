@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
+import { Wordmark } from '@/components/Wordmark';
 import { ScoreRing } from '@/components/ScoreRing';
 import { WolfPrompt } from '@/components/WolfPrompt';
 import { useRound } from '@/context/RoundContext';
@@ -140,30 +141,36 @@ export default function ScoreEntryScreen() {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
-          {/* The way to Rounds for everybody. FIELD used to be the only door to
-              it, and FIELD is the organizer's tab now — a player still has to be
-              able to switch to the round they're actually playing. */}
-          <Pressable onPress={() => router.push('/rounds')} hitSlop={8}>
-            <Text style={styles.headerLabel}>{activeRound?.name || 'Round'} · ROUNDS + NEW ›</Text>
-          </Pressable>
-          {/* Says what's actually true: queued scores are saved on the phone
-              and will sync — not lost, and not silently pending either. */}
-          {pendingCount > 0 ? (
-            <View style={styles.offlineBadge}>
-              <View style={styles.offlineDot} />
-              <Text style={styles.offlineText}>SAVED · {pendingCount} TO SYNC</Text>
-            </View>
-          ) : !live ? (
-            <View style={styles.offlineBadge}>
-              <View style={[styles.offlineDot, { backgroundColor: colors.mutedFaint }]} />
-              <Text style={[styles.offlineText, { color: colors.muted }]}>THIS PHONE ONLY</Text>
-            </View>
-          ) : !connected ? (
-            <View style={styles.offlineBadge}>
-              <View style={[styles.offlineDot, { backgroundColor: colors.mutedFaint }]} />
-              <Text style={[styles.offlineText, { color: colors.muted }]}>CONNECTING</Text>
-            </View>
-          ) : null}
+          <View style={styles.headerLeft}>
+            {/* The way to Rounds for everybody. FIELD used to be the only door to
+                it, and FIELD is the organizer's tab now — a player still has to be
+                able to switch to the round they're actually playing. */}
+            <Pressable onPress={() => router.push('/rounds')} hitSlop={8}>
+              <Text style={styles.headerLabel}>{activeRound?.name || 'Round'} · ROUNDS + NEW ›</Text>
+            </Pressable>
+            {/* Says what's actually true: queued scores are saved on the phone
+                and will sync — not lost, and not silently pending either. */}
+            {pendingCount > 0 ? (
+              <View style={[styles.offlineBadge, styles.badgeUnder]}>
+                <View style={styles.offlineDot} />
+                <Text style={styles.offlineText}>SAVED · {pendingCount} TO SYNC</Text>
+              </View>
+            ) : !live ? (
+              <View style={[styles.offlineBadge, styles.badgeUnder]}>
+                <View style={[styles.offlineDot, { backgroundColor: colors.mutedFaint }]} />
+                <Text style={[styles.offlineText, { color: colors.muted }]}>THIS PHONE ONLY</Text>
+              </View>
+            ) : !connected ? (
+              <View style={[styles.offlineBadge, styles.badgeUnder]}>
+                <View style={[styles.offlineDot, { backgroundColor: colors.mutedFaint }]} />
+                <Text style={[styles.offlineText, { color: colors.muted }]}>CONNECTING</Text>
+              </View>
+            ) : null}
+          </View>
+          {/* Small, and out to the right, so it sits beside the round name rather
+              than above the hole number. This is the screen you read between
+              shots — the logo can be here, but it doesn't get to take a line. */}
+          <Wordmark width={128} />
         </View>
 
         <View style={styles.holeRow}>
@@ -313,11 +320,14 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 24 },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: 12,
     paddingTop: 58,
     paddingHorizontal: 20,
   },
+  headerLeft: { flex: 1 },
+  badgeUnder: { marginTop: 7 },
   headerLabel: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase', color: colors.muted },
   lockedWrap: { paddingTop: 58, paddingHorizontal: 20 },
   lockedTitle: { fontFamily: font.heading, fontSize: 24, color: colors.accent, marginTop: 16 },
