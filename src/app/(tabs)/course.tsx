@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
 import type { Hole } from '@/data/seed';
@@ -46,24 +46,87 @@ export default function CourseScreen() {
     (t) => t.teeName === course?.teeName && t.gender === course?.teeGender,
   );
 
-  const runSearch = async () => {
+  // Courses already on this phone, matched as you type. Free, instant, works
+  // with no signal — and it's the first thing offered, because the course you
+  // play every week should never cost a lookup to find again.
+  const localMatches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return savedCourses
+      .filter((c) => `${c.clubName} ${c.courseName} ${c.location}`.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [query, savedCourses]);
+
+  // Every API search costs one of 300 a day, and type-ahead is the fastest way
+  // ever invented to spend a quota — one call per keystroke would burn the lot
+  // typing "Pebble Beach" twice. Three guards, all of them load-bearing:
+  //
+  //   1. Nothing fires until you stop typing for 500ms.
+  //   2. Under three letters never searches at all.
+  //   3. Answers are kept per query for the session, so backspacing a letter
+  //      and retyping it is free, as is searching the same club twice.
+  //
+  // `seqRef` is the fourth thing: replies can land out of order, and without it
+  // a slow "Pebb" could overwrite the "Pebble Beach" you're actually reading.
+  const cacheRef = useRef(new Map<string, CourseSearchResult[]>());
+  const seqRef = useRef(0);
+
+  const notFound = (q: string) => `Nothing found for “${q}”. Try the club name, or enter the card by hand.`;
+
+  const search = useCallback(async (raw: string) => {
+    const q = raw.trim();
+    if (q.length < 3) return;
+
+    const key = q.toLowerCase();
+    const hit = cacheRef.current.get(key);
+    if (hit) {
+      seqRef.current += 1;
+      setResults(hit);
+      setSearchError(hit.length ? null : notFound(q));
+      setSearching(false);
+      return;
+    }
+
+    const mine = (seqRef.current += 1);
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const found = await searchCourses(q);
+      cacheRef.current.set(key, found);
+      if (seqRef.current !== mine) return; // a later query owns the screen now
+      setResults(found);
+      if (!found.length) setSearchError(notFound(q));
+    } catch (err) {
+      if (seqRef.current !== mine) return;
+      setSearchError(err instanceof Error ? err.message : 'Search failed.');
+    } finally {
+      if (seqRef.current === mine) setSearching(false);
+    }
+  }, []);
+
+  useEffect(() => {
     const q = query.trim();
     if (q.length < 3) {
+      // Clearing the box clears the results with it, rather than leaving the
+      // last search stranded under an empty field.
+      seqRef.current += 1;
+      setResults(null);
+      setSearchError(null);
+      setSearching(false);
+      return;
+    }
+    const timer = setTimeout(() => search(q), 500);
+    return () => clearTimeout(timer);
+  }, [query, search]);
+
+  // The button and the keyboard's search key skip the wait. Same cache, so
+  // pressing it after the type-ahead already ran costs nothing.
+  const runSearch = () => {
+    if (query.trim().length < 3) {
       setSearchError('Type at least three letters.');
       return;
     }
-    setSearching(true);
-    setSearchError(null);
-    setResults(null);
-    try {
-      const found = await searchCourses(q);
-      setResults(found);
-      if (!found.length) setSearchError(`Nothing found for “${q}”. Try the club name, or enter the card by hand.`);
-    } catch (err) {
-      setSearchError(err instanceof Error ? err.message : 'Search failed.');
-    } finally {
-      setSearching(false);
-    }
+    search(query);
   };
 
   // One lookup per course, ever. Search already returned the full card, so this
@@ -182,7 +245,7 @@ export default function CourseScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Course or club name"
+            placeholder="Start typing a course or club"
             placeholderTextColor={colors.ghost}
             style={styles.searchInput}
             autoCapitalize="words"
@@ -195,6 +258,38 @@ export default function CourseScreen() {
         </View>
         {searchError && <Text style={styles.errorText}>{searchError}</Text>}
         {searching && <ActivityIndicator style={{ marginVertical: 14 }} color={colors.accent} />}
+
+        {/* Already on the phone — shown first and shown instantly, before the
+            lookup has even been sent. */}
+        {localMatches.length > 0 && (
+          <>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionLabel}>On this phone</Text>
+              <Text style={styles.sectionAside}>no lookup</Text>
+            </View>
+            {localMatches.map((c) => (
+              <View key={c.id} style={[styles.savedRow, c.id === course?.courseId && styles.savedRowActive]}>
+                <Pressable style={styles.savedMain} onPress={() => pickSaved(c)}>
+                  <Text style={styles.savedName}>{c.courseName || c.clubName}</Text>
+                  <Text style={styles.savedMeta}>
+                    {[c.location, `${c.tees.length} tee${c.tees.length === 1 ? '' : 's'}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={() => star(c.id)} style={styles.starBtn} hitSlop={6}>
+                  <Text style={[styles.star, { color: c.isFavorite ? colors.accent : colors.ghost }]}>
+                    {c.isFavorite ? '★' : '☆'}
+                  </Text>
+                </Pressable>
+              </View>
+            ))}
+          </>
+        )}
+
+        {results && results.length > 0 && localMatches.length > 0 && (
+          <Text style={styles.sectionLabel}>Found online</Text>
+        )}
 
         {results?.map((r) => {
           const alreadySaved = savedCourses.find((c) => c.id === `gca:${r.externalId}`);
