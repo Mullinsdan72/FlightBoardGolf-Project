@@ -83,15 +83,15 @@ const msg = inv.inviteMessage({
   roundId: ROUND,
 });
 
-check('it opens by saying what happened', msg.startsWith("You've been added to Flight Board."), true);
+check('it opens by saying what happened', msg.startsWith("You've been added to Flight Board golf."), true);
 // Nothing time-bound in the wording, so an invite sent the night before still
 // reads correctly the next morning.
 check('it does not claim the round is today', msg.toLowerCase().includes('today'), false);
 check('it says the round is live', msg.includes('in real time'), true);
 check('it mentions the games', msg.includes('games being played within the round'), true);
 check('it says you keep your own score', msg.includes('lets you keep your own score'), true);
-// The line that actually sells it: the problem being solved is the pencil.
-check('no more paper scorecards', msg.includes('No more paper scorecards.'), true);
+// The line that actually sells it: what the app takes off you is the adding up.
+check('the payoff line', msg.includes('Simply put, no more math equations.'), true);
 check('it tells them to tap', msg.includes('Click here to join the round !'), true);
 check('and the link is the last line', msg.trim().endsWith(inv.inviteLink(ROUND)), true);
 
@@ -106,7 +106,7 @@ check('the round id is the only thing that varies', inv.inviteMessage({ roundNam
 const NON_GSM = /[^A-Za-z0-9@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà\n\r^{}\\[~\]|€]/;
 const offenders = [...msg].filter((c) => NON_GSM.test(c));
 check('nothing in the message breaks GSM-7 encoding', offenders, []);
-// 282 characters — two concatenated segments (153 each). Pinned so an edit that
+// 297 characters — two concatenated segments (153 each). Pinned so an edit that
 // pushes it to three gets noticed rather than just quietly costing more to send.
 check('it fits in two SMS segments', Math.ceil(msg.length / 153), 2);
 
