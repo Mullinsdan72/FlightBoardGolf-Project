@@ -58,7 +58,7 @@ export default function LeaderboardScreen() {
   const realRows = players.map((p) => ({
     id: p.id,
     name: p.id === myId ? p.name + ' (you)' : p.name,
-    club: 'Group 12',
+    club: `HCP ${p.handicap}`,
     handicap: p.handicap,
     toPar: toParFor(holes, scores, p.id),
     // Same stroke-index allocation the scorecard uses, so a player's net here

@@ -23,6 +23,9 @@ export default function PlayersScreen() {
   const [name, setName] = useState('');
   const [handicap, setHandicap] = useState('');
   const [busy, setBusy] = useState(false);
+  // Who's being replaced, if anyone. A swap is the same form as an add, with the
+  // outgoing player taken off once the incoming one is in.
+  const [swapping, setSwapping] = useState<string | null>(null);
 
   const organizerName = organizerId ? (players.find((p) => p.id === organizerId)?.name ?? null) : null;
 
@@ -31,12 +34,26 @@ export default function PlayersScreen() {
   const handicapValid = Number.isInteger(parsedHandicap) && parsedHandicap >= 0 && parsedHandicap <= 54;
   const canAdd = trimmedName.length > 0 && handicapValid && !busy;
 
+  const swappingFor = swapping ? players.find((p) => p.id === swapping) : null;
+
+  /**
+   * Add a player, or put one in somebody else's place.
+   *
+   * A substitution is add-then-remove rather than a rename, because they're two
+   * different golfers: the person who dropped out keeps whatever they posted, and
+   * the one taking their place starts on a clean card. Renaming would hand a
+   * stranger someone else's scores.
+   */
   const submit = async () => {
     if (!canAdd) return;
     setBusy(true);
-    await addPlayer(trimmedName, parsedHandicap);
+    const added = await addPlayer(trimmedName, parsedHandicap);
+    if (added && swappingFor) {
+      await removePlayer(swappingFor.id);
+    }
     setName('');
     setHandicap('');
+    setSwapping(null);
     setBusy(false);
   };
 
@@ -67,7 +84,7 @@ export default function PlayersScreen() {
         <Pressable onPress={() => router.push('/rounds')} hitSlop={8}>
           <Text style={styles.kicker}>{activeRound?.name || 'Round'} · ROUNDS + NEW ›</Text>
         </Pressable>
-        <Text style={styles.title}>The field</Text>
+        <Text style={styles.title}>Players</Text>
       </View>
 
       <View style={styles.statsRow}>
@@ -112,7 +129,7 @@ export default function PlayersScreen() {
           )}
         </View>
 
-        <Text style={styles.sectionLabel}>Group 12</Text>
+        <Text style={styles.sectionLabel}>Playing this round</Text>
         {players.map((p) => {
           const played = thruFor(holes, scores, p.id);
           return (
@@ -124,6 +141,19 @@ export default function PlayersScreen() {
                   HCP {p.handicap} · {played > 0 ? `${played} played` : 'not started'}
                 </Text>
               </View>
+              <Pressable
+                onPress={() => {
+                  setSwapping((prev) => (prev === p.id ? null : p.id));
+                  setName('');
+                  setHandicap('');
+                }}
+                style={[styles.removeBtn, swapping === p.id && styles.swapBtnOn]}
+                hitSlop={8}
+              >
+                <Text style={[styles.removeLabel, swapping === p.id && styles.swapLabelOn]}>
+                  {swapping === p.id ? 'SWAPPING' : 'SWAP'}
+                </Text>
+              </Pressable>
               <Pressable onPress={() => confirmRemove(p.id, p.name)} style={styles.removeBtn} hitSlop={8}>
                 <Text style={styles.removeLabel}>REMOVE</Text>
               </Pressable>
@@ -131,7 +161,16 @@ export default function PlayersScreen() {
           );
         })}
 
-        <Text style={styles.sectionLabel}>Add a player</Text>
+        <Text style={styles.sectionLabel}>
+          {swappingFor ? `Who is playing instead of ${swappingFor.name}` : 'Add a player'}
+        </Text>
+        {swappingFor && (
+          <Text style={styles.swapNote}>
+            {thruFor(holes, scores, swappingFor.id) > 0
+              ? `${swappingFor.name} has holes posted. They keep them, but come off the board — the player you add starts on a clean card.`
+              : `${swappingFor.name} comes off the round as soon as their replacement is in.`}
+          </Text>
+        )}
         <View style={styles.addBlock}>
           <Text style={styles.fieldLabel}>Name</Text>
           <TextInput
@@ -159,8 +198,21 @@ export default function PlayersScreen() {
           )}
         </View>
 
+        {swappingFor && (
+          <Pressable onPress={() => setSwapping(null)} style={styles.cancelSwap}>
+            <Text style={styles.cancelSwapLabel}>CANCEL THE SWAP</Text>
+          </Pressable>
+        )}
         <Pressable onPress={submit} disabled={!canAdd} style={[styles.addBtn, !canAdd && styles.addBtnDisabled]}>
-          <Text style={styles.addBtnLabel}>{busy ? 'ADDING…' : 'ADD TO THE ROUND'}</Text>
+          <Text style={styles.addBtnLabel}>
+            {busy
+              ? swappingFor
+                ? 'SWAPPING…'
+                : 'ADDING…'
+              : swappingFor
+                ? `REPLACE ${swappingFor.name.toUpperCase()}`
+                : 'ADD TO THE ROUND'}
+          </Text>
           <Text style={styles.addBtnArrow}>→</Text>
         </Pressable>
 
@@ -242,6 +294,11 @@ const styles = StyleSheet.create({
   playerMeta: { fontFamily: font.body, fontSize: 11, color: colors.muted, marginTop: 4 },
   removeBtn: { borderWidth: 1, borderColor: colors.divider, paddingVertical: 7, paddingHorizontal: 9 },
   removeLabel: { fontFamily: font.heading, fontSize: 10, letterSpacing: 0.8, color: colors.mutedFaint },
+  swapBtnOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  swapLabelOn: { color: '#fff' },
+  swapNote: { fontFamily: font.body, fontSize: 11.5, lineHeight: 17, color: colors.text, paddingHorizontal: 20, paddingBottom: 12 },
+  cancelSwap: { paddingHorizontal: 20, paddingTop: 14 },
+  cancelSwapLabel: { fontFamily: font.heading, fontSize: 10.5, letterSpacing: 0.9, color: colors.accent },
   addBlock: { paddingHorizontal: 20, paddingBottom: 4, borderTopWidth: 1, borderColor: colors.divider, paddingTop: 16 },
   fieldLabel: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase', color: colors.muted },
   input: {

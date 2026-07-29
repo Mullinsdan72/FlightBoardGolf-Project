@@ -65,7 +65,7 @@ export default function ScoreEntryScreen() {
     return (
       <View style={styles.screen}>
         <View style={styles.lockedWrap}>
-          <Text style={styles.headerLabel}>{activeRound?.name || 'Round'} · Group 12</Text>
+          <Text style={styles.headerLabel}>{activeRound?.name || 'Round'}</Text>
           <Text style={styles.lockedTitle}>Your card is signed and locked</Text>
           <Text style={styles.lockedNote}>
             Signed {new Date(signedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Only whoever's
@@ -233,7 +233,7 @@ export default function ScoreEntryScreen() {
               </Pressable>
             </View>
 
-            <Text style={styles.sectionLabel}>Group 12 · this hole</Text>
+            <Text style={styles.sectionLabel}>Everyone · this hole</Text>
             {others.map((p) => {
               const done = scores[hole]?.[p.id] != null;
               return (
@@ -272,7 +272,7 @@ export default function ScoreEntryScreen() {
               );
             })}
             <Text style={styles.scorerNote}>
-              Everyone in Group 12 sees these numbers land live. Any player can dispute a hole for 5 minutes after it
+              Everyone in the round sees these numbers land live. Any player can dispute a hole for 5 minutes after it
               posts.
             </Text>
           </View>

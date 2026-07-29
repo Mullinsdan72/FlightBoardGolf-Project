@@ -163,7 +163,7 @@ export default function TeamsScreen() {
 
         {!enoughPlayers && (
           <Text style={styles.note}>
-            Add at least two players on the FIELD tab before drawing teams.
+            Add at least two players on the PLAYERS tab before drawing teams.
           </Text>
         )}
 

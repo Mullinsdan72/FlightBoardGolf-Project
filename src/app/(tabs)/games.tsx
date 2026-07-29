@@ -564,7 +564,7 @@ export default function GamesScreen() {
 
         {!canPlay && active !== 'holes' && (
           <Text style={styles.note}>
-            Wolf needs at least three players — one wolf and two to play against. Add players on the FIELD tab. Closest
+            Wolf needs at least three players — one wolf and two to play against. Add players on the PLAYERS tab. Closest
             to the pin and longest drive work with two.
           </Text>
         )}
@@ -577,7 +577,7 @@ export default function GamesScreen() {
                 <Text style={styles.lockText}>
                   {organizerName
                     ? `${organizerName} is running this round and sets the terms. You can see them here, but changing the stake or the rotation isn't a player's call.`
-                    : "Nobody has said they're running this round yet, so the terms are locked. Whoever is can say so on the FIELD tab."}
+                    : "Nobody has said they're running this round yet, so the terms are locked. Whoever is can say so on the PLAYERS tab."}
                 </Text>
               </View>
             )}

@@ -16,7 +16,7 @@ export function PlayerPicker({ players, onChoose }: { players: SeedPlayer[]; onC
         <Text style={[styles.kicker, { marginTop: 18 }]}>Nobody in this round yet</Text>
         <Text style={styles.title}>Add the players first</Text>
         <Text style={styles.body}>
-          Open the <Text style={styles.bodyStrong}>FIELD</Text> tab and add everyone playing — name and handicap. Then
+          Open the <Text style={styles.bodyStrong}>PLAYERS</Text> tab and add everyone playing — name and handicap. Then
           come back here and pick which one is you.
         </Text>
       </View>

@@ -10,7 +10,7 @@ const TAB_META: Record<string, { label: string; sub: string }> = {
   // Spelled out when there's room for it. At six tabs there isn't.
   board: { label: 'BOARD', sub: 'live' },
   card: { label: 'CARD', sub: 'sign off' },
-  players: { label: 'FIELD', sub: 'roster' },
+  players: { label: 'PLAYERS', sub: 'add · swap' },
   course: { label: 'COURSE', sub: 'the card' },
   games: { label: 'GAMES', sub: 'side bets' },
 };
