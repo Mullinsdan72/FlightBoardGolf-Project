@@ -4,7 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { useRound } from '@/context/RoundContext';
 import { SetupBar, useInSetup } from '@/components/SetupBar';
 import { Wordmark } from '@/components/Wordmark';
-import { defaultRoundName, isoDaysFromNow, prettyDay } from '@/lib/invite';
+import { cleanName, defaultRoundName, isoDaysFromNow, prettyDay } from '@/lib/invite';
 import { colors, font } from '@/theme';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -26,6 +26,7 @@ export default function RoundsScreen() {
     switchRound,
     createRound,
     deleteRound,
+    choose,
   } = useRound();
   const inSetup = useInSetup();
 
@@ -36,9 +37,23 @@ export default function RoundsScreen() {
   const effectiveName = name.trim() || defaultRoundName(playedOn.trim());
   const [busy, setBusy] = useState(false);
 
+  // This device remembers which player it is (`flightboard.myPlayerId`), and
+  // that is who creates the round — not `players.find(...)`. The roster on
+  // screen belongs to whichever round is *open*, and you can perfectly well be
+  // looking at a round you're not in; filtering through it turned "I know
+  // exactly who you are" into "nobody", and the round came out with no
+  // organizer and nobody in the field.
   const me = myId ? players.find((p) => p.id === myId) : undefined;
+  const knowsMe = myId != null;
+
+  // Only asked on a phone that has never picked a player, which after /welcome
+  // exists is rare — but a round created by an anonymous device is the dead end
+  // that /welcome was built to remove, so don't leave the same hole open here.
+  const [yourName, setYourName] = useState('');
+  const tidyName = cleanName(yourName);
+
   const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(playedOn.trim());
-  const canCreate = dateValid && !busy;
+  const canCreate = dateValid && (knowsMe || tidyName.length > 0) && !busy;
 
   // This screen is reached two ways and only one of them has a back stack: by
   // tapping the round name on FIELD (pushed, so back works), or by the tabs
@@ -58,21 +73,26 @@ export default function RoundsScreen() {
   const submit = async () => {
     if (!canCreate) return;
     setBusy(true);
-    // Creating a round makes you its organizer and puts you in the field — that
-    // is what creating a round means. `me` may be undefined the very first time,
-    // before this device has picked a player; the round is still created and you
-    // add yourself on the FIELD tab.
-    const { error } = await createRound({
+    // Creating a round makes you its organizer *and puts you in the field* —
+    // that is what creating a round means. You're playing in it unless you say
+    // otherwise, and saying otherwise is one REMOVE on the PLAYERS tab.
+    const { playerId, error } = await createRound({
       name: effectiveName,
       playedOn: playedOn.trim(),
-      creatorPlayerId: me?.id ?? null,
+      creatorPlayerId: myId ?? null,
+      creatorName: knowsMe ? null : tidyName,
+      creatorHandicap: 0,
     });
     setBusy(false);
     if (error) {
       Alert.alert('Could not create the round', error);
       return;
     }
+    // Minted a player for this device just now — become them, so nothing asks
+    // who you are on the very next screen.
+    if (playerId) await choose(playerId);
     setName('');
+    setYourName('');
     setPlayedOn(todayIso());
     // A brand new round has no course and nobody in it, so the useful next
     // screen is the run-through, not the score card.
@@ -119,6 +139,20 @@ export default function RoundsScreen() {
       <ScrollView keyboardShouldPersistTaps="handled">
         <Text style={styles.sectionLabel}>New round</Text>
         <View style={styles.addBlock}>
+          {!knowsMe && (
+            <>
+              <Text style={styles.fieldLabel}>Your name</Text>
+              <TextInput
+                value={yourName}
+                onChangeText={setYourName}
+                placeholder="First and last"
+                placeholderTextColor={colors.ghost}
+                style={styles.input}
+                autoCapitalize="words"
+              />
+            </>
+          )}
+
           <Text style={styles.fieldLabel}>When</Text>
           <View style={styles.dayRow}>
             {[0, 1, 2].map((offset) => {
@@ -170,8 +204,8 @@ export default function RoundsScreen() {
         </Pressable>
         <Text style={styles.note}>
           {me
-            ? `You'll be running this round and playing in it. Next you pick the course, then who else is in.`
-            : `The round will be created without you in it, because this device hasn't picked a player yet. Add yourself on the PLAYERS tab afterwards.`}
+            ? `You'll be running this round and playing in it, ${me.name} — you're in the field already. Next you pick the course, then who else is in.`
+            : `You'll be running this round and playing in it. Next you pick the course, then who else is in. Not playing today? Take yourself off on the PLAYERS tab.`}
         </Text>
 
         <Text style={styles.sectionLabel}>{rounds.length ? 'All rounds' : 'No rounds yet'}</Text>

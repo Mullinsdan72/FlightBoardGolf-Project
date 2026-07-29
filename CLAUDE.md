@@ -21,21 +21,29 @@ created is what forced the "claim the organizer role" button to exist.
 
 Built so far, as six tabs — **Score** (`src/app/(tabs)/index.tsx`), **Board**
 (`src/app/(tabs)/board.tsx`), **Card** (`src/app/(tabs)/card.tsx`, the final scorecard and
-hold-to-sign), **Field** (`src/app/(tabs)/players.tsx`, the round's roster), **Course**
+hold-to-sign), **Players** (`src/app/(tabs)/players.tsx`, the round's roster), **Course**
 (`src/app/(tabs)/course.tsx`, search/favourites/tees/holes-in-play/manual card entry) and
 **Games** (`src/app/(tabs)/games.tsx`, every side game plus SET UP) — all wired to Supabase
 (Postgres + Realtime), plus three screens outside the tabs: `/rounds` (the round name on
-SCORE, or past rounds on CARD), `/teams` (the TEAMS row on FIELD, following the design's own
+SCORE, or past rounds on CARD), `/teams` (the TEAMS row on PLAYERS, following the design's own
 players → teams → side games order) and `/settle` (SETTLE UP on GAMES).
 
 **A player sees four tabs, the organizer six.** SCORE, LEADERBOARD, CARD and GAMES are
-everyone's; FIELD and COURSE are the organizer's, because setting the round up is their job
+everyone's; PLAYERS and COURSE are the organizer's, because setting the round up is their job
 and two dead tabs is clutter for everyone else. GAMES itself only appears once a game exists.
 Inside GAMES the sub-tabs are built from the games actually running — each states its rules
 and shows its results — with the controls on an organizer-only SET UP tab.
 
 No sign-in yet: each device picks which player in the round it is
 (`src/components/PlayerPicker.tsx`) as a stand-in until real phone-number auth is built.
+**That choice is remembered and it is who creates rounds.** `usePlayerIdentity` keeps
+`flightboard.myPlayerId` in AsyncStorage, so the phone knows who it is across rounds and
+restarts, and creating a round seats that player in the field and makes them its organizer
+without asking. Read the id from `myId` directly — never from `players.find(...)`, because
+that list is the *open* round's roster and you can be looking at a round you're not in.
+Filtering identity through it produced rounds with no organizer and nobody in the field.
+The creator is a player until they say otherwise, and saying otherwise is one REMOVE on the
+PLAYERS tab.
 Every side game the design calls for is built (Wolf, closest to the pin, longest drive, team
 challenge) and they converge on `/settle`. See `design/prototype/Build Guide.dc.html` for the
 phase order and don't jump ahead of it without discussing scope first.
@@ -105,7 +113,7 @@ everywhere in this codebase, not just the screens they were first written for.
    - A player signs only their own card. The organizer can reopen **any** card, which is
      what the rule actually says.
    - `rounds.organizer_player_id` holds the role, set to whoever created the round. The
-     FIELD tab can still hand it over, which is also the escape hatch for the rounds that
+     PLAYERS tab can still hand it over, which is also the escape hatch for the rounds that
      predate Create Round. With no sign-in anyone can take it, so today it records who's
      running the round rather than restricting anything — move it into RLS once accounts
      exist.
@@ -175,7 +183,7 @@ it pays, who set it. What players don't get is the *controls*, which live on GAM
 an organizer-only tab. Hiding the terms from someone playing for money would still be the
 wrong instinct; hiding the knobs is just tidy.
 
-**Tab visibility is a tidier screen, not a permission.** FIELD and COURSE show only for
+**Tab visibility is a tidier screen, not a permission.** PLAYERS and COURSE show only for
 `amOrganizer`, and GAMES only once a game exists (or you're the organizer). With no sign-in
 any device can pick any player and take the organizer role, and every route stays reachable
 by URL. The real boundary arrives with accounts and RLS — don't let this get mistaken for it.
