@@ -52,32 +52,31 @@ export type InviteContext = {
 /**
  * The text that goes out.
  *
- * Written to be read on a lock screen by somebody who has never heard of this
- * app: what it is, when, and what tapping does. It invites them to a live
- * leaderboard rather than to "install an app", because the leaderboard is the
- * thing they actually want.
+ * Written by the app's owner, and kept as written. It's his group being texted,
+ * and the point of the message isn't the app — it's that nobody has to carry a
+ * pencil.
+ *
+ * Deliberately says nothing about which round, which course or who invited them:
+ * the text arrives from the organizer's own number, so the recipient already
+ * knows who and — for a round being played today — when.
+ *
+ * `InviteContext` still carries the round's name, course and date. They're
+ * unused by this wording and kept for the next one rather than deleted.
  */
 export function inviteMessage(ctx: InviteContext): string {
-  // With no organizer name this used to read "You've added you to Sunday",
-  // which is nonsense — the passive is the right fallback.
-  const opener = ctx.organizerName ? `${ctx.organizerName} has added you to` : "You've been added to";
-  const when = ctx.playedOn ? ` on ${ctx.playedOn}` : '';
-  const where = ctx.courseName ? ` at ${ctx.courseName}` : '';
-
   const lines = [
-    `${opener} ${ctx.roundName}${where}${when}.`,
+    "You've been added to Flight Board for today's round of golf.",
     '',
-    'Live scoring and a leaderboard that updates as everyone plays — you post your own scores, everybody sees them.',
+    "Flight Board shows everyone's round in real time, shows games being played within the round, and lets you keep your own score. No more paper scorecards.",
     '',
+    'Click here to join the round !',
     inviteLink(ctx.roundId),
   ];
 
-  if (APP_STORE_URL) {
-    lines.push('', `Need the app first? ${APP_STORE_URL}`);
-  } else {
-    // Say what's true rather than pointing at a store page that doesn't exist.
-    lines.push('', "If the link doesn't open anything, you don't have Flight Board yet — ask me for it.");
-  }
+  // Only once there's a listing to point at. A dead store link in a text is
+  // worse than none — the recipient taps it, gets an error, and decides the
+  // whole thing is broken.
+  if (APP_STORE_URL) lines.push('', `Need the app first? ${APP_STORE_URL}`);
 
   return lines.join('\n');
 }

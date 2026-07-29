@@ -77,33 +77,41 @@ check('junk is rejected', inv.roundIdFromLink('hello'), null);
 
 const msg = inv.inviteMessage({
   roundName: 'Saturday at Gladstan',
-  courseName: 'Gladstan Golf',
+  courseName: 'Gladstan Golf Course',
   playedOn: '2026-08-01',
-  organizerName: 'Dan',
+  organizerName: 'Danny Mullins',
   roundId: ROUND,
 });
 
-check('the message names the round', msg.includes('Saturday at Gladstan'), true);
-check('and the course', msg.includes('Gladstan Golf'), true);
-check('and the date', msg.includes('2026-08-01'), true);
-check('and who invited them', msg.includes('Dan has'), true);
-check('it contains the link', msg.includes(inv.inviteLink(ROUND)), true);
-// It's an invitation to a leaderboard, not to install software.
-check('it sells the leaderboard, not the app', msg.toLowerCase().includes('leaderboard'), true);
+check('it opens by saying what happened', msg.startsWith("You've been added to Flight Board for today's round of golf."), true);
+check('it says the round is live', msg.includes('in real time'), true);
+check('it mentions the games', msg.includes('games being played within the round'), true);
+check('it says you keep your own score', msg.includes('lets you keep your own score'), true);
+// The line that actually sells it: the problem being solved is the pencil.
+check('no more paper scorecards', msg.includes('No more paper scorecards.'), true);
+check('it tells them to tap', msg.includes('Click here to join the round !'), true);
+check('and the link is the last line', msg.trim().endsWith(inv.inviteLink(ROUND)), true);
+
+// The wording is fixed on purpose: the text arrives from the organizer's own
+// number, so it doesn't repeat who sent it or where they're playing.
+check('the same message whatever the round is called', msg, inv.inviteMessage({ roundName: 'Anything', roundId: ROUND }));
+check('the round id is the only thing that varies', inv.inviteMessage({ roundName: 'x', roundId: 'other' }).includes('round=other'), true);
+
+// Every character has to survive a text message. A single non-GSM character
+// (an em dash, a curly quote) cuts an SMS segment from 160 characters to 70,
+// so the wording is checked for them rather than trusted.
+const NON_GSM = /[^A-Za-z0-9@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà\n\r^{}\\[~\]|€]/;
+const offenders = [...msg].filter((c) => NON_GSM.test(c));
+check('nothing in the message breaks GSM-7 encoding', offenders, []);
+// 308 characters — three concatenated segments (153 each). Two characters over
+// two segments, which is the owner's call to make: the wording is his. This
+// pins the count so a future edit that pushes it to four gets noticed.
+check('it is three SMS segments, not four', Math.ceil(msg.length / 153), 3);
 
 // The store link doesn't exist yet, so the message must not imply one does.
 check('no store link is configured yet', inv.APP_STORE_URL, null);
 check('so the message never invents one', /apps\.apple\.com|play\.google\.com/.test(msg), false);
-check('and it says what to do instead', msg.includes("ask me for it"), true);
-
-const bare = inv.inviteMessage({ roundName: 'Sunday', roundId: ROUND });
-check('a round with no course still reads properly', bare.includes('to Sunday.'), true);
-check('and has no dangling "at"', bare.includes(' at .'), false);
-check('and no dangling "on"', bare.includes(' on .'), false);
-// Without an organizer name the sentence has to fall back to the passive.
-check('with no organizer it reads as English', bare.startsWith("You've been added to Sunday."), true);
-check('and never says "you\'ve added you"', bare.includes("You've added you"), false);
-check('the organizer version still names them', msg.startsWith('Dan has added you to'), true);
+check('and adds no download line while there is nothing to download', msg.includes('Need the app'), false);
 
 // ---------------------------------------------------------------- phones
 
