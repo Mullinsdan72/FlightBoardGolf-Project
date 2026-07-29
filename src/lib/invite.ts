@@ -68,7 +68,7 @@ export function inviteMessage(ctx: InviteContext): string {
   const lines = [
     "You've been added to Flight Board golf.",
     '',
-    "Flight Board shows everyone's round in real time, shows games being played within the round, and lets you keep your own score. Simply put, no more math equations.",
+    "Flight Board shows everyone's round in real time, shows games being played within the round, and lets you keep your own score. Live scoring leaderboard without the math.",
     '',
     'Click here to join the round !',
     inviteLink(ctx.roundId),

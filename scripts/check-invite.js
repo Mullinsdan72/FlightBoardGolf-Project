@@ -91,7 +91,9 @@ check('it says the round is live', msg.includes('in real time'), true);
 check('it mentions the games', msg.includes('games being played within the round'), true);
 check('it says you keep your own score', msg.includes('lets you keep your own score'), true);
 // The line that actually sells it: what the app takes off you is the adding up.
-check('the payoff line', msg.includes('Simply put, no more math equations.'), true);
+check('the payoff line', msg.includes('Live scoring leaderboard without the math.'), true);
+// "without" is one word. It read as "with out" in the first draft of this line.
+check('without is one word', msg.includes('with out'), false);
 check('it tells them to tap', msg.includes('Click here to join the round !'), true);
 check('and the link is the last line', msg.trim().endsWith(inv.inviteLink(ROUND)), true);
 
@@ -106,7 +108,7 @@ check('the round id is the only thing that varies', inv.inviteMessage({ roundNam
 const NON_GSM = /[^A-Za-z0-9@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà\n\r^{}\\[~\]|€]/;
 const offenders = [...msg].filter((c) => NON_GSM.test(c));
 check('nothing in the message breaks GSM-7 encoding', offenders, []);
-// 297 characters — two concatenated segments (153 each). Pinned so an edit that
+// 304 characters — two concatenated segments (153 each). Pinned so an edit that
 // pushes it to three gets noticed rather than just quietly costing more to send.
 check('it fits in two SMS segments', Math.ceil(msg.length / 153), 2);
 
