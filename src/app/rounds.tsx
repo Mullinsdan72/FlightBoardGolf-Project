@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
 import { SetupBar, useInSetup } from '@/components/SetupBar';
+import { Wordmark } from '@/components/Wordmark';
 import { colors, font } from '@/theme';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -97,7 +98,8 @@ export default function RoundsScreen() {
     <View style={styles.screen}>
       <SetupBar step="round" />
       <View style={[styles.header, inSetup && styles.headerInSetup]}>
-        <Text style={styles.kicker}>Your rounds</Text>
+        {!inSetup && <Wordmark />}
+        <Text style={[styles.kicker, !inSetup && { marginTop: 16 }]}>Your rounds</Text>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Rounds</Text>
           {/* Only offer the way out once there's a round to go to. With none, the

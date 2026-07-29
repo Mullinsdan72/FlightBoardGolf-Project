@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
+import { Wordmark } from '@/components/Wordmark';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
 import { useSignoff } from '@/hooks/useSignoff';
@@ -362,6 +363,15 @@ export default function ScorecardScreen() {
         </View>
 
         <View style={styles.signSection}>
+          {/* A signed card is the thing you keep and show people — the one place
+              in the round where a mark belongs, the way a paper card carries the
+              club's. Only once it's signed; an unfinished card isn't a document
+              yet. */}
+          {signed && (
+            <View style={styles.cardMark}>
+              <Wordmark width={150} />
+            </View>
+          )}
           {signed ? (
             <>
               <Text style={styles.signedTitle}>Card signed and locked</Text>
@@ -493,6 +503,7 @@ const styles = StyleSheet.create({
   legendVal: { fontFamily: font.heading, fontSize: 13 },
   legendLabel: { fontFamily: font.bodySemi, fontSize: 8.5, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.muted, textAlign: 'center' },
   signSection: { padding: 20, borderBottomWidth: 2, borderColor: colors.divider },
+  cardMark: { marginBottom: 16, opacity: 0.85 },
   signNote: { fontFamily: font.body, fontSize: 12, lineHeight: 19, color: 'rgba(32,30,29,0.65)' },
   signedTitle: { fontFamily: font.heading, fontSize: 15, color: colors.accent },
   signedNote: { fontFamily: font.body, fontSize: 12, lineHeight: 19, color: 'rgba(32,30,29,0.65)', marginTop: 8 },

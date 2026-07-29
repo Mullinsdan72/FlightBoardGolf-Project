@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Wordmark } from '@/components/Wordmark';
 import type { SeedPlayer } from '@/data/seed';
 import { colors, font } from '@/theme';
 
@@ -11,7 +12,8 @@ export function PlayerPicker({ players, onChoose }: { players: SeedPlayer[]; onC
   if (!players.length) {
     return (
       <View style={styles.wrap}>
-        <Text style={styles.kicker}>Nobody in this round yet</Text>
+        <Wordmark />
+        <Text style={[styles.kicker, { marginTop: 18 }]}>Nobody in this round yet</Text>
         <Text style={styles.title}>Add the players first</Text>
         <Text style={styles.body}>
           Open the <Text style={styles.bodyStrong}>FIELD</Text> tab and add everyone playing — name and handicap. Then
@@ -23,7 +25,10 @@ export function PlayerPicker({ players, onChoose }: { players: SeedPlayer[]; onC
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.kicker}>No sign-in yet</Text>
+      {/* The first screen a new phone ever shows, so the one place a name badge
+          genuinely helps: it says what you've just opened. */}
+      <Wordmark />
+      <Text style={[styles.kicker, { marginTop: 18 }]}>No sign-in yet</Text>
       <Text style={styles.title}>Who are you?</Text>
       <Text style={styles.body}>
         Phone-number sign-in comes later. For now, pick your name so your device knows which score is yours.
