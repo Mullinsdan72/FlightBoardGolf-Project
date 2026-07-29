@@ -156,6 +156,16 @@ export function setupSteps(state: {
   playerCount: number;
   teamsOn: boolean;
   teamCount: number;
+  /**
+   * Whether a draw was actually **saved**, not merely suggested.
+   *
+   * The teams screen always shows a workable draft so there's something to
+   * accept, and that draft is what `teamCount` counts. Ticking this step off it
+   * marked teams done the instant the switch was flipped — checklist complete,
+   * "2 teams", nothing written — and then the leaderboard correctly reported no
+   * teams drawn. The suggestion has to be told apart from the decision.
+   */
+  teamsDrawn: boolean;
   gamesOn: number;
 }): SetupStep[] {
   return [
@@ -197,9 +207,13 @@ export function setupSteps(state: {
       key: 'teams',
       title: 'Teams',
       blurb: 'Only if you are playing a team format. Draws balanced sides off handicaps.',
-      done: state.teamsOn && state.teamCount > 0,
+      done: state.teamsOn && state.teamsDrawn && state.teamCount > 0,
       optional: true,
-      detail: state.teamsOn ? `${state.teamCount} teams` : 'Not playing teams',
+      detail: !state.teamsOn
+        ? 'Not playing teams'
+        : state.teamsDrawn
+          ? `${state.teamCount} teams`
+          : 'Draw not saved yet',
     },
     {
       key: 'games',

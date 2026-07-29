@@ -48,6 +48,7 @@ export default function TeamsScreen() {
     teamMaxCount,
     teamSetSettings,
     teamAutoDraw,
+    teamAcceptDraw,
     teamRedraw,
     teamAssign,
     teamClear,
@@ -294,10 +295,28 @@ export default function TeamsScreen() {
           </View>
         )}
 
-        <Text style={styles.sectionLabel}>
-          The draw · {segment?.label ?? ''}
-          {teamDrawSaved ? '' : ' · not saved yet'}
-        </Text>
+        <Text style={styles.sectionLabel}>The draw · {segment?.label ?? ''}</Text>
+
+        {/* The teams below are a suggestion until somebody says so. That used to
+            be six grey words in the section label, which is nowhere near enough
+            for something that decides whether the leaderboard has a TEAMS tab
+            at all — you'd set the round up, see teams on screen, and find the
+            board reporting none drawn. */}
+        {teams.enabled && !teamDrawSaved && (
+          <View style={styles.unsavedBox}>
+            <Text style={styles.unsavedTitle}>These teams are only a suggestion</Text>
+            <Text style={styles.unsavedBody}>
+              Nothing is drawn until you accept it, so the leaderboard won't show teams and no team bet is on. Move
+              anyone you like first — accepting saves whatever is on screen.
+            </Text>
+            {amOrganizer && (
+              <Pressable onPress={() => run(() => teamAcceptDraw(), 'save the draw')} style={styles.unsavedBtn}>
+                <Text style={styles.unsavedBtnLabel}>USE THESE TEAMS</Text>
+                <Text style={styles.unsavedBtnArrow}>→</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
 
         {amOrganizer && (
           <View style={styles.actionRow}>
@@ -482,6 +501,26 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   note: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, paddingHorizontal: 20, paddingTop: 12 },
+  unsavedBox: {
+    marginHorizontal: 20,
+    borderWidth: 2,
+    borderColor: colors.accent,
+    padding: 16,
+    marginBottom: 4,
+  },
+  unsavedTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text },
+  unsavedBody: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, marginTop: 8 },
+  unsavedBtn: {
+    marginTop: 14,
+    height: 56,
+    backgroundColor: colors.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  unsavedBtnLabel: { fontFamily: font.heading, fontSize: 14, letterSpacing: 0.4, color: '#fff' },
+  unsavedBtnArrow: { fontFamily: font.heading, fontSize: 18, color: '#fff' },
   warnText: { fontFamily: font.body, fontSize: 11.5, lineHeight: 17, color: colors.accent, paddingHorizontal: 20, paddingTop: 10 },
   toggleRow: {
     flexDirection: 'row',

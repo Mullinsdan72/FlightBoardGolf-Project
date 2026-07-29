@@ -50,6 +50,7 @@ export default function SetupScreen() {
     holes,
     teams,
     teamRoster,
+    teamDrawSaved,
     wolf,
     challenge,
     holeGames,
@@ -79,6 +80,7 @@ export default function SetupScreen() {
     playerCount: players.length,
     teamsOn: teams.enabled,
     teamCount: teamRoster.filter((t) => t.length > 0).length,
+    teamsDrawn: teamDrawSaved,
     gamesOn,
   });
 

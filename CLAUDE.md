@@ -361,3 +361,11 @@ setup.
   back, which is right on the setup screen (you need something to accept) and wrong on a
   leaderboard (it would show standings for teams nobody agreed to). Use `teamDrawSavedFor`
   to tell them apart.
+- **A suggested draft is not a draw, and every screen must say which it is looking at.**
+  This got out once: `setupSteps` counted the non-empty teams in `teamRoster`, which is the
+  *fallback draft*, so switching teams on ticked the setup step done — "2 teams" — with
+  nothing written, and the leaderboard then correctly reported none drawn. Anything asking
+  "are there teams?" wants `teamDrawSaved`/`teamDrawSavedFor`, never a count of the roster.
+  `teamAcceptDraw` saves the draft on screen as-is, which is the one thing nothing did
+  before: every other action wrote teams only as a side effect of *changing* them, so a
+  draw you were already happy with could only be accepted by re-drawing it away and back.

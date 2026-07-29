@@ -261,6 +261,15 @@ export function useTeams(
     [activeSeg, teams, saveTeams],
   );
 
+  /**
+   * Accept the draw that's on screen — the suggested one — as the real one.
+   *
+   * Everything else here saves as a side effect of changing something. Nothing
+   * committed a draw you were already happy with, so the only way to accept a
+   * suggestion was to re-draw it into something else and back again.
+   */
+  const acceptShown = useCallback(() => saveTeams(activeSeg, teams), [activeSeg, teams, saveTeams]);
+
   const clearSegment = useCallback(
     async (seg: number = activeSeg) => {
       setAssignments((prev) => {
@@ -402,6 +411,7 @@ export function useTeams(
     teamStrokesFor: strokesFor,
     teamSetSettings: persistSettings,
     teamAutoDraw: autoDraw,
+    teamAcceptDraw: acceptShown,
     teamRedraw: redraw,
     teamAssign: assign,
     teamClear: clearSegment,

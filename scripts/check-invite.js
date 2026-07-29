@@ -166,6 +166,7 @@ const empty = inv.setupSteps({
   playerCount: 0,
   teamsOn: false,
   teamCount: 0,
+  teamsDrawn: false,
   gamesOn: 0,
 });
 check('five steps', empty.length, 5);
@@ -189,6 +190,7 @@ const mid = inv.setupSteps({
   playerCount: 1,
   teamsOn: false,
   teamCount: 0,
+  teamsDrawn: false,
   gamesOn: 0,
 });
 check('the round shows as done', mid[0].done, true);
@@ -208,6 +210,7 @@ const ready = inv.setupSteps({
   playerCount: 4,
   teamsOn: false,
   teamCount: 0,
+  teamsDrawn: false,
   gamesOn: 0,
 });
 check('four players reads as a group', ready[2].detail, '4 players');
@@ -226,11 +229,34 @@ const full = inv.setupSteps({
   playerCount: 4,
   teamsOn: true,
   teamCount: 2,
+  teamsDrawn: true,
   gamesOn: 2,
 });
 check('a fully set up round has every step done', full.every((s) => s.done), true);
 check('and reads the teams back', full[3].detail, '2 teams');
 check('and the games', full[4].detail, '2 running');
+
+// A suggested draw is not a draw. The teams screen always shows a workable
+// draft so there is something to accept, and counting that draft marked the
+// step done the instant the switch was flipped — checklist complete, nothing
+// written, and a leaderboard correctly reporting no teams drawn.
+const suggested = inv.setupSteps({
+  hasRound: true,
+  roundName: 'Saturday',
+  courseName: 'Gladstan',
+  holeCount: 18,
+  teeName: 'Blue',
+  playerCount: 4,
+  teamsOn: true,
+  teamCount: 2,
+  teamsDrawn: false,
+  gamesOn: 0,
+});
+check('teams switched on but never drawn is not done', suggested[3].done, false);
+check('and says so rather than counting the suggestion', suggested[3].detail, 'Draw not saved yet');
+check('the required steps are unaffected by it', suggested.slice(0, 3).every((s) => s.done), true);
+check('accepting the draw is what finishes the step', full[3].done, true);
+check('teams off is still done-by-not-playing', ready[3].detail, 'Not playing teams');
 
 // ------------------------------------------------- moving through the steps
 
