@@ -194,17 +194,21 @@ export default function GamesScreen() {
 
             {(
               [
-                { key: 'perHoleCents', label: 'A hole up', value: challenge.perHoleCents },
-                { key: 'perNineCents', label: 'Each nine', value: challenge.perNineCents },
-                { key: 'overallCents', label: 'The match', value: challenge.overallCents },
+                // A dollar a hole at a time: the per-hole rate is multiplied by
+                // the final margin, so a step of five moves the settlement by
+                // five times that. The other two are paid once and start
+                // higher, so they keep the bigger step.
+                { key: 'perHoleCents', label: 'A hole up', value: challenge.perHoleCents, step: 100 },
+                { key: 'perNineCents', label: 'Each nine', value: challenge.perNineCents, step: 500 },
+                { key: 'overallCents', label: 'The match', value: challenge.overallCents, step: 500 },
               ] as const
-            ).map(({ key, label, value }) => (
+            ).map(({ key, label, value, step }) => (
               <View key={key}>
                 <Text style={styles.sectionLabel}>{label}</Text>
                 <View style={styles.stepper}>
                   <Pressable
                     disabled={!canEdit}
-                    onPress={() => setChallengeSettings({ [key]: Math.max(0, value - 500) } as any)}
+                    onPress={() => setChallengeSettings({ [key]: Math.max(0, value - step) } as any)}
                     style={[styles.stepBtn, styles.stepBtnRight, !canEdit && styles.readOnly]}
                   >
                     <Text style={styles.stepGlyph}>−</Text>
@@ -214,7 +218,7 @@ export default function GamesScreen() {
                   </View>
                   <Pressable
                     disabled={!canEdit}
-                    onPress={() => setChallengeSettings({ [key]: Math.min(100000, value + 500) } as any)}
+                    onPress={() => setChallengeSettings({ [key]: Math.min(100000, value + step) } as any)}
                     style={[styles.stepBtn, styles.stepBtnLeft, !canEdit && styles.readOnly]}
                   >
                     <Text style={styles.stepGlyph}>+</Text>
