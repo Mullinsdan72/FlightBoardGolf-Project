@@ -130,6 +130,21 @@ export default function SetupScreen() {
    * somebody's address book and silently posting it to a database is not a thing
    * this app should do.
    */
+  /**
+   * A contact's display name, from whichever fields that contact actually has.
+   *
+   * `name` is a composed convenience field and it is not always populated — the
+   * picker returned a contact with a perfectly good first and last name and an
+   * empty `name`, which read on screen as "that contact has no name". Build it
+   * from the parts, and fall back to the fields a business contact might carry
+   * instead.
+   */
+  const nameOfContact = (c: Contacts.Contact | null): string => {
+    if (!c) return '';
+    const composed = [c.firstName, c.middleName, c.lastName].filter(Boolean).join(' ');
+    return cleanName(c.name || composed || c.nickname || c.company || '');
+  };
+
   const pickFromContacts = async () => {
     const { status } = await Contacts.requestPermissionsAsync();
     if (status !== 'granted') {
@@ -139,16 +154,45 @@ export default function SetupScreen() {
       );
       return;
     }
-    const picked = await Contacts.presentContactPickerAsync();
+
+    let picked = await Contacts.presentContactPickerAsync();
     if (!picked) return;
+
+    // The picker can hand back a thin record. If the fields we need aren't on
+    // it, ask for the full one by id rather than telling the user their contact
+    // is broken.
+    if ((!nameOfContact(picked) || !picked.phoneNumbers?.length) && picked.id) {
+      try {
+        const full = await Contacts.getContactByIdAsync(picked.id, [
+          Contacts.Fields.Name,
+          Contacts.Fields.FirstName,
+          Contacts.Fields.MiddleName,
+          Contacts.Fields.LastName,
+          Contacts.Fields.Nickname,
+          Contacts.Fields.Company,
+          Contacts.Fields.PhoneNumbers,
+        ]);
+        if (full) picked = full;
+      } catch (err) {
+        console.warn('could not read the full contact:', err);
+      }
+    }
+
+    const contactName = nameOfContact(picked);
     const phone = picked.phoneNumbers?.[0]?.number ?? null;
-    const contactName = cleanName(picked.name ?? '');
+
     if (!contactName) {
-      Alert.alert('That contact has no name', 'Pick another, or type them in by hand.');
+      Alert.alert(
+        "Couldn't read a name from that contact",
+        'It may only have a company or an email on it. Type them in by hand above instead — name and handicap is all the round needs.',
+      );
       return;
     }
+
     setPickedFromContacts((prev) =>
-      prev.some((p) => p.name === contactName) ? prev : [...prev, { name: contactName, phone }],
+      prev.some((p) => p.name.toLowerCase() === contactName.toLowerCase())
+        ? prev
+        : [...prev, { name: contactName, phone }],
     );
   };
 
