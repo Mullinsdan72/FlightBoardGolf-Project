@@ -102,6 +102,29 @@ export function samePhone(a: string, b: string): boolean {
   return ta.length > 0 && ta === tb;
 }
 
+/** An ISO date `n` days from today, in the phone's own timezone. */
+export function isoDaysFromNow(days: number, from: Date = new Date()): string {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + days);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** "Sat 1 Aug" — a date a person can read, from an ISO one. */
+export function prettyDay(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/**
+ * A round name nobody has to think of.
+ *
+ * Naming a round is the first thing the app used to ask for, and a first-time
+ * user has nothing to type — it's a blank box guarding the door. The day is a
+ * fine name, and it can be changed later.
+ */
+export const defaultRoundName = (iso: string): string => `${prettyDay(iso)} round`;
+
 /** "Daniel Mullins" -> "Daniel Mullins"; trims and collapses whitespace. */
 export const cleanName = (name: string): string => name.trim().replace(/\s+/g, ' ');
 

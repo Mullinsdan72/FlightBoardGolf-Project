@@ -138,6 +138,23 @@ check('nothing matches nothing', inv.samePhone('', ''), false);
 
 check('a name is tidied', inv.cleanName('  Daniel   Mullins '), 'Daniel Mullins');
 
+// ------------------------------------------------- dates a person can pick
+
+const base = new Date(2026, 6, 29); // 29 July 2026, local time
+check('today', inv.isoDaysFromNow(0, base), '2026-07-29');
+check('tomorrow', inv.isoDaysFromNow(1, base), '2026-07-30');
+// Month and year boundaries are where hand-rolled date maths goes wrong.
+check('over a month end', inv.isoDaysFromNow(3, base), '2026-08-01');
+check('over a year end', inv.isoDaysFromNow(1, new Date(2026, 11, 31)), '2027-01-01');
+// Built from local date parts, not from a UTC ISO string: toISOString() on an
+// evening in the western hemisphere returns tomorrow's date.
+check('a late evening still counts as today', inv.isoDaysFromNow(0, new Date(2026, 6, 29, 23, 30)), '2026-07-29');
+check('months and days are zero padded', inv.isoDaysFromNow(0, new Date(2026, 0, 5)), '2026-01-05');
+
+check('a round names itself after the day', inv.defaultRoundName('2026-08-01').endsWith('round'), true);
+check('and that name is never empty', inv.defaultRoundName('2026-08-01').length > 6, true);
+check('rubbish in gives rubbish back, not a crash', inv.defaultRoundName('nonsense'), 'nonsense round');
+
 // ---------------------------------------------------------------- the checklist
 
 const empty = inv.setupSteps({

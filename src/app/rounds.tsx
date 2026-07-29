@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { useRound } from '@/context/RoundContext';
 import { SetupBar, useInSetup } from '@/components/SetupBar';
 import { Wordmark } from '@/components/Wordmark';
+import { defaultRoundName, isoDaysFromNow, prettyDay } from '@/lib/invite';
 import { colors, font } from '@/theme';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -30,12 +31,14 @@ export default function RoundsScreen() {
 
   const [name, setName] = useState('');
   const [playedOn, setPlayedOn] = useState(todayIso());
+  // Naming a round was a blank box guarding the door, and a first-timer has
+  // nothing to type in it. The day is a perfectly good name and can be changed.
+  const effectiveName = name.trim() || defaultRoundName(playedOn.trim());
   const [busy, setBusy] = useState(false);
 
   const me = myId ? players.find((p) => p.id === myId) : undefined;
-  const trimmed = name.trim();
   const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(playedOn.trim());
-  const canCreate = trimmed.length > 0 && dateValid && !busy;
+  const canCreate = dateValid && !busy;
 
   // This screen is reached two ways and only one of them has a back stack: by
   // tapping the round name on FIELD (pushed, so back works), or by the tabs
@@ -60,7 +63,7 @@ export default function RoundsScreen() {
     // before this device has picked a player; the round is still created and you
     // add yourself on the FIELD tab.
     const { error } = await createRound({
-      name: trimmed,
+      name: effectiveName,
       playedOn: playedOn.trim(),
       creatorPlayerId: me?.id ?? null,
     });
@@ -116,16 +119,37 @@ export default function RoundsScreen() {
       <ScrollView keyboardShouldPersistTaps="handled">
         <Text style={styles.sectionLabel}>New round</Text>
         <View style={styles.addBlock}>
-          <Text style={styles.fieldLabel}>Name</Text>
+          <Text style={styles.fieldLabel}>When</Text>
+          <View style={styles.dayRow}>
+            {[0, 1, 2].map((offset) => {
+              const iso = isoDaysFromNow(offset);
+              const on = playedOn.trim() === iso;
+              return (
+                <Pressable
+                  key={offset}
+                  onPress={() => setPlayedOn(iso)}
+                  style={[styles.dayBtn, on && styles.dayBtnOn]}
+                >
+                  <Text style={[styles.dayLabel, on && styles.dayLabelOn]}>
+                    {offset === 0 ? 'TODAY' : offset === 1 ? 'TOMORROW' : prettyDay(iso).toUpperCase()}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Name · optional</Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="Saturday at Gladstan"
+            placeholder={defaultRoundName(playedOn.trim())}
             placeholderTextColor={colors.ghost}
             style={styles.input}
             autoCapitalize="words"
+            onSubmitEditing={submit}
           />
-          <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Date played</Text>
+
+          <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Another day</Text>
           <TextInput
             value={playedOn}
             onChangeText={setPlayedOn}
@@ -141,7 +165,7 @@ export default function RoundsScreen() {
         </View>
 
         <Pressable onPress={submit} disabled={!canCreate} style={[styles.addBtn, !canCreate && styles.addBtnDisabled]}>
-          <Text style={styles.addBtnLabel}>{busy ? 'CREATING…' : 'CREATE AND OPEN'}</Text>
+          <Text style={styles.addBtnLabel}>{busy ? 'CREATING…' : `START ${effectiveName.toUpperCase()}`}</Text>
           <Text style={styles.addBtnArrow}>→</Text>
         </Pressable>
         <Text style={styles.note}>
@@ -190,6 +214,11 @@ export default function RoundsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   headerInSetup: { paddingTop: 18 },
+  dayRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  dayBtn: { flex: 1, borderWidth: 2, borderColor: colors.divider, paddingVertical: 13, alignItems: 'center' },
+  dayBtnOn: { borderColor: colors.accent, backgroundColor: colors.accent },
+  dayLabel: { fontFamily: font.heading, fontSize: 10.5, letterSpacing: 0.5, color: colors.text },
+  dayLabelOn: { color: '#fff' },
   header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   doneBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingBottom: 4 },

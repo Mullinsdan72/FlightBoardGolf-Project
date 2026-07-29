@@ -77,36 +77,68 @@ export function useActiveRound() {
     setActiveRoundId(roundId);
   }, []);
 
-  // Creating a round makes you its organizer and puts you in the field, because
-  // that is what creating a round means — you're running it and you're playing.
-  // No claiming a role afterwards.
+  /**
+   * Create a round, and put the person creating it in charge of it.
+   *
+   * `creatorName` is the first-run path: a brand new phone has no player yet, so
+   * the round would be created with no organizer — and with no organizer the
+   * FIELD tab hides, the setup screen goes read-only, and the person who just
+   * made the round can't add themselves to it. That was a dead end on a fresh
+   * install. Passing a name mints the player, puts them in the field and makes
+   * them the organizer, all against the round just created.
+   *
+   * Returns the new player's id when it made one, so the caller can become them.
+   */
   const createRound = useCallback(
     async (input: {
       name: string;
       playedOn: string | null;
-      creatorPlayerId: string | null;
-    }): Promise<{ id: string | null; error: string | null }> => {
+      creatorPlayerId?: string | null;
+      creatorName?: string | null;
+      creatorHandicap?: number;
+    }): Promise<{ id: string | null; playerId: string | null; error: string | null }> => {
       if (!isSupabaseConfigured || !supabase) {
-        return { id: null, error: 'Creating rounds needs Supabase configured.' };
+        return { id: null, playerId: null, error: 'Creating rounds needs Supabase configured.' };
       }
+
+      let organizerId = input.creatorPlayerId ?? null;
+      let mintedPlayerId: string | null = null;
+
+      // Make the player first, so the round is never written without an
+      // organizer when we know who the organizer is.
+      if (!organizerId && input.creatorName) {
+        const { data: person, error: personErr } = await supabase
+          .from('players')
+          .insert({ name: input.creatorName, handicap: input.creatorHandicap ?? 0 })
+          .select('id')
+          .single();
+        if (personErr || !person) {
+          return { id: null, playerId: null, error: personErr?.message ?? 'Could not create your player.' };
+        }
+        organizerId = person.id as string;
+        mintedPlayerId = organizerId;
+      }
+
       const { data, error } = await supabase
         .from('rounds')
         .insert({
           name: input.name,
           played_on: input.playedOn,
-          organizer_player_id: input.creatorPlayerId,
+          organizer_player_id: organizerId,
           course_name: '',
           course_meta: '',
           holes_in_play: 'all18',
         })
         .select('id')
         .single();
-      if (error || !data) return { id: null, error: error?.message ?? 'Could not create the round.' };
+      if (error || !data) {
+        return { id: null, playerId: mintedPlayerId, error: error?.message ?? 'Could not create the round.' };
+      }
 
-      if (input.creatorPlayerId) {
+      if (organizerId) {
         const { error: joinErr } = await supabase
           .from('round_players')
-          .insert({ round_id: data.id, player_id: input.creatorPlayerId });
+          .insert({ round_id: data.id, player_id: organizerId });
         // Not fatal — the round exists and they can be added on the FIELD tab —
         // but worth reporting rather than leaving them wondering why they're not
         // in their own round.
@@ -115,7 +147,7 @@ export function useActiveRound() {
 
       await loadRounds();
       await switchRound(data.id);
-      return { id: data.id, error: null };
+      return { id: data.id, playerId: mintedPlayerId, error: null };
     },
     [loadRounds, switchRound],
   );

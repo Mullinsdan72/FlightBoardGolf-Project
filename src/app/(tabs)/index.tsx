@@ -145,8 +145,14 @@ export default function ScoreEntryScreen() {
             {/* The way to Rounds for everybody. FIELD used to be the only door to
                 it, and FIELD is the organizer's tab now — a player still has to be
                 able to switch to the round they're actually playing. */}
-            <Pressable onPress={() => router.push('/rounds')} hitSlop={8}>
-              <Text style={styles.headerLabel}>{activeRound?.name || 'Round'} · ROUNDS + NEW ›</Text>
+            {/* A bordered chip, not a caption. As small uppercase text this
+                read as a label and nobody found it — including the person who
+                commissioned the app. */}
+            <Pressable onPress={() => router.push('/rounds')} hitSlop={8} style={styles.roundChip}>
+              <Text style={styles.roundChipName} numberOfLines={1}>
+                {activeRound?.name || 'Round'}
+              </Text>
+              <Text style={styles.roundChipCta}>SWITCH · NEW ⌄</Text>
             </Pressable>
             {/* Says what's actually true: queued scores are saved on the phone
                 and will sync — not lost, and not silently pending either. */}
@@ -327,6 +333,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   headerLeft: { flex: 1 },
+  roundChip: {
+    alignSelf: 'flex-start',
+    borderWidth: 2,
+    borderColor: colors.text,
+    paddingVertical: 7,
+    paddingHorizontal: 11,
+  },
+  roundChipName: { fontFamily: font.heading, fontSize: 13, color: colors.text },
+  roundChipCta: { fontFamily: font.bodySemi, fontSize: 8.5, letterSpacing: 1.1, color: colors.accent, marginTop: 3 },
   badgeUnder: { marginTop: 7 },
   headerLabel: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase', color: colors.muted },
   lockedWrap: { paddingTop: 58, paddingHorizontal: 20 },

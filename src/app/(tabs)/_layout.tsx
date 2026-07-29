@@ -53,11 +53,15 @@ function ModernistTabBar({ state, navigation, visible }: any) {
 }
 
 export default function TabLayout() {
-  const { activeRoundId, roundsLoaded, amOrganizer, wolf, challenge, holeGames } = useRound();
+  const { activeRoundId, roundsLoaded, amOrganizer, wolf, challenge, holeGames, myId } = useRound();
 
   // Nothing to score against until a round exists, so send a first-time user
   // (or anyone who just deleted their last round) to create one.
-  if (activeRoundId === undefined || !roundsLoaded) return null;
+  if (activeRoundId === undefined || !roundsLoaded || myId === undefined) return null;
+  // A phone with no player and no round has never been used. Send it to the
+  // welcome rather than to a form asking it to name a round — and creating one
+  // there mints the player too, which is what stops the organizer-less dead end.
+  if (activeRoundId === null && !myId) return <Redirect href="/welcome" />;
   if (activeRoundId === null) return <Redirect href="/rounds" />;
 
   // Setting the round up is the organizer's job, so the roster and the course

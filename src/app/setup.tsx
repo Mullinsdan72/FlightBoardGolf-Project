@@ -63,6 +63,11 @@ export default function SetupScreen() {
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)'));
 
+  // Nobody has claimed the round yet — which happens to rounds made before the
+  // welcome screen existed. Treat it as yours to set up rather than locking the
+  // only person here out of it; an unclaimed round belongs to whoever turns up.
+  const canSetUp = amOrganizer || !activeRound?.organizerId;
+
   const gamesOn = (wolf.enabled ? 1 : 0) + (challenge.enabled ? 1 : 0) + holeGames.length;
 
   const steps = setupSteps({
@@ -271,7 +276,7 @@ export default function SetupScreen() {
         </View>
       </View>
 
-      {!amOrganizer && (
+      {!canSetUp && (
         <View style={styles.readOnlyBar}>
           <Text style={styles.readOnlyText}>
             You're not the organizer of this round, so this is a view of how far along it is rather than something to
@@ -316,7 +321,7 @@ export default function SetupScreen() {
                 {!isPlayers && <Text style={styles.stepArrow}>›</Text>}
               </Pressable>
 
-              {isPlayers && amOrganizer && (
+              {isPlayers && canSetUp && (
                 <View style={styles.playersBlock}>
                   {players.map((p) => (
                     <View key={p.id} style={styles.playerRow}>
