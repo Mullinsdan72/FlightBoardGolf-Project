@@ -414,6 +414,28 @@ check('net standings can overturn the gross order', netTable[0].letter, 'B');
 check('two strokes on the hard holes, one on the rest', netTable[0].strokes, 40);
 check('and the scratch pair are unchanged at 45', netTable[1].strokes, 45);
 
+// ------------------------------------------------------------- you first
+// Reordering a leaderboard is only safe if it can't reorder the *positions*.
+// These rows carry their rank, exactly as the board stamps it on before pinning.
+const rm = require(path.join(outDir, 'lib/roundMath.js'));
+const ranked = [
+  { id: 'a', pos: 1 },
+  { id: 'b', pos: 2 },
+  { id: 'c', pos: 3 },
+  { id: 'd', pos: 4 },
+];
+check('your row comes first', rm.youFirst(ranked, 'c').map((r) => r.id), ['c', 'a', 'b', 'd']);
+check('and keeps the position it earned', rm.youFirst(ranked, 'c')[0].pos, 3);
+check('everyone else stays in rank order', rm.youFirst(ranked, 'c').slice(1).map((r) => r.pos), [1, 2, 4]);
+check('nobody is dropped', rm.youFirst(ranked, 'c').length, 4);
+check('nobody is duplicated', new Set(rm.youFirst(ranked, 'c').map((r) => r.id)).size, 4);
+check('a leader already top is left alone', rm.youFirst(ranked, 'a').map((r) => r.id), ['a', 'b', 'c', 'd']);
+check('the last man moves the furthest', rm.youFirst(ranked, 'd').map((r) => r.id), ['d', 'a', 'b', 'c']);
+check('no chosen player changes nothing', rm.youFirst(ranked, null).map((r) => r.id), ['a', 'b', 'c', 'd']);
+check('nor does an id nobody has', rm.youFirst(ranked, 'zz').map((r) => r.id), ['a', 'b', 'c', 'd']);
+check('an empty board stays empty', rm.youFirst([], 'a'), []);
+check('a solo round is already you first', rm.youFirst([{ id: 'a', pos: 1 }], 'a').map((r) => r.id), ['a']);
+
 console.log('');
 if (failures.length) {
   console.error(`${failures.length} check(s) failed:\n`);

@@ -14,6 +14,7 @@ import {
   stablefordFor,
   strokesReceivedFor,
   thruFor,
+  youFirst,
 } from '@/lib/roundMath';
 import { colors, font, fmtToPar, markForScore } from '@/theme';
 
@@ -242,7 +243,9 @@ export default function ScorecardScreen() {
 
       {switcherOpen && (
         <View style={styles.switcher}>
-          {players.map((p) => {
+          {/* Your own card is the one you open most, so it's the first offered
+              rather than wherever the alphabet happens to put you. */}
+          {youFirst(players, myId).map((p) => {
             const on = p.id === cardId;
             return (
               <Pressable

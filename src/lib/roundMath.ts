@@ -127,3 +127,23 @@ export function cardBlocksFor(holes: Hole[], scores: ScoreMap, playerId: string)
   if (holes.length <= 9) return [block('HOLES', holes)];
   return [block('OUT', holes.slice(0, 9)), block('IN', holes.slice(9))];
 }
+
+/**
+ * Move the phone's own player to the front of a list, leaving everyone else in
+ * the order they arrived in.
+ *
+ * Golf is played looking at your own number first. On a leaderboard that means
+ * the row you actually came to see shouldn't be the one you have to hunt for,
+ * and in a picker the first name offered should be yours.
+ *
+ * This reorders, it never renumbers. A leaderboard position is a fact about
+ * scores, so anything showing a position must work it out from the *ranked*
+ * order and carry it through this — pinning a row and relabelling it "1" would
+ * put a golfer top of a board they aren't top of.
+ */
+export function youFirst<T extends { id: string }>(rows: T[], myId: string | null | undefined): T[] {
+  if (!myId) return rows;
+  const i = rows.findIndex((r) => r.id === myId);
+  if (i <= 0) return rows;
+  return [rows[i], ...rows.slice(0, i), ...rows.slice(i + 1)];
+}

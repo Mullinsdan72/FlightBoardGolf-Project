@@ -5,7 +5,7 @@ import { PlayerPicker } from '@/components/PlayerPicker';
 import { Wordmark } from '@/components/Wordmark';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
-import { netToParFor, thruFor, toParFor } from '@/lib/roundMath';
+import { netToParFor, thruFor, toParFor, youFirst } from '@/lib/roundMath';
 import { formatName, handicapName } from '@/lib/teams';
 import { colors, font, fmtToPar } from '@/theme';
 
@@ -71,9 +71,17 @@ export default function LeaderboardScreen() {
   // Only real players. There used to be six invented names padding this board
   // out; they made a demo look convincing but there was no way to remove them,
   // and a leaderboard that shows people who aren't playing is just wrong.
-  const fieldRows = realRows
-    .map((r) => ({ ...r, thruLabel: r.thru === roundLength ? 'F' : String(r.thru) }))
-    .sort((a, b) => a.toPar - b.toPar);
+  // Ranked first, *then* pinned. The position is stamped on from the ranked
+  // order and travels with the row, so pinning yourself to the top can't
+  // promote you to first — the column stops reading 1,2,3 straight down, which
+  // is the honest cost of not having to hunt for your own name.
+  const fieldRows = youFirst(
+    realRows
+      .map((r) => ({ ...r, thruLabel: r.thru === roundLength ? 'F' : String(r.thru) }))
+      .sort((a, b) => a.toPar - b.toPar)
+      .map((r, i) => ({ ...r, pos: i + 1 })),
+    myId,
+  );
 
   // Which team a player is on, so a group row can say it without a second lookup
   // per render. Only meaningful for the segment being played.
@@ -87,9 +95,13 @@ export default function LeaderboardScreen() {
     return null;
   };
 
-  const groupRows = realRows
-    .slice()
-    .sort((a, b) => a.toPar - b.toPar)
+  // No position column on this one, so pinning costs nothing to read.
+  const groupRows = youFirst(
+    realRows
+      .slice()
+      .sort((a, b) => a.toPar - b.toPar),
+    myId,
+  )
     .map((r) => {
       const letter = letterFor(r.id);
       return {
@@ -136,13 +148,13 @@ export default function LeaderboardScreen() {
 
       <ScrollView>
         {tab === 'field' &&
-          fieldRows.map((r, i) => (
+          fieldRows.map((r) => (
             <Pressable
               key={r.id}
               onPress={() => openCard(r.id)}
               style={[styles.fieldRow, r.isYou && styles.rowYou]}
             >
-              <Text style={styles.pos}>{i + 1}</Text>
+              <Text style={styles.pos}>{r.pos}</Text>
               <View style={styles.fieldNameCol}>
                 <Text style={styles.fieldName}>{r.name}</Text>
                 <Text style={styles.fieldClub}>{r.club}</Text>
