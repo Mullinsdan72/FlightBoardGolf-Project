@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useRound } from '@/context/RoundContext';
+import { thruFor } from '@/lib/roundMath';
 import {
   APP_STORE_URL,
   cleanName,
@@ -41,6 +42,8 @@ export default function SetupScreen() {
     myId,
     players,
     addPlayer,
+    removePlayer,
+    scores,
     activeRound,
     activeRoundId,
     course,
@@ -89,13 +92,34 @@ export default function SetupScreen() {
   const handicapValid = Number.isInteger(parsedHandicap) && parsedHandicap >= 0 && parsedHandicap <= 54;
   const canAdd = cleanName(name).length > 0 && handicapValid && !busy;
 
-  const submitPlayer = async () => {
-    if (!canAdd) return;
+  const addNow = async (playerName: string) => {
     setBusy(true);
-    await addPlayer(cleanName(name), parsedHandicap);
+    await addPlayer(playerName, parsedHandicap);
     setName('');
     setHandicap('');
     setBusy(false);
+  };
+
+  const submitPlayer = async () => {
+    if (!canAdd) return;
+    const tidy = cleanName(name);
+    // Adding the same person twice is the easy mistake here, and it's not
+    // obvious afterwards — two identical rows on a leaderboard read as a
+    // rendering glitch rather than a duplicate. Two real golfers can share a
+    // name though, so this asks rather than refuses.
+    const clash = players.find((p) => p.name.toLowerCase() === tidy.toLowerCase());
+    if (clash) {
+      Alert.alert(
+        `${clash.name} is already in`,
+        'Add a second player with the same name, or cancel and use their surname or a nickname to tell them apart.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Add anyway', onPress: () => addNow(tidy) },
+        ],
+      );
+      return;
+    }
+    await addNow(tidy);
   };
 
   /**
@@ -125,6 +149,29 @@ export default function SetupScreen() {
     }
     setPickedFromContacts((prev) =>
       prev.some((p) => p.name === contactName) ? prev : [...prev, { name: contactName, phone }],
+    );
+  };
+
+  /**
+   * Take a player back off the round.
+   *
+   * Warns when they already have scores, because removing them takes them off
+   * the board — their posted holes stay in the database but stop counting, and
+   * anything derived from them (teams, a wolf hole, the settle-up) moves.
+   * Adding the wrong name twice during setup is the common case though, and that
+   * one should be a two-tap fix.
+   */
+  const confirmRemove = (playerId: string, playerName: string) => {
+    const played = thruFor(holes, scores, playerId);
+    Alert.alert(
+      `Remove ${playerName}?`,
+      played > 0
+        ? `${playerName} has ${played} hole${played === 1 ? '' : 's'} posted. Removing them takes them off this round — their scores stay in the database but stop showing on the board.`
+        : 'They come straight off the round. Nothing else is affected.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => removePlayer(playerId) },
+      ],
     );
   };
 
@@ -229,13 +276,21 @@ export default function SetupScreen() {
                 <View style={styles.playersBlock}>
                   {players.map((p) => (
                     <View key={p.id} style={styles.playerRow}>
-                      <Text style={styles.playerName}>
-                        {p.name}
-                        {p.id === myId ? ' (you)' : ''}
-                      </Text>
-                      <Text style={styles.playerMeta}>HCP {p.handicap}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.playerName}>
+                          {p.name}
+                          {p.id === myId ? ' (you)' : ''}
+                        </Text>
+                        <Text style={styles.playerMeta}>HCP {p.handicap}</Text>
+                      </View>
+                      <Pressable onPress={() => confirmRemove(p.id, p.name)} style={styles.tinyBtn} hitSlop={8}>
+                        <Text style={styles.tinyLabel}>REMOVE</Text>
+                      </Pressable>
                     </View>
                   ))}
+                  {!players.length && (
+                    <Text style={styles.hint}>Nobody added yet.</Text>
+                  )}
 
                   <Text style={styles.fieldLabel}>Add by name</Text>
                   <View style={styles.inlineRow}>
