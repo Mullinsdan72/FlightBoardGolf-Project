@@ -32,7 +32,11 @@ export type TeamsState = {
 const DEFAULTS: TeamsState = {
   enabled: false,
   format: 'bestball',
-  handicapMode: 'gross',
+  // Net, not gross. A team game between players off different handicaps is the
+  // whole reason handicaps exist, and defaulting to gross meant the fair option
+  // had to be found and switched on every round or the low handicapper simply
+  // won. Gross is still one tap away for a scratch group.
+  handicapMode: 'net',
   size: 2,
   count: 2,
   redrawAtTurn: false,
@@ -191,16 +195,23 @@ export function useTeams(
       setState((prev) => ({ ...prev, ...patch }));
       if (!isSupabaseConfigured || !supabase || !roundId) return;
       const row: Record<string, unknown> = { round_id: roundId };
-      if (patch.enabled !== undefined) row.enabled = patch.enabled;
-      if (patch.format !== undefined) row.format = patch.format;
-      if (patch.handicapMode !== undefined) row.handicap_mode = patch.handicapMode;
-      if (patch.size !== undefined) row.team_size = patch.size;
-      if (patch.count !== undefined) row.team_count = patch.count;
-      if (patch.redrawAtTurn !== undefined) row.redraw_at_turn = patch.redrawAtTurn;
+      // Switching teams on is what creates the row, and an upsert of one column
+      // lets the *database's* defaults fill the rest — which quietly beat the
+      // app's. Send the whole settled state on that first write so what the
+      // screen shows is what gets stored; after that, patch as normal.
+      const seeding = patch.enabled === true;
+      const full = { ...state, ...patch };
+      const src = seeding ? full : patch;
+      if (src.enabled !== undefined) row.enabled = src.enabled;
+      if (src.format !== undefined) row.format = src.format;
+      if (src.handicapMode !== undefined) row.handicap_mode = src.handicapMode;
+      if (src.size !== undefined) row.team_size = src.size;
+      if (src.count !== undefined) row.team_count = src.count;
+      if (src.redrawAtTurn !== undefined) row.redraw_at_turn = src.redrawAtTurn;
       const { error } = await supabase.from('team_games').upsert(row, { onConflict: 'round_id' });
       if (error) console.warn('team settings save failed:', error.message);
     },
-    [roundId],
+    [roundId, state],
   );
 
   /** Replace a segment's teams outright. Deleting first keeps removals honest. */

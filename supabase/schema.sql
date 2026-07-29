@@ -175,7 +175,7 @@ create table if not exists team_games (
   round_id uuid primary key references rounds(id) on delete cascade,
   enabled boolean not null default false,
   format text not null default 'bestball',
-  handicap_mode text not null default 'gross',
+  handicap_mode text not null default 'net',
   team_size int not null default 2,
   team_count int not null default 2,
   redraw_at_turn boolean not null default false,
@@ -195,10 +195,14 @@ create table if not exists team_games (
 -- The constraint is dropped and recreated rather than added only when missing:
 -- an earlier version of this file allowed ('gross', 'net') alone, and a database
 -- that ran that one would reject 'lowman' forever otherwise.
-alter table team_games add column if not exists handicap_mode text not null default 'gross';
+alter table team_games add column if not exists handicap_mode text not null default 'net';
 alter table team_games drop constraint if exists team_handicap_mode_is_known;
 alter table team_games add constraint team_handicap_mode_is_known
   check (handicap_mode in ('gross', 'net', 'lowman'));
+-- The default was 'gross', which made the fair setting the one you had to go
+-- and find every round. Only the default moves — rounds already set to gross
+-- stay gross, because a bet's terms are not ours to change after the fact.
+alter table team_games alter column handicap_mode set default 'net';
 
 create table if not exists team_members (
   round_id uuid not null references rounds(id) on delete cascade,
