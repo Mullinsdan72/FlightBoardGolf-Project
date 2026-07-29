@@ -170,11 +170,12 @@ export default function ScorecardScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
+        <Wordmark width={160} />
         {/* Round history lives here because the card is the thing you go back to
             look at. FIELD used to be the only way to Rounds and it's the
             organizer's tab now, so a player needs this door. */}
         <Pressable onPress={() => setRoundOpen((v) => !v)} hitSlop={8} disabled={rounds.length < 2}>
-          <Text style={styles.headerLabel}>
+          <Text style={[styles.headerLabel, { marginTop: 12 }]}>
             {activeRound?.name || 'Round'}
             {rounds.length > 1 ? ` · PAST ROUNDS ${roundOpen ? '▲' : '▼'}` : ''}
           </Text>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
+import { Wordmark } from '@/components/Wordmark';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
 import { netToParFor, thruFor, toParFor } from '@/lib/roundMath';
@@ -102,7 +103,8 @@ export default function LeaderboardScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>
-        <View style={styles.headerTop}>
+        <Wordmark width={160} />
+        <View style={[styles.headerTop, { marginTop: 12 }]}>
           <Text style={styles.headerLabel}>{activeRound?.name || 'Round'}</Text>
           <View style={styles.liveBadge}>
             <View style={[styles.liveDot, { backgroundColor: live && connected ? colors.accent : colors.mutedFaint }]} />
