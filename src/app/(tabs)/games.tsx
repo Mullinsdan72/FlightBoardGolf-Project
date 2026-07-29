@@ -465,7 +465,7 @@ export default function GamesScreen() {
             <Text style={styles.note}>
               Tap a name to record who won a hole; tap them again to clear it. A hole nobody won pays nothing — the
               antes stay in your pockets rather than going to the least-bad miss. Anyone in the group can record a
-              result; only the organizer adds or removes a game.
+              result; only whoever's running the round adds or removes a game.
             </Text>
             )}
 
@@ -577,7 +577,7 @@ export default function GamesScreen() {
                 <Text style={styles.lockText}>
                   {organizerName
                     ? `${organizerName} is running this round and sets the terms. You can see them here, but changing the stake or the rotation isn't a player's call.`
-                    : "Nobody has taken the organizer role yet, so the terms are locked. Whoever's running the round can take it on the FIELD tab."}
+                    : "Nobody has said they're running this round yet, so the terms are locked. Whoever is can say so on the FIELD tab."}
                 </Text>
               </View>
             )}

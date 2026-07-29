@@ -145,7 +145,7 @@ export type SetupStep = {
  * Order matters and isn't arbitrary: teams can't be drawn before there are
  * players, and the games worth playing depend on whether there are teams. The
  * first three are required — a round with no course has no card to score
- * against, and one with no players has nobody to score.
+ * against, and one with nobody in it has nobody to score.
  */
 export function setupSteps(state: {
   hasRound: boolean;
@@ -162,7 +162,7 @@ export function setupSteps(state: {
     {
       key: 'round',
       title: 'The round',
-      blurb: 'Name it and set the date. Creating it makes you the organizer.',
+      blurb: "Name it and set the date. Whoever creates it is the one running it.",
       done: state.hasRound,
       optional: false,
       detail: state.hasRound ? state.roundName : 'Not created yet',
@@ -181,12 +181,17 @@ export function setupSteps(state: {
       key: 'players',
       title: 'The players',
       blurb: 'Add everyone playing. Type them in, pull them from your contacts, or text them an invite.',
-      done: state.playerCount >= 2,
+      // One is enough. A round on your own is a real round — it's also the only
+      // way to try the app before turning up with three friends, and requiring
+      // two made that impossible.
+      done: state.playerCount >= 1,
       optional: false,
       detail:
         state.playerCount === 0
           ? 'Nobody added'
-          : `${state.playerCount} player${state.playerCount === 1 ? '' : 's'}${state.playerCount < 2 ? ' — needs at least two' : ''}`,
+          : state.playerCount === 1
+            ? 'Just you, for now'
+            : `${state.playerCount} players`,
     },
     {
       key: 'teams',

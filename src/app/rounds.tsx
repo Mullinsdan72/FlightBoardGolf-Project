@@ -170,7 +170,7 @@ export default function RoundsScreen() {
         </Pressable>
         <Text style={styles.note}>
           {me
-            ? `You'll be the organizer of this round and in the field, so nobody has to claim the role. Then pick a course and add the rest of the group.`
+            ? `You'll be running this round and playing in it. Next you pick the course, then who else is in.`
             : `The round will be created without you in it, because this device hasn't picked a player yet. Add yourself on the FIELD tab afterwards.`}
         </Text>
 

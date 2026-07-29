@@ -45,7 +45,7 @@ export default function PlayersScreen() {
   // went wrong the first time.
   const setOrganizer = async (playerId: string | null) => {
     const message = await claimOrganizer(playerId);
-    if (message) Alert.alert('Could not change the organizer', message);
+    if (message) Alert.alert('Could not change who is running the round', message);
   };
 
   const confirmRemove = (playerId: string, playerName: string) => {
@@ -88,7 +88,7 @@ export default function PlayersScreen() {
       </View>
 
       <ScrollView keyboardShouldPersistTaps="handled">
-        <Text style={styles.sectionLabel}>Organizer</Text>
+        <Text style={styles.sectionLabel}>Running this round</Text>
         <View style={styles.organizerBlock}>
           <View style={{ flex: 1 }}>
             <Text style={styles.organizerName}>
@@ -96,18 +96,18 @@ export default function PlayersScreen() {
               {amOrganizer ? ' (you)' : ''}
             </Text>
             <Text style={styles.organizerNote}>
-              The organizer is the only one who can reopen a signed card. Without sign-in anyone can take the role, so
-              it records who's running the round rather than truly restricting it.
+              Whoever's running the round picks the course, sets up the games, and can reopen a signed card. With no
+              sign-in anyone can take it over, so this records who's in charge rather than truly restricting anything.
             </Text>
           </View>
           {myId && !amOrganizer && (
             <Pressable onPress={() => setOrganizer(myId)} style={styles.claimBtn}>
-              <Text style={styles.claimLabel}>TAKE IT</Text>
+              <Text style={styles.claimLabel}>THAT'S ME</Text>
             </Pressable>
           )}
           {amOrganizer && (
             <Pressable onPress={() => setOrganizer(null)} style={styles.claimBtn}>
-              <Text style={styles.claimLabel}>GIVE UP</Text>
+              <Text style={styles.claimLabel}>HAND OVER</Text>
             </Pressable>
           )}
         </View>

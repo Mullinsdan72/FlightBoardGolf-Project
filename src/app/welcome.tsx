@@ -22,14 +22,11 @@ export default function WelcomeScreen() {
   const { createRound, choose, rounds } = useRound();
 
   const [name, setName] = useState('');
-  const [handicap, setHandicap] = useState('');
   const [dayOffset, setDayOffset] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const tidy = cleanName(name);
-  const parsedHandicap = handicap.trim() === '' ? 0 : Number(handicap.trim());
-  const handicapValid = Number.isInteger(parsedHandicap) && parsedHandicap >= 0 && parsedHandicap <= 54;
-  const canStart = tidy.length > 0 && handicapValid && !busy;
+  const canStart = tidy.length > 0 && !busy;
 
   const start = async () => {
     if (!canStart) return;
@@ -39,7 +36,11 @@ export default function WelcomeScreen() {
       name: defaultRoundName(playedOn),
       playedOn,
       creatorName: tidy,
-      creatorHandicap: parsedHandicap,
+      // Handicaps are set on the FIELD tab, where there's a list of players to
+      // set them against. Asking for one on the first screen is a second
+      // question before anything has been seen, and it's the one a casual
+      // player doesn't know off the top of their head.
+      creatorHandicap: 0,
     });
     setBusy(false);
     if (error) {
@@ -72,20 +73,6 @@ export default function WelcomeScreen() {
           autoFocus
         />
 
-        <Text style={styles.fieldLabel}>Your handicap</Text>
-        <TextInput
-          value={handicap}
-          onChangeText={setHandicap}
-          placeholder="0"
-          placeholderTextColor={colors.ghost}
-          style={styles.input}
-          keyboardType="number-pad"
-          onSubmitEditing={start}
-        />
-        {handicap.trim() !== '' && !handicapValid && (
-          <Text style={styles.errorText}>A whole number from 0 to 54. Leave it blank if you don't have one.</Text>
-        )}
-
         <Text style={styles.fieldLabel}>When are you playing</Text>
         {/* Chips rather than a typed date: nobody should have to know that
             2026-08-01 is the format on the first screen of an app. */}
@@ -109,8 +96,8 @@ export default function WelcomeScreen() {
         </Pressable>
 
         <Text style={styles.note}>
-          You'll be running this round. Next you'll pick the course and add whoever's playing — it takes about a minute,
-          and you can change any of it later.
+          You'll be running this round: you pick the course and who's in it. Next comes the course, then everyone
+          playing. It takes about a minute, and handicaps and anything else can be set once you're in.
         </Text>
 
         {/* Somebody who was texted a link isn't starting a round, they're

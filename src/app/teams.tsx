@@ -137,7 +137,7 @@ export default function TeamsScreen() {
       {!amOrganizer && (
         <View style={styles.readOnlyBar}>
           <Text style={styles.readOnlyText}>
-            The organizer draws the teams. You can see everything here; you just can't change it.
+            Whoever's running the round draws the teams. You can see everything here; you just can't change it.
           </Text>
         </View>
       )}

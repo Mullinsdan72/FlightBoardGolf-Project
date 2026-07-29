@@ -84,6 +84,10 @@ export default function SetupScreen() {
 
   const ready = readyToPlay(steps);
   const next = firstUndone(steps);
+  // Five items on a first run reads as a chore, and two of them can't be acted
+  // on usefully yet — teams need players, and the games worth setting depend on
+  // whether there are teams. They appear once the basics are in.
+  const shownSteps = ready ? steps : steps.filter((step) => !step.optional);
 
   // `setup: '1'` rides along so the screen it lands on knows it's part of the
   // run-through and shows the back/next bar. Without it the Course tab is just
@@ -279,8 +283,8 @@ export default function SetupScreen() {
       {!canSetUp && (
         <View style={styles.readOnlyBar}>
           <Text style={styles.readOnlyText}>
-            You're not the organizer of this round, so this is a view of how far along it is rather than something to
-            fill in.
+            Someone else is running this round, so this is a view of how far along it is rather than something to fill
+            in.
           </Text>
         </View>
       )}
@@ -288,14 +292,14 @@ export default function SetupScreen() {
       <ScrollView keyboardShouldPersistTaps="handled">
         <View style={styles.progressRow}>
           <Text style={styles.progressText}>
-            {steps.filter((s) => s.done).length} of {steps.length} done
+            {shownSteps.filter((s) => s.done).length} of {shownSteps.length} done
           </Text>
           <Text style={styles.progressNext}>
             {ready ? 'Ready to play' : next ? `Next: ${next.title.toLowerCase()}` : ''}
           </Text>
         </View>
 
-        {steps.map((step, i) => {
+        {shownSteps.map((step, i) => {
           const isPlayers = step.key === 'players';
           const isNext = next?.key === step.key;
           return (
@@ -462,8 +466,9 @@ export default function SetupScreen() {
           <Text style={styles.beginArrow}>→</Text>
         </Pressable>
         <Text style={styles.outerHint}>
-          Teams and side games can wait — you can turn them on at the first tee, or not at all. A course and at least two
-          players are what a round actually needs.
+          {ready
+            ? 'Teams and side games are optional. Turn them on now, at the first tee, or not at all.'
+            : 'A course and at least one player is all a round needs. Teams and side games show up here once those are done.'}
         </Text>
         {busy && <ActivityIndicator style={{ marginVertical: 16 }} color={colors.accent} />}
       </ScrollView>

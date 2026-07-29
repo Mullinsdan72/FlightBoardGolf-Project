@@ -68,8 +68,8 @@ export default function ScoreEntryScreen() {
           <Text style={styles.headerLabel}>{activeRound?.name || 'Round'} · Group 12</Text>
           <Text style={styles.lockedTitle}>Your card is signed and locked</Text>
           <Text style={styles.lockedNote}>
-            Signed {new Date(signedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Reopening it
-            needs the organizer — check the Card tab for your final scorecard.
+            Signed {new Date(signedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Only whoever's
+            running the round can reopen it — check the Card tab for your final scorecard.
           </Text>
         </View>
       </View>

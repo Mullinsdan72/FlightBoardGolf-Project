@@ -173,6 +173,7 @@ check('five steps', empty.length, 5);
 // before there are players to draw from.
 check('in build order', empty.map((s) => s.key), ['round', 'course', 'players', 'teams', 'games']);
 check('nothing is done yet', empty.every((s) => !s.done), true);
+check('an empty field is not done', empty[2].done, false);
 check('the first thing to do is create the round', inv.nextStep(empty).key, 'round');
 check('and it is not ready to play', inv.readyToPlay(empty), false);
 check('teams are optional', empty.find((s) => s.key === 'teams').optional, true);
@@ -192,10 +193,11 @@ const mid = inv.setupSteps({
 });
 check('the round shows as done', mid[0].done, true);
 check('the course shows what was picked', mid[1].detail, 'Gladstan · Blue · 18 holes');
-// One player is a round with nobody to play against.
-check('one player is not enough', mid[2].done, false);
-check('and it says so', mid[2].detail.includes('needs at least two'), true);
-check('the next thing to do is the players', inv.nextStep(mid).key, 'players');
+// A round on your own counts — it's the only way to try the app without
+// rounding up three friends first.
+check('one player is enough to play', mid[2].done, true);
+check('and it says who is in it', mid[2].detail, 'Just you, for now');
+check('nothing required is left with one player', inv.nextStep(mid), null);
 
 const ready = inv.setupSteps({
   hasRound: true,
@@ -208,7 +210,7 @@ const ready = inv.setupSteps({
   teamCount: 0,
   gamesOn: 0,
 });
-check('four players is enough', ready[2].done, true);
+check('four players reads as a group', ready[2].detail, '4 players');
 // Teams and games are undone but optional, so the round can still start.
 check('nothing required is left', inv.nextStep(ready), null);
 check('so it is ready to play', inv.readyToPlay(ready), true);

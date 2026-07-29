@@ -404,7 +404,7 @@ export default function ScorecardScreen() {
           )}
           {signed && !amOrganizer && (
             <Text style={styles.signNote}>
-              A signed card stays locked. Reopening one is the organizer's call — they can do it from this screen.
+              A signed card stays locked. Only whoever's running the round can reopen one, from this screen.
             </Text>
           )}
         </View>
