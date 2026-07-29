@@ -83,7 +83,10 @@ const msg = inv.inviteMessage({
   roundId: ROUND,
 });
 
-check('it opens by saying what happened', msg.startsWith("You've been added to Flight Board for today's round of golf."), true);
+check('it opens by saying what happened', msg.startsWith("You've been added to Flight Board."), true);
+// Nothing time-bound in the wording, so an invite sent the night before still
+// reads correctly the next morning.
+check('it does not claim the round is today', msg.toLowerCase().includes('today'), false);
 check('it says the round is live', msg.includes('in real time'), true);
 check('it mentions the games', msg.includes('games being played within the round'), true);
 check('it says you keep your own score', msg.includes('lets you keep your own score'), true);
@@ -103,10 +106,9 @@ check('the round id is the only thing that varies', inv.inviteMessage({ roundNam
 const NON_GSM = /[^A-Za-z0-9@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà\n\r^{}\\[~\]|€]/;
 const offenders = [...msg].filter((c) => NON_GSM.test(c));
 check('nothing in the message breaks GSM-7 encoding', offenders, []);
-// 308 characters — three concatenated segments (153 each). Two characters over
-// two segments, which is the owner's call to make: the wording is his. This
-// pins the count so a future edit that pushes it to four gets noticed.
-check('it is three SMS segments, not four', Math.ceil(msg.length / 153), 3);
+// 282 characters — two concatenated segments (153 each). Pinned so an edit that
+// pushes it to three gets noticed rather than just quietly costing more to send.
+check('it fits in two SMS segments', Math.ceil(msg.length / 153), 2);
 
 // The store link doesn't exist yet, so the message must not imply one does.
 check('no store link is configured yet', inv.APP_STORE_URL, null);

@@ -56,16 +56,17 @@ export type InviteContext = {
  * and the point of the message isn't the app — it's that nobody has to carry a
  * pencil.
  *
- * Deliberately says nothing about which round, which course or who invited them:
- * the text arrives from the organizer's own number, so the recipient already
- * knows who and — for a round being played today — when.
+ * Deliberately says nothing about which round, which course, who invited them
+ * or when: the text arrives from the organizer's own number, so the recipient
+ * already knows. It also means the wording doesn't go stale on a round set up
+ * the night before — "today's round" would have.
  *
  * `InviteContext` still carries the round's name, course and date. They're
  * unused by this wording and kept for the next one rather than deleted.
  */
 export function inviteMessage(ctx: InviteContext): string {
   const lines = [
-    "You've been added to Flight Board for today's round of golf.",
+    "You've been added to Flight Board.",
     '',
     "Flight Board shows everyone's round in real time, shows games being played within the round, and lets you keep your own score. No more paper scorecards.",
     '',
