@@ -110,6 +110,10 @@ export default function ScoreEntryScreen() {
   const myScore = valueFor(hole, myId);
   const myToPar = toParFor(holes, scores, myId);
   const thru = thruFor(holes, scores, myId);
+  // Every hole this phone is scoring has a number on it, so the round is over
+  // as far as you are concerned — whatever anyone else still has to post.
+  const allHolesPosted = holes.length > 0 && holes.every((h) => scores[h.hole]?.[myId] != null);
+
   const isLastHole = safeIndex === holes.length - 1;
 
   // Posts whatever's currently showing for the hole being left. Called both
@@ -320,11 +324,26 @@ export default function ScoreEntryScreen() {
         </ScrollView>
       </View>
       <Pressable style={styles.postBtn} onPress={commitHole}>
+        {/* This used to read "POST · ROUND COMPLETE" on the last hole. That
+            described where you were standing rather than what the button did —
+            it posts a score, and it never completed anything. Reported as
+            "doesn't seem to be working", and it wasn't: the label was the bug. */}
         <Text style={styles.postLabel}>
-          {isLastHole ? 'POST · ROUND COMPLETE' : `POST · HOLE ${holes[safeIndex + 1].hole}`}
+          {isLastHole ? `POST · HOLE ${holes[safeIndex].hole}` : `POST · HOLE ${holes[safeIndex + 1].hole}`}
         </Text>
         <Text style={styles.postArrow}>→</Text>
       </Pressable>
+
+      {/* Signing your card is what submits your round, and it lives on CARD —
+          but nothing on this screen ever said so, which is why finishing a round
+          felt like it wasn't working. Only offered once every hole has a number
+          on it: a card signed on the fourteenth is a card signed by accident. */}
+      {allHolesPosted && (
+        <Pressable style={styles.signBtn} onPress={() => router.push('/(tabs)/card')}>
+          <Text style={styles.signLabel}>ALL {holes.length} POSTED · SIGN MY CARD</Text>
+          <Text style={styles.signArrow}>→</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -428,6 +447,17 @@ const styles = StyleSheet.create({
   holeChipsRow: { borderTopWidth: 2, borderBottomWidth: 1, borderColor: colors.divider },
   chip: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center', borderRightWidth: 1, borderColor: colors.divider },
   chipText: { fontFamily: font.heading, fontSize: 12 },
+  signBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 62,
+    paddingHorizontal: 20,
+    borderTopWidth: 2,
+    borderColor: colors.text,
+  },
+  signLabel: { fontFamily: font.heading, fontSize: 14, letterSpacing: 0.5, color: colors.text },
+  signArrow: { fontFamily: font.heading, fontSize: 18, color: colors.text },
   postBtn: {
     height: 72,
     backgroundColor: colors.accent,
