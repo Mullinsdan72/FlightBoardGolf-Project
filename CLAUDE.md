@@ -138,7 +138,7 @@ everywhere in this codebase, not just the screens they were first written for.
     1. `supabase/auth.sql` + phone sign-in in the app — **done**
     2. everyone signs in once and claims their player row — **built**, needs doing
        for real once codes are being delivered
-    3. `supabase/rls.sql`, the actual lockdown — *not written*
+    3. `supabase/rls.sql`, the actual lockdown — **written, not yet run**
   Step 3 is the one no tap in the app can undo, so it goes last.
 - **Signing in and being a player are two different things.** `usePhoneAuth` proves whose
   phone this is; `usePlayerIdentity` still decides which player row this device is. Don't
@@ -154,6 +154,27 @@ everywhere in this codebase, not just the screens they were first written for.
   *unclaimed* row always needs a deliberate tap, because guessing wrong seats you as somebody
   else and hands you their card. Signed out, a claimed row reads `taken`, never `you`; there
   is an assertion for exactly that.
+- **The lockdown ships as three files and must be used as three.**
+  `rls-preflight.sql` changes nothing and answers the only question that matters:
+  *ROUNDS THAT WOULD VANISH* must read 0. A round with no claimed member is unreachable
+  from every phone the moment policies go live — not deleted, but identical to deleted from
+  inside the app. `rls-rollback.sql` restores the permissive policies in one paste and
+  should be open in another tab while `rls.sql` runs. Recovering beats diagnosing when a
+  group is standing on a tee.
+- **The RLS helpers are `security definer` for correctness, not convenience.** A policy on
+  `rounds` that queries `round_players` gets `round_players`' policy evaluated inside it,
+  which queries `rounds` — and Postgres refuses the recursion. `stable` matters too: without
+  it the planner calls them per row instead of per statement, which is a leaderboard that
+  loads versus one that doesn't.
+- **`may_score_for` is the strict reading of rule 2**: your own row always, plus unclaimed
+  rows in a round you organize — because somebody has to keep the card for the friend who
+  never installed the app, and an unowned row has nobody else. It stops applying the instant
+  that person claims their row. Widening it to any member is one line if keeping a mate's
+  card matters more than the guarantee.
+- **"The wolf's own, per hole" is not enforced in the database, on purpose.** Checking that
+  the writer holds the wolf means resolving the rotation in SQL, and the rotation is app-side
+  precisely so a reshuffle can't rewrite played holes. The app gates the hole; RLS gates the
+  round.
 - **A claimed row is shown and refused, never hidden.** A four-ball that displays two names
   looks broken, and the organizer "fixes" it by adding a duplicate — the precise mess
   claiming exists to prevent.
