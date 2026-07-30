@@ -49,7 +49,7 @@ export default function WelcomeScreen() {
     }
     // Become the player just created, so nothing asks who you are again.
     if (playerId) await choose(playerId);
-    router.replace('/setup');
+    router.replace('/start');
   };
 
   return (

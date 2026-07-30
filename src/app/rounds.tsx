@@ -96,7 +96,7 @@ export default function RoundsScreen() {
     setPlayedOn(todayIso());
     // A brand new round has no course and nobody in it, so the useful next
     // screen is the run-through, not the score card.
-    router.replace('/setup');
+    router.replace('/start');
   };
 
   const confirmDelete = (roundId: string, roundName: string) => {
