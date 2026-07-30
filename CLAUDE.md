@@ -147,6 +147,30 @@ everywhere in this codebase, not just the screens they were first written for.
    - Empty means nobody is organizer, not everybody. A card must not become unlockable just
      because the role is unclaimed.
 
+## Which tab the app opens on
+
+`src/lib/opening.ts` is pure and covered by `npm run check:opening` — 15 assertions.
+`(tabs)/_layout.tsx` decides once per cold start and redirects.
+
+- **A round is "in progress" only once a hole is posted, and only until every card is
+  signed.** A round set up last night is a plan, not a round, so ROUND — the screen with
+  START ROUND on it — is where the app opens. Opening on a locked, finished scorecard is
+  what reads as the app being stuck.
+- **Decided once, then never revisited.** A layout that kept re-deciding would pull you off
+  ROUND the moment somebody posted a hole and off SCORE the moment the last card was signed.
+  The opening tab is an opening move, not a rule about where you may be.
+- **It has to be a `<Redirect>`, not `initialRouteName`.** A cold start opens the URL `/`,
+  and `/` *is* the Score tab, so the navigator's initial route loses to the link every time.
+- **`playersLoaded` and `scoresHydrated` only settle for a round that exists.** With no
+  round, `useRoundPlayers.refresh` returns before setting its flag and `useLiveScores` stops
+  at hydrated false. Gate on them unconditionally and a first-time user gets a permanent
+  blank screen — this file has shipped that bug twice already, so gate with
+  `!activeRoundId || (...)`.
+- Posted holes are counted off the **local cache**, which is what the phone knows before the
+  network answers. A phone that has never seen the round reads it as unplayed and opens on
+  ROUND: one tap wrong, and much better than holding the whole app on a network call at a
+  tee.
+
 ## Working with Dan
 
 Dan is building this as his first app and runs every change on a real phone. Two things

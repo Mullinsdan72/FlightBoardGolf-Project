@@ -49,14 +49,15 @@
     "typecheck": "tsc --noEmit",
     "check:courses": "node scripts/check-course-parse.js",
     "check:outbox": "node scripts/check-outbox.js",
-    "check": "npm run typecheck && npm run check:courses && npm run check:outbox && npm run check:wolf && npm run check:teams && npm run check:sidegames && npm run check:challenge && npm run check:invite && npm run check:phone && npm run check:claim",
+    "check": "npm run typecheck && npm run check:courses && npm run check:outbox && npm run check:wolf && npm run check:teams && npm run check:sidegames && npm run check:challenge && npm run check:invite && npm run check:phone && npm run check:claim && npm run check:opening",
     "check:wolf": "node scripts/check-wolf.js",
     "check:teams": "node scripts/check-teams.js",
     "check:sidegames": "node scripts/check-sidegames.js",
     "check:challenge": "node scripts/check-challenge.js",
     "check:invite": "node scripts/check-invite.js",
     "check:phone": "node scripts/check-phone.js",
-    "check:claim": "node scripts/check-claim.js"
+    "check:claim": "node scripts/check-claim.js",
+    "check:opening": "node scripts/check-opening.js"
   },
   "private": true
 }
