@@ -50,13 +50,19 @@ const styles = StyleSheet.create({
     // Three across, with two 10px gaps and 20px of padding either side.
     width: '31.5%',
     minHeight: 84,
+    // A filled, rounded tile rather than the app's usual square hairline rule.
+    // Deliberate deviation from the zero-radius house style, asked for so the
+    // grid reads as a set of objects you can press rather than as ruled-off
+    // sections of the page.
+    backgroundColor: '#e7e4e2',
+    borderRadius: 10,
     borderWidth: 2,
-    borderColor: colors.divider,
+    borderColor: 'transparent',
     paddingHorizontal: 11,
     paddingVertical: 12,
     justifyContent: 'space-between',
   },
-  tileUnset: { borderColor: colors.accent },
+  tileUnset: { borderColor: colors.accent, backgroundColor: 'rgba(236,48,19,0.07)' },
   tileOff: { opacity: 0.4 },
   label: {
     fontFamily: font.bodySemi,

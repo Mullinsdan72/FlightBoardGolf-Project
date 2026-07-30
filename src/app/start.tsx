@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Sheet, type SheetOption } from '@/components/Sheet';
 import { Tile, TileGrid } from '@/components/Tile';
 import { Wordmark } from '@/components/Wordmark';
 import { useRound } from '@/context/RoundContext';
+import { useCourseSearch } from '@/hooks/useCourseSearch';
+import { fetchCourseDetail, type CourseSearchResult } from '@/lib/courseApi';
 import type { HolesInPlay } from '@/hooks/useRoundCourse';
 import type { ScoringMode } from '@/hooks/useActiveRound';
-import { isoDaysFromNow, prettyDay } from '@/lib/invite';
 import { colors, font } from '@/theme';
 
-type Open = null | 'course' | 'tee' | 'holes' | 'scoring' | 'when';
+type Open = null | 'tee' | 'holes' | 'scoring';
 
 const HOLE_LABEL: Record<HolesInPlay, string> = {
   all18: 'All 18',
@@ -48,6 +49,7 @@ export default function StartRoundScreen() {
     course,
     savedCourses,
     selectCourseTee,
+    cacheCourse,
     players,
     playersLoaded,
     scoringMode,
@@ -106,11 +108,10 @@ export default function StartRoundScreen() {
     }
   };
 
-  const pickCourse = async (id: string) => {
-    if (id === '__search') {
-      router.push('/(tabs)/course');
-      return;
-    }
+  const { query, setQuery, clear, searching, results, error: searchError, localMatches, searchNow } =
+    useCourseSearch(savedCourses);
+
+  const pickSaved = async (id: string) => {
     const c = savedCourses.find((x) => x.id === id);
     if (!c || !c.tees.length) return;
     try {
@@ -119,10 +120,41 @@ export default function StartRoundScreen() {
         courseName: c.courseName,
         location: c.location,
       });
+      clear();
     } catch (err) {
       Alert.alert('Could not open that course', err instanceof Error ? err.message : 'Unknown error');
     }
   };
+
+  /**
+   * Search already returned the full card, so picking a result must not trigger
+   * a second lookup — that would double the quota cost of every course.
+   * `fetchCourseDetail` is only for results that arrive without tees.
+   */
+  const pickResult = async (r: CourseSearchResult) => {
+    try {
+      const detail = r.tees.length
+        ? { externalId: r.externalId, clubName: r.clubName, courseName: r.courseName, location: r.location, tees: r.tees, raw: r.raw }
+        : await fetchCourseDetail(r.externalId);
+      const courseId = await cacheCourse(detail);
+      if (!courseId) {
+        Alert.alert('Could not save', 'The course was found but could not be saved. Check your connection.');
+        return;
+      }
+      await selectCourseTee(courseId, detail.tees[0], {
+        clubName: detail.clubName,
+        courseName: detail.courseName || detail.clubName,
+        location: detail.location,
+      });
+      clear();
+    } catch (err) {
+      Alert.alert('Could not load that course', err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  // Par over the holes actually in play. The tee's own par total is for all 18,
+  // so a front-nine round was reading "par 72 · 9 holes".
+  const parTotal = holes.reduce((a, h) => a + h.par, 0);
 
   const teamsValue = !teams.enabled
     ? 'Not playing'
@@ -138,21 +170,88 @@ export default function StartRoundScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Wordmark width={170} />
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.topRow}>
+          <Wordmark width={170} />
+          {activeRoundId && (
+            <Pressable onPress={() => router.replace('/(tabs)')} hitSlop={10}>
+              <Text style={styles.exit}>THE ROUND ›</Text>
+            </Pressable>
+          )}
+        </View>
 
-        {/* The course, large, the way you'd read it off a scorecard. */}
-        <Pressable onPress={() => setOpen('course')} style={styles.courseBlock}>
+        {/* The course, large, the way you'd read it off a scorecard. Not a
+            button: switching course is the search box and the favourites list
+            below, both of which are visible without tapping anything. */}
+        <View style={styles.courseBlock}>
           <Text style={styles.courseName} numberOfLines={2}>
             {course?.courseName || 'Pick a course'}
           </Text>
           <Text style={styles.courseMeta}>
             {course?.courseName
-              ? [course.courseMeta, `${holes.length || 18} holes`].filter(Boolean).join(' · ')
-              : 'Search, or choose one you have played'}
+              ? [selectedCourse?.location, course.teeName, `par ${parTotal}`, `${holes.length} holes`].filter(Boolean).join(' · ')
+              : 'Search below, or pick one you have played'}
           </Text>
-          <Text style={styles.courseSwitch}>TAP TO CHANGE ›</Text>
-        </Pressable>
+        </View>
+
+        {/* Favourites first and small — the course you play every week should
+            be one tap and zero lookups, but it shouldn't shout over the one
+            you've actually chosen. */}
+        {favourites.length > 0 && (
+          <View style={styles.favBlock}>
+            {favourites.map((c) => {
+              const on = c.id === course?.courseId;
+              return (
+                <Pressable key={c.id} onPress={() => pickSaved(c.id)} style={styles.favRow}>
+                  <Text style={[styles.favName, on && styles.favNameOn]} numberOfLines={1}>
+                    {on ? '★ ' : ''}
+                    {c.courseName || c.clubName}
+                  </Text>
+                  <Text style={styles.favMeta} numberOfLines={1}>
+                    {c.location}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        <View style={styles.searchWrap}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search courses…"
+            placeholderTextColor={colors.ghost}
+            style={styles.search}
+            autoCapitalize="words"
+            returnKeyType="search"
+            onSubmitEditing={searchNow}
+          />
+          {searching && <ActivityIndicator color={colors.accent} />}
+        </View>
+        {searchError && <Text style={styles.searchError}>{searchError}</Text>}
+
+        {localMatches.length > 0 && (
+          <>
+            <Text style={styles.resultHeader}>On this phone · no lookup</Text>
+            {localMatches.map((c) => (
+              <Pressable key={c.id} onPress={() => pickSaved(c.id)} style={styles.resultRow}>
+                <Text style={styles.resultName}>{c.courseName || c.clubName}</Text>
+                <Text style={styles.resultMeta}>{c.location}</Text>
+              </Pressable>
+            ))}
+          </>
+        )}
+
+        {results && results.length > 0 && <Text style={styles.resultHeader}>Found online</Text>}
+        {results?.map((r) => (
+          <Pressable key={r.externalId} onPress={() => pickResult(r)} style={styles.resultRow}>
+            <Text style={styles.resultName}>{r.courseName || r.clubName}</Text>
+            <Text style={styles.resultMeta}>
+              {[r.location, r.tees.length ? `${r.tees.length} tees` : 'no card data'].filter(Boolean).join(' · ')}
+            </Text>
+          </Pressable>
+        ))}
 
         <Text style={styles.sectionLabel}>Round setup</Text>
 
@@ -204,22 +303,6 @@ export default function StartRoundScreen() {
       </ScrollView>
 
       <Sheet
-        visible={open === 'course'}
-        title="Choose a course"
-        onClose={() => setOpen(null)}
-        onPick={pickCourse}
-        options={[
-          ...favourites.map((c) => ({
-            key: c.id,
-            label: c.courseName || c.clubName,
-            detail: c.location || undefined,
-            selected: c.id === course?.courseId,
-          })),
-          { key: '__search', label: 'Search for a course…' },
-        ]}
-      />
-
-      <Sheet
         visible={open === 'tee'}
         title="Select tee"
         options={teeOptions}
@@ -258,7 +341,39 @@ export default function StartRoundScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   scroll: { paddingTop: 64, paddingBottom: 40 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
+  exit: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.7, color: colors.accent },
   courseBlock: { paddingHorizontal: 20, paddingTop: 22 },
+  favBlock: { paddingHorizontal: 20, paddingTop: 18, borderTopWidth: 1, borderColor: colors.divider, marginTop: 18 },
+  favRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, paddingVertical: 7 },
+  favName: { fontFamily: font.heading, fontSize: 13, color: colors.text, flexShrink: 1 },
+  favNameOn: { color: colors.accent },
+  favMeta: { fontFamily: font.body, fontSize: 11, color: colors.muted, flexShrink: 1 },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 20,
+    marginTop: 14,
+    borderWidth: 2,
+    borderColor: colors.divider,
+    paddingHorizontal: 14,
+  },
+  search: { flex: 1, fontFamily: font.body, fontSize: 15, color: colors.text, paddingVertical: 13 },
+  searchError: { fontFamily: font.body, fontSize: 11.5, color: colors.accent, paddingHorizontal: 20, paddingTop: 10 },
+  resultHeader: {
+    fontFamily: font.bodySemi,
+    fontSize: 9.5,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.muted,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 6,
+  },
+  resultRow: { paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 1, borderColor: colors.divider },
+  resultName: { fontFamily: font.heading, fontSize: 15, color: colors.text },
+  resultMeta: { fontFamily: font.body, fontSize: 11.5, color: colors.muted, marginTop: 3 },
   courseName: { fontFamily: font.heading, fontSize: 32, letterSpacing: -0.7, color: colors.text },
   courseMeta: { fontFamily: font.body, fontSize: 12.5, color: colors.muted, marginTop: 6 },
   courseSwitch: { fontFamily: font.heading, fontSize: 11, letterSpacing: 0.7, color: colors.accent, marginTop: 10 },
