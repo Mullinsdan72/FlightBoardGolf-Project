@@ -151,11 +151,16 @@ export default function ScoreEntryScreen() {
             {/* A bordered chip, not a caption. As small uppercase text this
                 read as a label and nobody found it — including the person who
                 commissioned the app. */}
-            <Pressable onPress={() => router.push('/rounds')} hitSlop={8} style={styles.roundChip}>
+            {/* Opens /start, which is the round's home: course, tee, holes,
+                scoring, players, teams, games. This is the door back into setup
+                from inside a round — the one that was missing the day a fourth
+                player turned up and there was nowhere to add him. Past rounds
+                and switching live one link further on, from there. */}
+            <Pressable onPress={() => router.push('/start')} hitSlop={8} style={styles.roundChip}>
               <Text style={styles.roundChipName} numberOfLines={1}>
                 {activeRound?.name || 'Round'}
               </Text>
-              <Text style={styles.roundChipCta}>SWITCH · NEW ⌄</Text>
+              <Text style={styles.roundChipCta}>SET UP · SWITCH ⌄</Text>
             </Pressable>
             {/* Says what's actually true: queued scores are saved on the phone
                 and will sync — not lost, and not silently pending either. */}

@@ -53,7 +53,7 @@ function ModernistTabBar({ state, navigation, visible }: any) {
 }
 
 export default function TabLayout() {
-  const { activeRoundId, roundsLoaded, roundsError, amOrganizer, organizerId, players, playersLoaded, wolf, challenge, holeGames, myId } = useRound();
+  const { activeRoundId, roundsLoaded, roundsError, amOrganizer, wolf, challenge, holeGames, myId } = useRound();
 
   // Nothing to score against until a round exists, so send a first-time user
   // (or anyone who just deleted their last round) to create one.
@@ -96,12 +96,14 @@ export default function TabLayout() {
   // whoever is holding the phone — and the picker's own advice is "open the
   // PLAYERS tab", which isn't there to open. Same rule as `canSetUp` on /setup:
   // an unclaimed round belongs to whoever turns up.
-  const needsSettingUp = !organizerId || (playersLoaded && players.length === 0);
-  // COURSE is off the bar: search, tees and holes-in-play all live on /start
-  // now, and two doors to the same settings is clutter rather than choice. The
-  // route still exists and /start links to it, because entering a card by hand
-  // is only there — hiding a tab must never hide the last way to something.
-  if (amOrganizer || needsSettingUp) visible.push('players');
+  // Nothing else. PLAYERS and COURSE both came off the bar because /start is
+  // the round's home now — course, tee, holes, scoring, players, teams and
+  // games are all tiles on one screen, reached by tapping the round name on
+  // SCORE. Four tabs, the same four for everyone, because the organizer's job
+  // stopped needing tabs of its own.
+  //
+  // Both routes still exist and /start links to both, which is the whole reason
+  // this is safe: hiding a tab must never hide the last way to something.
 
   return (
     <Tabs

@@ -80,10 +80,18 @@ export default function PlayersScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        {/* The round name is the way to Rounds, since the tab bar is full. */}
-        <Pressable onPress={() => router.push('/rounds')} hitSlop={8}>
-          <Text style={styles.kicker}>{activeRound?.name || 'Round'} · ROUNDS + NEW ›</Text>
+        {/* This screen is no longer a tab — it is reached from the PLAYERS tile
+            on /start — so it needs a way back of its own. A tab screen without a
+            tab is a room with the door bricked up. */}
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/start'))}
+          hitSlop={10}
+          style={styles.backBtn}
+        >
+          <Text style={styles.backArrow}>‹</Text>
+          <Text style={styles.backLabel}>ROUND SETUP</Text>
         </Pressable>
+        <Text style={styles.kicker}>{activeRound?.name || 'Round'}</Text>
         <Text style={styles.title}>Players</Text>
       </View>
 
@@ -248,6 +256,9 @@ export default function PlayersScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
+  backArrow: { fontFamily: font.heading, fontSize: 20, color: colors.accent, lineHeight: 22 },
+  backLabel: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.7, color: colors.accent },
   header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
   kicker: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.accent },
   title: { fontFamily: font.heading, fontSize: 28, letterSpacing: -0.6, marginTop: 8, color: colors.text },

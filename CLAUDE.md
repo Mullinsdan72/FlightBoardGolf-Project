@@ -28,11 +28,18 @@ hold-to-sign), **Players** (`src/app/(tabs)/players.tsx`, the round's roster), *
 SCORE, or past rounds on CARD), `/teams` (the TEAMS row on PLAYERS, following the design's own
 players → teams → side games order) and `/settle` (SETTLE UP on GAMES).
 
-**A player sees four tabs, the organizer six.** SCORE, LEADERBOARD, CARD and GAMES are
-everyone's; PLAYERS and COURSE are the organizer's, because setting the round up is their job
-and two dead tabs is clutter for everyone else. GAMES itself only appears once a game exists.
-Inside GAMES the sub-tabs are built from the games actually running — each states its rules
-and shows its results — with the controls on an organizer-only SET UP tab.
+**Four tabs, the same four for everyone: SCORE, LEADERBOARD, CARD, GAMES.** There are no
+organizer-only tabs any more, because `/start` is the round's home — course, tee, holes,
+scoring, players, teams and games are tiles on one screen, reached by **tapping the round
+name on SCORE**. That is the door back into setup from inside a round, and it is the door
+that was missing the day a fourth player turned up mid-round with nowhere to be added.
+GAMES still only appears once a game exists. Inside GAMES the sub-tabs are built from the
+games actually running — each states its rules and shows its results — with the controls on
+an organizer-only SET UP tab.
+
+`/(tabs)/players` and `/(tabs)/course` are still routes and still live inside the tabs
+group; they simply have no tab button. Both therefore need their own way back, and both have
+one — a tab screen without a tab is a room with the door bricked up.
 
 No sign-in yet: each device picks which player in the round it is
 (`src/components/PlayerPicker.tsx`) as a stand-in until real phone-number auth is built.
