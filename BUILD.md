@@ -64,7 +64,13 @@ eas build --profile development --platform simulator
 
 ## Identifiers
 
-`ios.bundleIdentifier` and `android.package` are both `com.prolook.flightboard`.
+`ios.bundleIdentifier` and `android.package` are both `com.flightboardgolf.app`.
+
+Reverse-DNS is a uniqueness convention, not a proof of ownership — Apple never checks
+that you hold the domain. It names the product rather than any company, deliberately:
+the first version of this said `com.prolook.flightboard`, taken from the author's email
+domain, and ProLook has nothing to do with Flight Board.
+
 **Don't change them casually** — the bundle identifier is the app's identity to Apple.
 Changing it after a TestFlight release makes it a different app, and existing installs
 won't update.

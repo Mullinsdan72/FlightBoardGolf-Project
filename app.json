@@ -10,7 +10,7 @@
     "backgroundColor": "#f3f2f2",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.prolook.flightboard",
+      "bundleIdentifier": "com.flightboardgolf.app",
       "supportsTablet": true
     },
     "android": {
@@ -21,7 +21,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.prolook.flightboard"
+      "package": "com.flightboardgolf.app"
     },
     "web": {
       "output": "static",
