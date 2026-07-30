@@ -27,6 +27,9 @@ export default function MeScreen() {
     players,
     playersLoaded,
     setHandicap,
+    myProfile,
+    myProfileLoaded,
+    reloadMyProfile,
     userId,
     userPhone,
     claimPlayer,
@@ -34,8 +37,13 @@ export default function MeScreen() {
     authStage,
   } = useRound();
 
-  const me = myId ? players.find((p) => p.id === myId) : undefined;
+  // Who this phone is, from the player row itself rather than from the open
+  // round's roster. Opening an old round you weren't in used to make the app
+  // forget you and ask again, which is exactly what it should never do.
+  const me = myProfile ?? (myId ? players.find((p) => p.id === myId) : undefined);
   const [hcp, setHcp] = useState('');
+  // The picker is a deliberate act now, not the default state of the screen.
+  const [picking, setPicking] = useState(false);
   const rows = claimRoster(players, userId);
 
   const saveHandicap = async () => {
@@ -47,7 +55,12 @@ export default function MeScreen() {
     }
     const message = await setHandicap(me.id, Math.round(n));
     if (message) Alert.alert('Could not save that handicap', message);
-    else setHcp('');
+    else {
+      setHcp('');
+      // The roster refreshes itself; the profile is fetched separately and has
+      // to be told.
+      await reloadMyProfile();
+    }
   };
 
   const confirmSignOut = () =>
@@ -96,13 +109,28 @@ export default function MeScreen() {
         )}
 
         {/* Which player this device is. The picker used to be a separate screen
-            you reached from the bottom of SCORE; it belongs here. */}
-        <Text style={styles.sectionLabel}>{me ? 'Not you?' : 'Which one are you?'}</Text>
-        {!playersLoaded && <Text style={styles.note}>Loading…</Text>}
-        {playersLoaded && players.length === 0 && (
-          <Text style={styles.note}>Nobody is in this round yet. Add players on the ROUND tab.</Text>
+            reached from the bottom of SCORE; it belongs here — but it is no
+            longer the *default* state of this screen. If the phone knows who
+            you are it says so, and changing that is a deliberate tap. */}
+        {me && !picking && (
+          <Pressable onPress={() => setPicking(true)} style={styles.linkRow}>
+            <Text style={styles.linkLabel}>NOT YOU? PICK SOMEONE ELSE</Text>
+            <Text style={styles.linkArrow}>›</Text>
+          </Pressable>
         )}
-        {rows.map((p) => {
+
+        {(!me || picking) && (
+          <>
+            <Text style={styles.sectionLabel}>{me ? 'Pick someone else' : 'Which one are you?'}</Text>
+            {!myProfileLoaded && <Text style={styles.note}>Loading…</Text>}
+            {playersLoaded && players.length === 0 && (
+              <Text style={styles.note}>
+                Nobody is in the open round yet. Add players on the ROUND tab, or open a different round from ACTIVITY.
+              </Text>
+            )}
+          </>
+        )}
+        {(!me || picking) && rows.map((p) => {
           const locked = !!userId && p.status === 'taken';
           return (
             <Pressable
@@ -117,6 +145,7 @@ export default function MeScreen() {
                   }
                 }
                 await choose(p.id);
+                setPicking(false);
               }}
               style={[styles.row, p.id === myId && styles.rowOn, locked && styles.rowLocked]}
             >

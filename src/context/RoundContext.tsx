@@ -3,6 +3,7 @@ import { mineInRoster } from '@/lib/claim';
 import { useActiveRound } from '@/hooks/useActiveRound';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { usePhoneAuth } from '@/hooks/usePhoneAuth';
+import { useMyProfile } from '@/hooks/useMyProfile';
 import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
 import { useRoundCourse } from '@/hooks/useRoundCourse';
 import { useHoleGames } from '@/hooks/useHoleGames';
@@ -15,6 +16,7 @@ type RoundContextValue = ReturnType<typeof useLiveScores> &
   ReturnType<typeof useRoundCourse> &
   ReturnType<typeof usePlayerIdentity> &
   ReturnType<typeof usePhoneAuth> &
+  ReturnType<typeof useMyProfile> &
   ReturnType<typeof useWolf> &
   ReturnType<typeof useTeams> &
   ReturnType<typeof useHoleGames> &
@@ -43,6 +45,10 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   // given round stays `usePlayerIdentity`'s job for now — the two are separate
   // on purpose, and joining a round is never automatic.
   const auth = usePhoneAuth();
+  // Who this phone is, independent of any round. Reading it out of the open
+  // round's roster made the app forget you the moment you opened a round you
+  // weren't in.
+  const profile = useMyProfile(identity.myId);
   const round = useActiveRound();
   const roundId = round.activeRoundId;
   const scores = useLiveScores(roundId);
@@ -66,7 +72,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   const holeGames = useHoleGames(roundId, playerIds);
   return (
     <RoundContext.Provider
-      value={{ ...identity, ...auth, ...round, ...scores, ...roster, ...course, ...wolf, ...teams, ...holeGames }}
+      value={{ ...identity, ...auth, ...profile, ...round, ...scores, ...roster, ...course, ...wolf, ...teams, ...holeGames }}
     >
       {children}
     </RoundContext.Provider>

@@ -30,9 +30,20 @@ export default function ActivityScreen() {
   const roundIds = useMemo(() => rounds.map((r) => r.id), [rounds]);
   const { history, historyLoaded, historyError } = useRoundHistory(roundIds);
 
-  const open = async (roundId: string) => {
+  /**
+   * Read a past round without disturbing the one being played.
+   *
+   * This used to switch the active round and drop you on the Card tab, which
+   * did two wrong things at once: a finished round became editable, and reading
+   * last Saturday's result while standing on the third tee took today's round
+   * off your screen.
+   */
+  const openHistory = (roundId: string) => router.push({ pathname: '/history', params: { round: roundId } });
+
+  /** Make a round the one being played. The only action here that changes state. */
+  const resume = async (roundId: string) => {
     if (roundId !== activeRoundId) await switchRound(roundId);
-    router.push('/(tabs)/card');
+    router.push('/(tabs)');
   };
 
   const confirmDelete = (roundId: string, name: string) =>
@@ -114,9 +125,14 @@ export default function ActivityScreen() {
               {!historyLoaded && <Text style={styles.note}>Loading scores…</Text>}
 
               <View style={styles.actions}>
-                <Pressable onPress={() => open(r.id)} style={styles.action}>
+                <Pressable onPress={() => openHistory(r.id)} style={styles.action}>
                   <Text style={styles.actionLabel}>OPEN</Text>
                 </Pressable>
+                {r.id !== activeRoundId && (
+                  <Pressable onPress={() => resume(r.id)} style={styles.action}>
+                    <Text style={styles.actionLabel}>PLAY THIS ONE</Text>
+                  </Pressable>
+                )}
                 <Pressable onPress={() => confirmDelete(r.id, r.name)} style={styles.action}>
                   <Text style={[styles.actionLabel, { color: colors.mutedFaint }]}>DELETE</Text>
                 </Pressable>
