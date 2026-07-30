@@ -5,7 +5,8 @@ import { PlayerPicker } from '@/components/PlayerPicker';
 import { Wordmark } from '@/components/Wordmark';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
-import { useSignoff } from '@/hooks/useSignoff';
+import { useSignoff, useSignoffs } from '@/hooks/useSignoff';
+import { mayScoreFor, scoreableRoster } from '@/lib/claim';
 import {
   cardBlocksFor,
   grossFor,
@@ -83,10 +84,13 @@ export default function ScorecardScreen() {
   const shownId = viewingId ?? myId ?? null;
   const isOwnCard = !!myId && shownId === myId;
 
-  // Signing is only ever your own card, so this tracks the *viewed* player to
-  // show their status truthfully while the hold-to-sign control stays gated to
-  // your own (CLAUDE.md rules 2 and 8).
+  // Signing follows `mayKeep`, not the viewed player, so this tracks whoever is
+  // on screen to show their status truthfully while the hold-to-sign control
+  // stays gated (CLAUDE.md rules 2 and 8).
   const { signedAt, sign, reopen } = useSignoff(activeRoundId, shownId);
+  // The rest of the round's signatures, so a scorer keeping four cards can be
+  // walked to the next one instead of hunting for it in the switcher.
+  const { signoffs, refreshSignoffs } = useSignoffs(activeRoundId);
   const [hold, setHold] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -130,16 +134,46 @@ export default function ScorecardScreen() {
   const blocks = cardBlocksFor(holes, scores, cardId);
   const signed = !!signedAt;
 
+  /**
+   * Whose card you may sign.
+   *
+   * Your own, always. Plus any unclaimed player if you run the round — because
+   * in most groups one person marks for everyone, and the friend who never
+   * installed the app has nobody else to sign for him. That is rule 2's
+   * designated scorer, and the same gate the Score tab uses to decide whose
+   * numbers you may post.
+   *
+   * A card somebody has claimed is theirs alone, whoever you are.
+   */
+  const mayKeep = mayScoreFor(who, { myPlayerId: myId, amOrganizer });
+
+  /**
+   * The next card this phone is keeping that still needs a signature.
+   *
+   * One person marking for a four-ball has four cards to sign, and the switcher
+   * is a menu you have to know to open. Signing one and being handed the next is
+   * the difference between a flow and a scavenger hunt.
+   */
+  const nextToSign = scoreableRoster(players, { myPlayerId: myId, amOrganizer }).find(
+    (p) => p.id !== shownId && !(signoffs ?? {})[p.id],
+  );
+
+  const goToCard = (id: string) => {
+    setViewingId(id === myId ? null : id);
+    appliedParam.current = null;
+    router.setParams({ player: '' });
+  };
+
   const holdStart = () => {
-    // Never sign for somebody else, whatever the UI happens to be showing.
-    if (!isOwnCard || signed || !complete) return;
+    // Your own card, or one you're marking. Never a card its owner is keeping.
+    if (!mayKeep || signed || !complete) return;
     if (timer.current) clearInterval(timer.current);
     timer.current = setInterval(() => {
       setHold((prev) => {
         const next = prev + HOLD_STEP;
         if (next >= 100) {
           if (timer.current) clearInterval(timer.current);
-          sign();
+          sign().then(refreshSignoffs);
           return 100;
         }
         return next;
@@ -163,6 +197,7 @@ export default function ScorecardScreen() {
           onPress: async () => {
             setHold(0);
             const message = await reopen();
+            await refreshSignoffs();
             if (message) Alert.alert('Could not reopen that card', message);
           },
         },
@@ -352,26 +387,36 @@ export default function ScorecardScreen() {
                 {course?.courseName || 'this round'}.
               </Text>
             </>
-          ) : !isOwnCard ? (
+          ) : !mayKeep ? (
             <Text style={styles.signNote}>
               {who.name} hasn't signed yet. Only they can sign their own card — this is their round to look at, not to
               confirm.
             </Text>
           ) : complete ? (
-            <Text style={styles.signNote}>By signing you confirm every number above. This is the paper card — once it's in, it's in.</Text>
+            <Text style={styles.signNote}>
+              {isOwnCard
+                ? 'By signing you confirm every number above. This is the paper card — once it’s in, it’s in.'
+                : `You are marking for ${who.name}. Signing attests these are the numbers they made — check them with ${who.name} before you do.`}
+            </Text>
           ) : holes.length ? (
             <Text style={styles.signNote}>
-              {holes.length - thru} hole{holes.length - thru === 1 ? '' : 's'} left to play — sign-off unlocks once your
-              round is complete.
+              {holes.length - thru} hole{holes.length - thru === 1 ? '' : 's'} left to play — sign-off unlocks once{' '}
+              {isOwnCard ? 'your' : `${who.name}'s`} round is complete.
             </Text>
           ) : (
             <Text style={styles.signNote}>Pick a course on the Course tab and your card appears here.</Text>
           )}
 
           {signed && amOrganizer && (
-            <Pressable onPress={confirmReopen} style={styles.reopenBtn}>
-              <Text style={styles.reopenLabel}>REOPEN THIS CARD</Text>
-            </Pressable>
+            <>
+              <Pressable onPress={confirmReopen} style={styles.reopenBtn}>
+                <Text style={styles.reopenLabel}>REOPEN THIS CARD</Text>
+              </Pressable>
+              <Text style={styles.signNote}>
+                You are running this round, so you can reopen any card — including after everyone has finished. Reopening
+                puts it back on the Score tab to be edited, then signed again.
+              </Text>
+            </>
           )}
           {signed && !amOrganizer && (
             <Text style={styles.signNote}>
@@ -382,16 +427,32 @@ export default function ScorecardScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        {!isOwnCard ? (
-          <Pressable style={styles.footerBtnDark} onPress={backToMyCard}>
-            <Text style={styles.footerBtnDarkLabel}>BACK TO MY CARD</Text>
-            <Text style={styles.footerBtnDarkArrow}>→</Text>
-          </Pressable>
-        ) : signed ? (
-          <Pressable style={styles.footerBtnDark} onPress={() => router.push('/(tabs)/board')}>
-            <Text style={styles.footerBtnDarkLabel}>BACK TO THE LEADERBOARD</Text>
-            <Text style={styles.footerBtnDarkArrow}>→</Text>
-          </Pressable>
+        {/* The hold bar shows for any card you keep, not just your own — a
+            designated scorer with four cards has to be able to sign all four,
+            and this button being someone else's exit is what stopped them.
+            Once a card is done, the way out depends on whose it was: back to
+            your own if you were marking, to the leaderboard if you're finished. */}
+        {!mayKeep || signed ? (
+          // Signed one and still keeping another: hand over the next card
+          // rather than making the switcher the only way on.
+          mayKeep && signed && nextToSign ? (
+            <Pressable style={styles.footerBtnDark} onPress={() => goToCard(nextToSign.id)}>
+              <Text style={styles.footerBtnDarkLabel}>
+                NEXT CARD · {nextToSign.id === myId ? 'YOURS' : nextToSign.name.toUpperCase()}
+              </Text>
+              <Text style={styles.footerBtnDarkArrow}>→</Text>
+            </Pressable>
+          ) : isOwnCard ? (
+            <Pressable style={styles.footerBtnDark} onPress={() => router.push('/(tabs)/board')}>
+              <Text style={styles.footerBtnDarkLabel}>BACK TO THE LEADERBOARD</Text>
+              <Text style={styles.footerBtnDarkArrow}>→</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.footerBtnDark} onPress={backToMyCard}>
+              <Text style={styles.footerBtnDarkLabel}>BACK TO MY CARD</Text>
+              <Text style={styles.footerBtnDarkArrow}>→</Text>
+            </Pressable>
+          )
         ) : (
           <Pressable
             onPressIn={holdStart}
@@ -401,7 +462,9 @@ export default function ScorecardScreen() {
           >
             <View style={[styles.holdFill, { width: `${hold}%` }]} />
             <View style={styles.holdContent}>
-              <Text style={[styles.holdLabel, { color: hold > 48 ? '#fff' : colors.text }]}>HOLD TO SIGN</Text>
+              <Text style={[styles.holdLabel, { color: hold > 48 ? '#fff' : colors.text }]}>
+                {isOwnCard ? 'HOLD TO SIGN' : `HOLD TO SIGN FOR ${who.name.toUpperCase()}`}
+              </Text>
               <Text style={[styles.holdPct, { color: hold > 48 ? '#fff' : colors.text }]}>
                 {hold > 0 && hold < 100 ? 'HOLD…' : 'PRESS'}
               </Text>

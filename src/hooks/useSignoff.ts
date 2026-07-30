@@ -1,6 +1,52 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
+/**
+ * Every signed card in the round, by player id.
+ *
+ * `useSignoff` answers "is this one card locked", which is the right question on
+ * CARD and the wrong one on SCORE. One phone can be keeping four cards, and the
+ * moment it signs its own, a per-card lock took the whole screen away — leaving
+ * three unfinished cards with no way to post to them. It also left the organizer
+ * unable to fix a mistake after reopening somebody's card, because reopening
+ * theirs doesn't unsign yours.
+ *
+ * Undefined while loading, so callers can hold the screen rather than flash an
+ * unlocked card at somebody.
+ */
+export function useSignoffs(roundId: string | null | undefined) {
+  const [signoffs, setSignoffs] = useState<Record<string, string> | undefined>(undefined);
+
+  const load = useCallback(async () => {
+    if (!roundId) {
+      setSignoffs({});
+      return;
+    }
+    if (!isSupabaseConfigured || !supabase) {
+      setSignoffs({});
+      return;
+    }
+    const { data, error } = await supabase.from('signoffs').select('player_id, signed_at').eq('round_id', roundId);
+    if (error) {
+      console.warn('useSignoffs fetch failed:', error.message);
+      // An unreadable signoffs table must not lock every card on the course.
+      // Rule 8 is enforced by a row existing; a failed read is not that row.
+      setSignoffs({});
+      return;
+    }
+    const next: Record<string, string> = {};
+    for (const row of data ?? []) if (row.signed_at) next[row.player_id] = row.signed_at;
+    setSignoffs(next);
+  }, [roundId]);
+
+  useEffect(() => {
+    setSignoffs(undefined);
+    load();
+  }, [load]);
+
+  return { signoffs, refreshSignoffs: load };
+}
+
 // A signed card is locked (CLAUDE.md rule 8) — this is the one flag that
 // makes that true. `signedAt` is undefined while loading, null if not yet
 // signed, a timestamp once it is.

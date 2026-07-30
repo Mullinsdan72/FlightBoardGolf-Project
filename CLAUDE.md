@@ -102,6 +102,16 @@ everywhere in this codebase, not just the screens they were first written for.
    `npm run check:outbox` after touching it.
 2. **A player edits only their own score**, unless they are the group's designated scorer.
    Any hole can be disputed for five minutes after it posts.
+   - `mayScoreFor`/`scoreableRoster` in `src/lib/claim.ts` are the one definition of who the
+     designated scorer is: your own row always, plus **unclaimed** rows in a round you
+     organize. Deliberately identical to `may_score_for` in `supabase/rls.sql` — change them
+     together, because if they disagree the database wins and the app lies.
+   - It covers signing as well as posting. Somebody has to sign for the friend who never
+     installed the app, and SCORE and CARD must gate on the same function or one offers what
+     the other refuses.
+   - **Show the rows you can't score, and say why.** Group mode gives steppers only to cards
+     this phone keeps — it used to give them to the whole field, so a number for a player
+     scoring on their own phone moved on screen and was thrown away on post.
 3. **One number, one source.** Never store a figure that can be derived — a to-par total, a
    net score, a "thru" count are all computed from posted scores at render time, not saved
    separately. Every duplicate becomes a contradiction on screen sooner or later.
@@ -117,8 +127,18 @@ everywhere in this codebase, not just the screens they were first written for.
    logged with the name of whoever made it. Enforced by `signoffs` (one row = locked, checked
    in the Score tab via `useSignoff`); reopening lives on the Card tab behind a confirmation
    and only appears for `amOrganizer`. The change *log* half isn't built.
-   - A player signs only their own card. The organizer can reopen **any** card, which is
-     what the rule actually says.
+   - A player signs their own card, and any card they are keeping under rule 2. The
+     organizer can reopen **any** card, which is what the rule actually says.
+   - **The lock is per card, and SCORE must read the whole round's.** `useSignoffs` exists
+     because `useSignoff` answers "is this card locked", which is right on CARD and wrong on
+     SCORE: keying the screen off your own signature took it away the moment a scorer signed
+     their own, stranding the three cards they were still marking — and left an organizer
+     unable to fix anything after reopening, because reopening yours isn't what was signed.
+     SCORE shows while any card it keeps is open, and refreshes signoffs on focus, since
+     signing and reopening both happen on the tab next door.
+   - A failed signoffs read means **unlocked**, never locked. Rule 8 is enforced by a row
+     existing; a network error is not that row, and locking a course full of cards on a bad
+     connection is the worse failure.
    - `rounds.organizer_player_id` holds the role, set to whoever created the round. The
      PLAYERS tab can still hand it over, which is also the escape hatch for the rounds that
      predate Create Round. With no sign-in anyone can take it, so today it records who's

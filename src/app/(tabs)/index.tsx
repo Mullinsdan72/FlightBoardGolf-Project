@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { router } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { Wordmark } from '@/components/Wordmark';
 import { ScoreRing } from '@/components/ScoreRing';
 import { WolfPrompt } from '@/components/WolfPrompt';
 import { useRound } from '@/context/RoundContext';
-import { useSignoff } from '@/hooks/useSignoff';
+import { useSignoffs } from '@/hooks/useSignoff';
+import { mayScoreFor, scoreableRoster } from '@/lib/claim';
 import { thruFor, toParFor } from '@/lib/roundMath';
 import { colors, font, fmtToPar, scoreName } from '@/theme';
 
@@ -35,8 +36,18 @@ export default function ScoreEntryScreen() {
     wolfUndecide,
     activeRound,
     activeRoundId,
+    amOrganizer,
   } = useRound();
-  const { signedAt } = useSignoff(activeRoundId, myId);
+  const { signoffs, refreshSignoffs } = useSignoffs(activeRoundId);
+
+  // Signing and reopening both happen on CARD, and this screen stays mounted
+  // behind it. Without this, an organizer who reopened a card came back to a
+  // screen still convinced it was locked.
+  useFocusEffect(
+    useCallback(() => {
+      refreshSignoffs();
+    }, [refreshSignoffs]),
+  );
 
   const [holeIndex, setHoleIndex] = useState(0);
   const [mode, setMode] = useState<Mode>('self');
@@ -61,18 +72,42 @@ export default function ScoreEntryScreen() {
     if (myId && players.length && !amInRound) clear();
   }, [myId, players, amInRound]);
 
-  if (myId === undefined || signedAt === undefined) return <View style={styles.screen} />;
+  if (myId === undefined || signoffs === undefined) return <View style={styles.screen} />;
   if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} userId={userId} onClaim={claimPlayer} loadError={playersError} />;
 
-  if (signedAt) {
+  /**
+   * Whose cards this phone is keeping: your own, plus any unclaimed player if
+   * you run the round.
+   *
+   * This is rule 2's "designated scorer", finally built. Most groups have one
+   * person marking for everyone — the friends who never installed the app rely
+   * on it — and until now group mode wrote for the whole field including people
+   * scoring on their own phones.
+   */
+  const keeping = scoreableRoster(players, { myPlayerId: myId, amOrganizer });
+  /** Of those, the ones still editable. A signed card is locked (rule 8). */
+  const open = keeping.filter((p) => !signoffs[p.id]);
+  const signedAt = signoffs[myId] ?? null;
+  const myCardSigned = !!signedAt;
+
+  // The screen goes away only when there is nothing left on it to score. Keying
+  // this off your own signature alone is what stopped a scorer finishing three
+  // other cards the moment they signed theirs.
+  if (open.length === 0) {
     return (
       <View style={styles.screen}>
         <View style={styles.lockedWrap}>
           <Text style={styles.headerLabel}>{activeRound?.name || 'Round'}</Text>
-          <Text style={styles.lockedTitle}>Your card is signed and locked</Text>
+          <Text style={styles.lockedTitle}>
+            {keeping.length > 1 ? `All ${keeping.length} cards signed and locked` : 'Your card is signed and locked'}
+          </Text>
           <Text style={styles.lockedNote}>
-            Signed {new Date(signedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Only whoever's
-            running the round can reopen it — check the Card tab for your final scorecard.
+            {signedAt
+              ? `Signed ${new Date(signedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. `
+              : ''}
+            {amOrganizer
+              ? 'To fix a mistake, reopen the card on the Card tab — you are running this round, so you can reopen any of them. It comes straight back here to edit.'
+              : "Only whoever's running the round can reopen one — check the Card tab for your final scorecard."}
           </Text>
         </View>
       </View>
@@ -107,12 +142,19 @@ export default function ScoreEntryScreen() {
     setDraft((prev) => ({ ...prev, [hole]: { ...(prev[hole] || {}), [playerId]: next } }));
   };
 
+  // Your own card being signed doesn't end your job if you are marking for
+  // others — it just takes your own stepper away, so the self view would write
+  // to a locked card.
+  const effectiveMode: Mode = myCardSigned ? 'scorer' : mode;
+
   const myScore = valueFor(hole, myId);
   const myToPar = toParFor(holes, scores, myId);
   const thru = thruFor(holes, scores, myId);
-  // Every hole this phone is scoring has a number on it, so the round is over
-  // as far as you are concerned — whatever anyone else still has to post.
-  const allHolesPosted = holes.length > 0 && holes.every((h) => scores[h.hole]?.[myId] != null);
+  // Every hole, on every card this phone still has open. Marking for four and
+  // being offered "sign my card" after finishing only your own would be
+  // premature; so would waiting on a card that is already signed.
+  const allHolesPosted =
+    holes.length > 0 && open.every((p) => holes.every((h) => scores[h.hole]?.[p.id] != null));
 
   const isLastHole = safeIndex === holes.length - 1;
 
@@ -121,7 +163,11 @@ export default function ScoreEntryScreen() {
   // hole via the chip strip — leaving a hole is the commit, not a separate
   // step you have to remember.
   const postCurrentHole = () => {
-    const entries = mode === 'self' ? [myId] : players.map((p) => p.id);
+    // Group mode posts for the cards you are actually keeping, not for the whole
+    // field. Somebody who has claimed their own row is scoring on their own
+    // phone, and writing over them from here would be the one thing rule 2
+    // exists to prevent.
+    const entries = effectiveMode === 'self' ? [myId] : open.map((p) => p.id);
     const nextScores = { ...scores, [hole]: { ...(scores[hole] || {}) } };
     for (const playerId of entries) {
       const strokes = valueFor(hole, playerId);
@@ -142,7 +188,10 @@ export default function ScoreEntryScreen() {
     setHoleIndex(index);
   };
 
-  const others = players.filter((p) => p.id !== myId);
+  const others = keeping.filter((p) => p.id !== myId);
+  // Shown and refused, never hidden. A four-ball that lists two names looks
+  // broken, and the fix people reach for is a duplicate row.
+  const theirOwn = players.filter((p) => !mayScoreFor(p, { myPlayerId: myId, amOrganizer }));
 
   return (
     <View style={styles.screen}>
@@ -219,18 +268,25 @@ export default function ScoreEntryScreen() {
           />
         )}
 
-        <View style={styles.modeRow}>
-          <Pressable style={[styles.modeBtn, styles.modeBtnDivider]} onPress={() => setMode('self')}>
-            <Text style={styles.modeLabel}>EVERYONE SCORES</Text>
-            {mode === 'self' && <View style={styles.modeUnderline} />}
-          </Pressable>
-          <Pressable style={styles.modeBtn} onPress={() => setMode('scorer')}>
-            <Text style={styles.modeLabel}>I'M SCORING FOR ALL</Text>
-            {mode === 'scorer' && <View style={styles.modeUnderline} />}
-          </Pressable>
-        </View>
+        {myCardSigned ? (
+          <Text style={styles.scorerNote}>
+            Your card is signed. You are still marking {others.length === 1 ? others[0].name : `${others.length} others`}{' '}
+            — post their holes below.
+          </Text>
+        ) : (
+          <View style={styles.modeRow}>
+            <Pressable style={[styles.modeBtn, styles.modeBtnDivider]} onPress={() => setMode('self')}>
+              <Text style={styles.modeLabel}>EVERYONE SCORES</Text>
+              {mode === 'self' && <View style={styles.modeUnderline} />}
+            </Pressable>
+            <Pressable style={styles.modeBtn} onPress={() => setMode('scorer')}>
+              <Text style={styles.modeLabel}>{keeping.length > 1 ? "I'M SCORING FOR ALL" : "I'M SCORING"}</Text>
+              {mode === 'scorer' && <View style={styles.modeUnderline} />}
+            </Pressable>
+          </View>
+        )}
 
-        {mode === 'self' ? (
+        {effectiveMode === 'self' ? (
           <>
             <View style={styles.stepperRow}>
               <Pressable style={[styles.stepperBtn, styles.stepperBtnRight]} onPress={() => bump(myId, -1)}>
@@ -260,7 +316,10 @@ export default function ScoreEntryScreen() {
           </>
         ) : (
           <View>
-            {players.map((p) => {
+            {/* Only the cards this phone keeps get steppers. Showing one for a
+                player who is scoring on their own phone was a lie: the number
+                moved on screen and `postCurrentHole` threw it away. */}
+            {open.map((p) => {
               const val = valueFor(hole, p.id);
               const pToPar = toParFor(holes, scores, p.id);
               return (
@@ -283,6 +342,25 @@ export default function ScoreEntryScreen() {
                 </View>
               );
             })}
+
+            {keeping.length > open.length && (
+              <Text style={styles.scorerNote}>
+                {keeping
+                  .filter((p) => !open.some((o) => o.id === p.id))
+                  .map((p) => (p.id === myId ? 'Your card' : p.name))
+                  .join(', ')}{' '}
+                — signed and locked. Reopen on the Card tab to edit.
+              </Text>
+            )}
+
+            {theirOwn.length > 0 && (
+              <Text style={styles.scorerNote}>
+                {theirOwn.map((p) => p.name).join(', ')} {theirOwn.length === 1 ? 'is' : 'are'} scoring on{' '}
+                {theirOwn.length === 1 ? 'their own phone' : 'their own phones'}, so {theirOwn.length === 1 ? 'that card is' : 'those cards are'}{' '}
+                theirs to keep. Their scores still show on the leaderboard.
+              </Text>
+            )}
+
             <Text style={styles.scorerNote}>
               Everyone in the round sees these numbers land live. Any player can dispute a hole for 5 minutes after it
               posts.
@@ -339,8 +417,21 @@ export default function ScoreEntryScreen() {
           felt like it wasn't working. Only offered once every hole has a number
           on it: a card signed on the fourteenth is a card signed by accident. */}
       {allHolesPosted && (
-        <Pressable style={styles.signBtn} onPress={() => router.push('/(tabs)/card')}>
-          <Text style={styles.signLabel}>ALL {holes.length} POSTED · SIGN MY CARD</Text>
+        <Pressable
+          style={styles.signBtn}
+          onPress={() =>
+            router.push(
+              open[0].id === myId ? '/(tabs)/card' : { pathname: '/(tabs)/card', params: { player: open[0].id } },
+            )
+          }
+        >
+          <Text style={styles.signLabel}>
+            {open.length > 1
+              ? `ALL POSTED · SIGN ${open.length} CARDS`
+              : open[0].id === myId
+                ? `ALL ${holes.length} POSTED · SIGN MY CARD`
+                : `ALL ${holes.length} POSTED · SIGN ${open[0].name.toUpperCase()}'S CARD`}
+          </Text>
           <Text style={styles.signArrow}>→</Text>
         </Pressable>
       )}

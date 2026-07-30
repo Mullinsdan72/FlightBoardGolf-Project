@@ -99,6 +99,27 @@ check('somebody already in the round does not', p.hasFreeSeat(field, ME), false)
 check('a fully claimed round has none', p.hasFreeSeat([field[0], field[1]], 'user-nobody'), false);
 check('an empty round has none either', p.hasFreeSeat([], ME), false);
 
+// ------------------------------------------------------- keeping a card
+// Rule 2's "designated scorer", which is what one phone keeping four cards is.
+const asMe = { myPlayerId: 'p1', amOrganizer: false };
+const asOrganizer = { myPlayerId: 'p1', amOrganizer: true };
+
+check('your own card is always yours', p.mayScoreFor(field[0], asMe), true);
+check('somebody else\'s claimed card is not', p.mayScoreFor(field[1], asMe), false);
+check('nor is an unclaimed one, if you do not run the round', p.mayScoreFor(field[2], asMe), false);
+check('the organizer may keep an unclaimed card', p.mayScoreFor(field[2], asOrganizer), true);
+check('and a row with no owner field at all', p.mayScoreFor(field[3], asOrganizer), true);
+// The line that matters: claiming your row takes it back off the organizer.
+check('but never a card somebody has claimed', p.mayScoreFor(field[1], asOrganizer), false);
+check('not even their own organizer status changes that', p.mayScoreFor({ id: 'x', name: 'X', handicap: 0, userId: OTHER }, asOrganizer), false);
+
+check('a player keeps only their own', p.scoreableRoster(field, asMe).map((r) => r.id), ['p1']);
+check('an organizer keeps theirs and the unclaimed', p.scoreableRoster(field, asOrganizer).map((r) => r.id), ['p1', 'p4', 'p3']);
+check('you always come first', p.scoreableRoster(field, asOrganizer)[0].id, 'p1');
+check('signed out, nobody keeps anything', p.scoreableRoster(field, { myPlayerId: null, amOrganizer: false }), []);
+// An organizer with no player of their own can still mark unclaimed cards.
+check('an organizer with no seat still keeps the unclaimed', p.scoreableRoster(field, { myPlayerId: null, amOrganizer: true }).map((r) => r.name), ['Rob', 'Steve']);
+
 console.log('');
 if (failures.length) {
   console.error(`${failures.length} check(s) failed:\n`);

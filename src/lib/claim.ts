@@ -72,3 +72,41 @@ export function claimRoster(
  */
 export const hasFreeSeat = (players: ClaimablePlayer[], userId: string | null | undefined): boolean =>
   mineInRoster(players, userId) == null && players.some((p) => !p.userId);
+
+/**
+ * Whether you may keep this player's card — post their scores, and sign it.
+ *
+ * Two cases, and only two:
+ *
+ *   - **Your own**, always. Nobody else's business, including the organizer's.
+ *   - **An unclaimed player, if you run the round.** Somebody has to mark the
+ *     card for the friend who never installed the app, and a row with no owner
+ *     has nobody else to do it. This is rule 2's "designated scorer" exception,
+ *     which has been in the rules since the beginning and never built — and
+ *     keeping all four cards on one phone is exactly what it was written for.
+ *
+ * The moment that person claims their row it stops being true, and their card
+ * becomes theirs alone. That is the whole point of claiming.
+ *
+ * Deliberately identical to `may_score_for` in `supabase/rls.sql`. If these two
+ * ever disagree, the database wins and the app lies — so change them together.
+ */
+export function mayScoreFor(
+  player: ClaimablePlayer,
+  opts: { myPlayerId: string | null | undefined; amOrganizer: boolean },
+): boolean {
+  if (opts.myPlayerId && player.id === opts.myPlayerId) return true;
+  return opts.amOrganizer && !player.userId;
+}
+
+/** Everyone whose card you may keep, you first. */
+export function scoreableRoster(
+  players: ClaimablePlayer[],
+  opts: { myPlayerId: string | null | undefined; amOrganizer: boolean },
+): ClaimablePlayer[] {
+  return players
+    .filter((p) => mayScoreFor(p, opts))
+    .sort((a, b) =>
+      a.id === opts.myPlayerId ? -1 : b.id === opts.myPlayerId ? 1 : a.name.localeCompare(b.name),
+    );
+}
