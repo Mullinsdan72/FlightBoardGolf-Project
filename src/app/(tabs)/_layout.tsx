@@ -97,7 +97,11 @@ export default function TabLayout() {
   // PLAYERS tab", which isn't there to open. Same rule as `canSetUp` on /setup:
   // an unclaimed round belongs to whoever turns up.
   const needsSettingUp = !organizerId || (playersLoaded && players.length === 0);
-  if (amOrganizer || needsSettingUp) visible.push('players', 'course');
+  // COURSE is off the bar: search, tees and holes-in-play all live on /start
+  // now, and two doors to the same settings is clutter rather than choice. The
+  // route still exists and /start links to it, because entering a card by hand
+  // is only there — hiding a tab must never hide the last way to something.
+  if (amOrganizer || needsSettingUp) visible.push('players');
 
   return (
     <Tabs

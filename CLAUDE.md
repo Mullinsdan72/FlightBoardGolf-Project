@@ -236,8 +236,13 @@ it pays, who set it. What players don't get is the *controls*, which live on GAM
 an organizer-only tab. Hiding the terms from someone playing for money would still be the
 wrong instinct; hiding the knobs is just tidy.
 
-**Tab visibility is a tidier screen, not a permission.** PLAYERS and COURSE show only for
-`amOrganizer`, and GAMES only once a game exists (or you're the organizer). With no sign-in
+**COURSE is off the tab bar.** Search, tees and holes-in-play all live on `/start` now, and
+two doors to the same settings is clutter rather than choice. The route still exists and
+`/start` links to it, because **entering a card by hand is only there** — the standing rule
+applies: hiding a tab must never hide the last way to something.
+
+**Tab visibility is a tidier screen, not a permission.** PLAYERS shows only for
+`amOrganizer` (or when the round has no organizer or an empty field), and GAMES only once a game exists. With no sign-in
 any device can pick any player and take the organizer role, and every route stays reachable
 by URL. The real boundary arrives with accounts and RLS — don't let this get mistaken for it.
 

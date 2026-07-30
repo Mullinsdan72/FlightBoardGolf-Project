@@ -50,6 +50,8 @@ export default function StartRoundScreen() {
     savedCourses,
     selectCourseTee,
     cacheCourse,
+    toggleFavorite,
+    favoriteFromSearch,
     players,
     playersLoaded,
     scoringMode,
@@ -152,6 +154,35 @@ export default function StartRoundScreen() {
     }
   };
 
+  const star = async (courseId: string) => {
+    const message = await toggleFavorite(courseId);
+    if (message) Alert.alert('Could not save that favourite', message);
+  };
+
+  /**
+   * Star a search result without making it the round's course.
+   *
+   * Caching it costs no extra lookup — search already returned the full card —
+   * so favouriting from the results list is free, and it is where you actually
+   * think "I'll play here again".
+   */
+  const starResult = async (r: CourseSearchResult) => {
+    const already = savedCourses.find((c) => c.id === `gca:${r.externalId}`);
+    const message = already
+      ? await toggleFavorite(already.id)
+      : await favoriteFromSearch({
+          externalId: r.externalId,
+          clubName: r.clubName,
+          courseName: r.courseName,
+          location: r.location,
+          tees: r.tees,
+          raw: r.raw,
+        });
+    if (message) Alert.alert('Could not save that favourite', message);
+  };
+
+  const isStarred = (courseId: string) => savedCourses.find((c) => c.id === courseId)?.isFavorite ?? false;
+
   // Par over the holes actually in play. The tee's own par total is for all 18,
   // so a front-nine round was reading "par 72 · 9 holes".
   const parTotal = holes.reduce((a, h) => a + h.par, 0);
@@ -184,9 +215,18 @@ export default function StartRoundScreen() {
             button: switching course is the search box and the favourites list
             below, both of which are visible without tapping anything. */}
         <View style={styles.courseBlock}>
-          <Text style={styles.courseName} numberOfLines={2}>
-            {course?.courseName || 'Pick a course'}
-          </Text>
+          <View style={styles.courseTitleRow}>
+            <Text style={styles.courseName} numberOfLines={2}>
+              {course?.courseName || 'Pick a course'}
+            </Text>
+            {course?.courseId && (
+              <Pressable onPress={() => star(course.courseId!)} hitSlop={12}>
+                <Text style={[styles.star, isStarred(course.courseId) && styles.starOn]}>
+                  {isStarred(course.courseId) ? '★' : '☆'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
           <Text style={styles.courseMeta}>
             {course?.courseName
               ? [selectedCourse?.location, course.teeName, `par ${parTotal}`, `${holes.length} holes`].filter(Boolean).join(' · ')
@@ -235,23 +275,36 @@ export default function StartRoundScreen() {
           <>
             <Text style={styles.resultHeader}>On this phone · no lookup</Text>
             {localMatches.map((c) => (
-              <Pressable key={c.id} onPress={() => pickSaved(c.id)} style={styles.resultRow}>
-                <Text style={styles.resultName}>{c.courseName || c.clubName}</Text>
-                <Text style={styles.resultMeta}>{c.location}</Text>
-              </Pressable>
+              <View key={c.id} style={styles.resultRow}>
+                <Pressable style={{ flex: 1 }} onPress={() => pickSaved(c.id)}>
+                  <Text style={styles.resultName}>{c.courseName || c.clubName}</Text>
+                  <Text style={styles.resultMeta}>{c.location}</Text>
+                </Pressable>
+                <Pressable onPress={() => star(c.id)} hitSlop={10}>
+                  <Text style={[styles.star, c.isFavorite && styles.starOn]}>{c.isFavorite ? '★' : '☆'}</Text>
+                </Pressable>
+              </View>
             ))}
           </>
         )}
 
         {results && results.length > 0 && <Text style={styles.resultHeader}>Found online</Text>}
-        {results?.map((r) => (
-          <Pressable key={r.externalId} onPress={() => pickResult(r)} style={styles.resultRow}>
-            <Text style={styles.resultName}>{r.courseName || r.clubName}</Text>
-            <Text style={styles.resultMeta}>
-              {[r.location, r.tees.length ? `${r.tees.length} tees` : 'no card data'].filter(Boolean).join(' · ')}
-            </Text>
-          </Pressable>
-        ))}
+        {results?.map((r) => {
+          const saved = savedCourses.find((c) => c.id === `gca:${r.externalId}`);
+          return (
+            <View key={r.externalId} style={styles.resultRow}>
+              <Pressable style={{ flex: 1 }} onPress={() => pickResult(r)}>
+                <Text style={styles.resultName}>{r.courseName || r.clubName}</Text>
+                <Text style={styles.resultMeta}>
+                  {[r.location, r.tees.length ? `${r.tees.length} tees` : 'no card data'].filter(Boolean).join(' · ')}
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => starResult(r)} hitSlop={10}>
+                <Text style={[styles.star, saved?.isFavorite && styles.starOn]}>{saved?.isFavorite ? '★' : '☆'}</Text>
+              </Pressable>
+            </View>
+          );
+        })}
 
         <Text style={styles.sectionLabel}>Round setup</Text>
 
@@ -295,6 +348,14 @@ export default function StartRoundScreen() {
               : 'Add at least one player. A round on your own is a real round.'}
           </Text>
         )}
+
+        {/* The Course tab is off the tab bar now that search lives here, but
+            entering a card by hand is only on that screen — so this door has to
+            stay open. Hiding a tab must never hide the last way to something. */}
+        <Pressable onPress={() => router.push('/(tabs)/course')} style={styles.secondaryBtn}>
+          <Text style={styles.secondaryLabel}>ENTER A CARD BY HAND</Text>
+          <Text style={styles.secondaryArrow}>›</Text>
+        </Pressable>
 
         <Pressable onPress={() => router.push('/rounds')} style={styles.secondaryBtn}>
           <Text style={styles.secondaryLabel}>PAST ROUNDS</Text>
@@ -344,6 +405,9 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
   exit: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.7, color: colors.accent },
   courseBlock: { paddingHorizontal: 20, paddingTop: 22 },
+  courseTitleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  star: { fontFamily: font.heading, fontSize: 24, color: colors.ghost },
+  starOn: { color: colors.accent },
   favBlock: { paddingHorizontal: 20, paddingTop: 18, borderTopWidth: 1, borderColor: colors.divider, marginTop: 18 },
   favRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, paddingVertical: 7 },
   favName: { fontFamily: font.heading, fontSize: 13, color: colors.text, flexShrink: 1 },
@@ -371,7 +435,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 6,
   },
-  resultRow: { paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 1, borderColor: colors.divider },
+  resultRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 1, borderColor: colors.divider },
   resultName: { fontFamily: font.heading, fontSize: 15, color: colors.text },
   resultMeta: { fontFamily: font.body, fontSize: 11.5, color: colors.muted, marginTop: 3 },
   courseName: { fontFamily: font.heading, fontSize: 32, letterSpacing: -0.7, color: colors.text },
