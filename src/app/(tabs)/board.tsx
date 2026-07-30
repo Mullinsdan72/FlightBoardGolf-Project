@@ -17,6 +17,7 @@ export default function LeaderboardScreen() {
     choose,
     userId,
     claimPlayer,
+    playersError,
     clear,
     scores,
     live,
@@ -48,7 +49,7 @@ export default function LeaderboardScreen() {
   }, [myId, players, amInRound]);
 
   if (myId === undefined || !playersLoaded) return <View style={styles.screen} />;
-  if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} userId={userId} onClaim={claimPlayer} />;
+  if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} userId={userId} onClaim={claimPlayer} loadError={playersError} />;
 
   // Hand the Card tab the player to show. It reads this off the route rather
   // than sharing state, so the card is also reachable by URL on web.

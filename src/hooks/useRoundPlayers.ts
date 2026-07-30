@@ -15,6 +15,9 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
   const [players, setPlayers] = useState<SeedPlayer[]>(isSupabaseConfigured ? [] : SEED_PLAYERS);
   const [playersLoaded, setPlayersLoaded] = useState(!isSupabaseConfigured);
   const [organizerId, setOrganizerId] = useState<string | null>(null);
+  // Why the roster is empty, when it's empty because something broke rather
+  // than because nobody has been added yet. The two look identical otherwise.
+  const [playersError, setPlayersError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase || !roundId) return;
@@ -24,8 +27,16 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
     ]);
     if (rosterRes.error || !rosterRes.data) {
       console.warn('useRoundPlayers fetch failed:', rosterRes.error?.message);
+      // Mark it loaded anyway. Returning early here left `playersLoaded` false
+      // forever, and SCORE, LEADERBOARD and CARD all gate their whole render on
+      // it — so a failed fetch showed three blank white screens with nothing to
+      // read and nothing to tap. A failure has to arrive as a failure; "still
+      // loading" that never finishes is the worst thing a screen can say.
+      setPlayersError(rosterRes.error?.message ?? 'Could not load the players in this round.');
+      setPlayersLoaded(true);
       return;
     }
+    setPlayersError(null);
     const rows = rosterRes.data as unknown as Row[];
     setPlayers(
       rows
@@ -44,6 +55,7 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
     if (!isSupabaseConfigured) return;
     setPlayers([]);
     setOrganizerId(null);
+    setPlayersError(null);
     setPlayersLoaded(false);
   }, [roundId]);
 
@@ -140,6 +152,7 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
   );
 
   return {
+    playersError,
     claimPlayer,
     players,
     playersLoaded,

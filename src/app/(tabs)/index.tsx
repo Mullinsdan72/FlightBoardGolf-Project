@@ -18,6 +18,7 @@ export default function ScoreEntryScreen() {
     choose,
     userId,
     claimPlayer,
+    playersError,
     clear,
     scores,
     setScores,
@@ -61,7 +62,7 @@ export default function ScoreEntryScreen() {
   }, [myId, players, amInRound]);
 
   if (myId === undefined || signedAt === undefined) return <View style={styles.screen} />;
-  if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} userId={userId} onClaim={claimPlayer} />;
+  if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} userId={userId} onClaim={claimPlayer} loadError={playersError} />;
 
   if (signedAt) {
     return (

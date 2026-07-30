@@ -15,6 +15,7 @@ export function PlayerPicker({
   onChoose,
   userId,
   onClaim,
+  loadError,
 }: {
   players: SeedPlayer[];
   onChoose: (id: string) => void;
@@ -22,6 +23,8 @@ export function PlayerPicker({
   userId?: string | null;
   /** Take an unclaimed row. Returns an error message, or null. */
   onClaim?: (id: string) => Promise<string | null>;
+  /** Why the roster is empty, if it's empty because something failed. */
+  loadError?: string | null;
 }) {
   const signedIn = !!userId && !!onClaim;
   const [busy, setBusy] = useState<string | null>(null);
@@ -42,8 +45,11 @@ export function PlayerPicker({
     return (
       <View style={styles.wrap}>
         <Wordmark />
-        <Text style={[styles.kicker, { marginTop: 18 }]}>Nobody in this round yet</Text>
-        <Text style={styles.title}>Add the players first</Text>
+        <Text style={[styles.kicker, { marginTop: 18 }]}>
+          {loadError ? 'Could not load this round' : 'Nobody in this round yet'}
+        </Text>
+        <Text style={styles.title}>{loadError ? 'Something went wrong' : 'Add the players first'}</Text>
+        {loadError && <Text style={styles.problem}>{loadError}</Text>}
         <Text style={styles.body}>
           Add everyone playing — name and handicap — then come back here and pick which one is you.
         </Text>
