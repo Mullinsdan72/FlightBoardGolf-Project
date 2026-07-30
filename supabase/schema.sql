@@ -92,6 +92,20 @@ alter table rounds add column if not exists holes_in_play text not null default 
 -- once there are real accounts.
 alter table rounds add column if not exists organizer_player_id uuid references players(id) on delete set null;
 
+-- Gross, net, or off the low man — for the WHOLE round, not just a team game.
+--
+-- This used to live only on team_games.handicap_mode, where it decided team
+-- standings and nothing else: your own card was always full handicap. So "net"
+-- meant two different numbers depending on which screen you were reading, which
+-- is exactly the sort of thing a group argues about after a bet.
+--
+-- team_games.handicap_mode is left in place for rounds that predate this and is
+-- no longer read. One number, one source (rule 3).
+alter table rounds add column if not exists scoring_mode text not null default 'net';
+alter table rounds drop constraint if exists round_scoring_mode_is_known;
+alter table rounds add constraint round_scoring_mode_is_known
+  check (scoring_mode in ('gross', 'net', 'lowman'));
+
 -- The round's own copy of the card it is being played on. This deliberately
 -- duplicates course_tees.holes, and that is not a "one number, one source"
 -- violation: it's the event cache the design calls for ("saved to this event,

@@ -6,6 +6,12 @@ import { ROUND_ID as FALLBACK_ROUND_ID } from '@/data/seed';
 
 const ACTIVE_KEY = 'flightboard.activeRoundId';
 
+/** Gross, net, or off the low man — a property of the round, not of a game. */
+export type ScoringMode = 'gross' | 'net' | 'lowman';
+
+const asScoringMode = (v: unknown): ScoringMode =>
+  v === 'gross' || v === 'lowman' ? v : 'net';
+
 export type RoundSummary = {
   id: string;
   name: string;
@@ -13,6 +19,7 @@ export type RoundSummary = {
   playedOn: string | null;
   createdAt: string;
   organizerId: string | null;
+  scoringMode: ScoringMode;
 };
 
 // Which round this device is looking at, and the list of rounds to choose from.
@@ -29,7 +36,7 @@ export function useActiveRound() {
     if (!isSupabaseConfigured || !supabase) return [];
     const { data, error } = await supabase
       .from('rounds')
-      .select('id, name, course_name, played_on, created_at, organizer_player_id')
+      .select('id, name, course_name, played_on, created_at, organizer_player_id, scoring_mode')
       .order('created_at', { ascending: false });
     if (error || !data) {
       console.warn('loadRounds failed:', error?.message);
@@ -42,6 +49,7 @@ export function useActiveRound() {
       playedOn: r.played_on ?? null,
       createdAt: r.created_at,
       organizerId: r.organizer_player_id ?? null,
+      scoringMode: asScoringMode(r.scoring_mode),
     }));
     setRounds(list);
     setRoundsLoaded(true);
@@ -152,6 +160,28 @@ export function useActiveRound() {
     [loadRounds, switchRound],
   );
 
+  /**
+   * Change how the whole round is scored.
+   *
+   * Optimistic, because this is a tile you tap and the number beside it has to
+   * change under your thumb — a leaderboard that re-ranks half a second later
+   * reads as a bug.
+   */
+  const setScoringMode = useCallback(
+    async (mode: ScoringMode): Promise<string | null> => {
+      setRounds((prev) => prev.map((r) => (r.id === activeRoundId ? { ...r, scoringMode: mode } : r)));
+      if (!isSupabaseConfigured || !supabase || !activeRoundId) return null;
+      const { error } = await supabase.from('rounds').update({ scoring_mode: mode }).eq('id', activeRoundId);
+      if (error) {
+        console.warn('setScoringMode failed:', error.message);
+        await loadRounds();
+        return error.message;
+      }
+      return null;
+    },
+    [activeRoundId, loadRounds],
+  );
+
   const deleteRound = useCallback(
     async (roundId: string): Promise<string | null> => {
       if (!isSupabaseConfigured || !supabase) return null;
@@ -187,5 +217,7 @@ export function useActiveRound() {
     switchRound,
     createRound,
     deleteRound,
+    setScoringMode,
+    scoringMode: activeRound?.scoringMode ?? 'net',
   };
 }

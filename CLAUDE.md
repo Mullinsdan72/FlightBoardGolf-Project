@@ -377,15 +377,18 @@ setup.
 - Balance and variety genuinely conflict in a small group — four players have three possible
   pairings and only one is fair. The screen says so rather than quietly handing out a lopsided
   re-draw.
-- **Gross or net is a setting** (`team_games.handicap_mode`), **defaulting to net**, and gross
-  is the zero-strokes case of the same code path rather than a separate branch. The default
-  moved off gross because a team game between different handicaps is the whole reason
-  handicaps exist, and the fair setting shouldn't be the one you go and find every round.
-  Both the app default and the column default had to move together: switching teams on is
-  what creates the row, and a one-column upsert lets the *database's* defaults fill the rest
-  — which quietly beat the app's. `persistSettings` now sends the whole settled state on
-  that first write. Rounds already set to gross stay gross; a bet's terms are not ours to
-  change after the fact. The allocation comes from
+- **Gross, net or off the low man is a property of the ROUND** (`rounds.scoring_mode`,
+  defaulting to net), not of the team game. It used to live on `team_games.handicap_mode`,
+  where it governed team standings and nothing else — so "net" meant one number in the
+  standings and a different one on your own card, which is exactly what a group argues about
+  after a bet. `useTeams` now takes it as an argument and `team_games.handicap_mode` is
+  retained but unread (rule 3). The teams screen still edits it, because that is where you
+  are thinking about it, but the label says *whole round*.
+- **The leaderboard ranks by it, not just mentions it.** BOARD applies `allowanceFor` — the
+  same function teams use — so a player's strokes on the board and in the standings can never
+  disagree. Off the low man is a *smaller* allowance than full net, so reading `p.handicap`
+  directly would quietly hand out shots nobody won. The FIELD tab names the mode in its
+  header, per rule 5. The allocation comes from
   `strokesOnHole` in `roundMath.ts` — the one definition of the rule — so a player's net in
   the team's best ball always matches the net on their own card.
 - **In a net best ball the low net ball wins the hole, not the low gross one.** Taking the

@@ -23,7 +23,6 @@ import type { Hole } from '@/data/seed';
 export type TeamsState = {
   enabled: boolean;
   format: TeamFormat;
-  handicapMode: HandicapMode;
   size: number;
   count: number;
   redrawAtTurn: boolean;
@@ -32,11 +31,6 @@ export type TeamsState = {
 const DEFAULTS: TeamsState = {
   enabled: false,
   format: 'bestball',
-  // Net, not gross. A team game between players off different handicaps is the
-  // whole reason handicaps exist, and defaulting to gross meant the fair option
-  // had to be found and switched on every round or the low handicapper simply
-  // won. Gross is still one tap away for a scratch group.
-  handicapMode: 'net',
   size: 2,
   count: 2,
   redrawAtTurn: false,
@@ -62,6 +56,13 @@ export function useTeams(
   players: DraftPlayer[],
   holes: Hole[],
   scores: ScoreMap,
+  /**
+   * Gross, net or off the low man — handed in from the round rather than owned
+   * here. It used to live on `team_games`, where it governed team standings and
+   * nothing else, so "net" meant one number in the standings and a different one
+   * on your own card. One number, one source (rule 3).
+   */
+  scoringMode: HandicapMode,
 ) {
   const [state, setState] = useState<TeamsState>(DEFAULTS);
   const [assignments, setAssignments] = useState<Assignments>({});
@@ -91,7 +92,7 @@ export function useTeams(
     const [gameRes, memberRes] = await Promise.all([
       supabase
         .from('team_games')
-        .select('enabled, format, handicap_mode, team_size, team_count, redraw_at_turn')
+        .select('enabled, format, team_size, team_count, redraw_at_turn')
         .eq('round_id', roundId)
         .maybeSingle(),
       supabase
@@ -104,8 +105,6 @@ export function useTeams(
       setState({
         enabled: !!g.enabled,
         format: g.format === 'total' ? 'total' : 'bestball',
-        handicapMode:
-          g.handicap_mode === 'net' || g.handicap_mode === 'lowman' ? g.handicap_mode : 'gross',
         size: Number(g.team_size) || 2,
         count: Number(g.team_count) || 2,
         redrawAtTurn: !!g.redraw_at_turn,
@@ -204,7 +203,6 @@ export function useTeams(
       const src = seeding ? full : patch;
       if (src.enabled !== undefined) row.enabled = src.enabled;
       if (src.format !== undefined) row.format = src.format;
-      if (src.handicapMode !== undefined) row.handicap_mode = src.handicapMode;
       if (src.size !== undefined) row.team_size = src.size;
       if (src.count !== undefined) row.team_count = src.count;
       if (src.redrawAtTurn !== undefined) row.redraw_at_turn = src.redrawAtTurn;
@@ -315,12 +313,12 @@ export function useTeams(
    */
   const strokesForSegment = useCallback(
     (seg: number) => {
-      if (state.handicapMode === 'gross') return NO_STROKES;
+      if (scoringMode === 'gross') return NO_STROKES;
       const inGame = new Set(teamsForSegment(seg).flat());
       const pool = players.filter((p) => inGame.has(p.id));
-      return strokesLookupFor(holes, allowanceFor(pool.length ? pool : players, state.handicapMode));
+      return strokesLookupFor(holes, allowanceFor(pool.length ? pool : players, scoringMode));
     },
-    [state.handicapMode, teamsForSegment, players, holes],
+    [scoringMode, teamsForSegment, players, holes],
   );
 
   const strokesFor = useMemo(() => strokesForSegment(activeSeg), [strokesForSegment, activeSeg]);
@@ -402,7 +400,7 @@ export function useTeams(
   }, [challenge.enabled, segments, drawSavedFor, challengeFor]);
 
   return {
-    teams: state,
+    teams: { ...state, handicapMode: scoringMode },
     teamsLoaded: loaded,
     challenge,
     challengeFor,

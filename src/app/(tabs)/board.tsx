@@ -6,7 +6,7 @@ import { Wordmark } from '@/components/Wordmark';
 import { ScoreRing } from '@/components/ScoreRing';
 import { useRound } from '@/context/RoundContext';
 import { netToParFor, thruFor, toParFor, youFirst } from '@/lib/roundMath';
-import { formatName, handicapName } from '@/lib/teams';
+import { allowanceFor, formatName, handicapName } from '@/lib/teams';
 import { colors, font, fmtToPar } from '@/theme';
 
 type Tab = 'group' | 'field' | 'teams';
@@ -26,6 +26,7 @@ export default function LeaderboardScreen() {
     playersLoaded,
     holes,
     activeRound,
+    scoringMode,
     teams,
     teamSegments,
     teamStandingsFor,
@@ -58,18 +59,36 @@ export default function LeaderboardScreen() {
 
   const roundLength = holes.length || 18;
 
-  const realRows = players.map((p) => ({
-    id: p.id,
-    name: p.id === myId ? p.name + ' (you)' : p.name,
-    club: `HCP ${p.handicap}`,
-    handicap: p.handicap,
-    toPar: toParFor(holes, scores, p.id),
+  // The round's scoring mode decides what this board *is*, not just what it
+  // mentions. Ranking by gross while announcing "net" at the top is the kind of
+  // half-applied setting that starts an argument after a bet.
+  //
+  // `allowanceFor` is the same function teams use, so a player's strokes here
+  // and in the team standings can never disagree — off the low man in
+  // particular is a smaller allowance than full net, and hard-coding
+  // `p.handicap` would quietly hand out shots nobody won.
+  const mode = scoringMode;
+  const allowed = allowanceFor(players, mode);
+  const allowanceOf = (id: string) => allowed.find((a) => a.id === id)?.handicap ?? 0;
+
+  const realRows = players.map((p) => {
+    const gross = toParFor(holes, scores, p.id);
     // Same stroke-index allocation the scorecard uses, so a player's net here
     // and on their card can never disagree.
-    net: netToParFor(holes, scores, p.id, p.handicap),
-    thru: thruFor(holes, scores, p.id),
-    isYou: p.id === myId,
-  }));
+    const net = netToParFor(holes, scores, p.id, allowanceOf(p.id));
+    return {
+      id: p.id,
+      name: p.id === myId ? p.name + ' (you)' : p.name,
+      club: mode === 'gross' ? `HCP ${p.handicap}` : `HCP ${p.handicap} · gets ${allowanceOf(p.id)}`,
+      handicap: p.handicap,
+      gross,
+      net,
+      // What the board ranks and shows. Rule 5: the column header says which.
+      toPar: mode === 'gross' ? gross : net,
+      thru: thruFor(holes, scores, p.id),
+      isYou: p.id === myId,
+    };
+  });
 
   // Only real players. There used to be six invented names padding this board
   // out; they made a demo look convincing but there was no way to remove them,
@@ -109,7 +128,7 @@ export default function LeaderboardScreen() {
       const letter = letterFor(r.id);
       return {
         ...r,
-        note: `HCP ${r.handicap} · net ${fmtToPar(r.net)}${letter ? ` · Team ${letter}` : ''}`,
+        note: `${r.club}${mode === 'gross' ? '' : ` · net ${fmtToPar(r.net)}`}${letter ? ` · Team ${letter}` : ''}`,
       };
     });
 
@@ -135,7 +154,9 @@ export default function LeaderboardScreen() {
           {tab === 'group' && <View style={styles.tabUnderline} />}
         </Pressable>
         <Pressable style={[styles.tabBtn, teamsOn && styles.tabDivider]} onPress={() => setTab('field')}>
-          <Text style={styles.tabLabel}>FIELD · {fieldRows.length}</Text>
+          <Text style={styles.tabLabel}>
+            FIELD · {fieldRows.length} · {mode === 'lowman' ? 'LOW MAN' : mode.toUpperCase()}
+          </Text>
           {tab === 'field' && <View style={styles.tabUnderline} />}
         </Pressable>
         {/* Only when there's a team game on — an empty tab is worse than no tab. */}

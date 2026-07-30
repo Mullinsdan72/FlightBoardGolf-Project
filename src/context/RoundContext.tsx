@@ -62,7 +62,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
 
   const playerIds = useMemo(() => roster.players.map((p) => p.id), [roster.players]);
   const wolf = useWolf(roundId, playerIds, course.holes, scores.scores);
-  const teams = useTeams(roundId, roster.players, course.holes, scores.scores);
+  const teams = useTeams(roundId, roster.players, course.holes, scores.scores, round.scoringMode);
   const holeGames = useHoleGames(roundId, playerIds);
   return (
     <RoundContext.Provider

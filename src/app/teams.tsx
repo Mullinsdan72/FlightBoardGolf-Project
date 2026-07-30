@@ -47,6 +47,7 @@ export default function TeamsScreen() {
     teamStandings,
     teamMaxCount,
     teamSetSettings,
+    setScoringMode,
     teamAutoDraw,
     teamAcceptDraw,
     teamRedraw,
@@ -188,12 +189,15 @@ export default function TeamsScreen() {
           which changes score entry rather than teams.
         </Text>
 
-        <Text style={styles.sectionLabel}>Handicaps</Text>
+        {/* This is the round's setting, not the team game's — it governs the
+            leaderboard and every side game too. Editable here because this is
+            where you're thinking about it, but it is not scoped to teams. */}
+        <Text style={styles.sectionLabel}>Handicaps · whole round</Text>
         <View style={styles.sizeRow}>
           {HANDICAP_MODES.map(({ mode, label }) => (
             <Pressable
               key={mode}
-              onPress={() => amOrganizer && teamSetSettings({ handicapMode: mode })}
+              onPress={() => amOrganizer && setScoringMode(mode)}
               disabled={!amOrganizer}
               style={[styles.modeBtn, teams.handicapMode === mode && styles.sizeBtnOn]}
             >
