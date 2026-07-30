@@ -154,6 +154,10 @@ everywhere in this codebase, not just the screens they were first written for.
   *unclaimed* row always needs a deliberate tap, because guessing wrong seats you as somebody
   else and hands you their card. Signed out, a claimed row reads `taken`, never `you`; there
   is an assertion for exactly that.
+- **Re-running `schema.sql` restores the permissive policies.** It is idempotent and safe
+  in every other respect — nothing dropped, nothing seeded — but its policy block recreates
+  `"anon full access"` on all 16 tables. Once `rls.sql` has been run, `schema.sql` silently
+  undoes it. Always run them in that order, never one alone.
 - **The lockdown ships as three files and must be used as three.**
   `rls-preflight.sql` changes nothing and answers the only question that matters:
   *ROUNDS THAT WOULD VANISH* must read 0. A round with no claimed member is unreachable

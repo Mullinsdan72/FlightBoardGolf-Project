@@ -2,6 +2,15 @@
 -- Run this once in the Supabase dashboard: Project -> SQL Editor -> New query
 -- -> paste this whole file -> Run.
 --
+-- ⚠️  RE-RUNNING THIS FILE RESTORES THE PERMISSIVE POLICIES.
+--
+-- Every statement here is idempotent and safe to re-run — nothing is dropped,
+-- nothing is seeded, no data can be lost. But the policy block at the bottom
+-- recreates "anon full access" on every table, so once supabase/rls.sql has
+-- been run, re-running this file silently undoes the lockdown.
+--
+-- The rule from then on: run schema.sql, then run rls.sql straight afterwards.
+--
 -- Security note: RLS is enabled but the policies below allow anyone holding
 -- the anon key to read and write everything. That is intentional for now —
 -- there is no sign-in yet, so there is no identity to restrict by. Before
