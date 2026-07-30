@@ -1,10 +1,13 @@
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Wordmark } from '@/components/Wordmark';
 import type { SeedPlayer } from '@/data/seed';
 import { colors, font } from '@/theme';
 
-// Stands in for phone sign-in until Build Guide Phase 2 wires up Supabase
-// phone auth. Each device picks which player in the round it is, once.
+// Still how a device says which player it is, but no longer the only door:
+// phone sign-in exists now, and this screen is where you reach it. Picking a
+// name off a list stays for the moment because most of a field is unclaimed —
+// an organizer types Steve in long before Steve ever opens the app.
 export function PlayerPicker({ players, onChoose }: { players: SeedPlayer[]; onChoose: (id: string) => void }) {
   // An empty roster is a normal state, not an error — it's what a fresh round
   // looks like before anyone has been added. Without this the screen would be a
@@ -19,6 +22,7 @@ export function PlayerPicker({ players, onChoose }: { players: SeedPlayer[]; onC
           Open the <Text style={styles.bodyStrong}>PLAYERS</Text> tab and add everyone playing — name and handicap. Then
           come back here and pick which one is you.
         </Text>
+        <SignInLink />
       </View>
     );
   }
@@ -42,7 +46,24 @@ export function PlayerPicker({ players, onChoose }: { players: SeedPlayer[]; onC
           </Pressable>
         ))}
       </View>
+      <SignInLink />
     </View>
+  );
+}
+
+/**
+ * The way to a real account.
+ *
+ * Deliberately not the loudest thing on the screen: signing in doesn't yet
+ * decide which player you are, so pushing everyone through it first would add a
+ * step without removing one. It gets promoted when claiming lands.
+ */
+function SignInLink() {
+  return (
+    <Pressable onPress={() => router.push('/signin')} style={styles.signInBtn}>
+      <Text style={styles.signInLabel}>SIGN IN WITH YOUR PHONE</Text>
+      <Text style={styles.signInArrow}>›</Text>
+    </Pressable>
   );
 }
 
@@ -64,4 +85,15 @@ const styles = StyleSheet.create({
   rowName: { flex: 1, fontFamily: font.heading, fontSize: 16, color: colors.text },
   rowMeta: { fontFamily: font.body, fontSize: 11.5, color: colors.muted },
   rowArrow: { fontFamily: font.heading, fontSize: 16, color: colors.accent },
+  signInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderColor: colors.divider,
+    paddingVertical: 18,
+    marginTop: 22,
+  },
+  signInLabel: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.7, color: colors.text },
+  signInArrow: { fontFamily: font.heading, fontSize: 16, color: colors.ghost },
 });

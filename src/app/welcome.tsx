@@ -107,6 +107,11 @@ export default function WelcomeScreen() {
           <Text style={styles.secondaryArrow}>›</Text>
         </Pressable>
 
+        <Pressable onPress={() => router.push('/signin')} style={styles.secondaryBtn}>
+          <Text style={styles.secondaryLabel}>SIGN IN WITH YOUR PHONE</Text>
+          <Text style={styles.secondaryArrow}>›</Text>
+        </Pressable>
+
         {rounds.length > 0 && (
           <Pressable onPress={() => router.replace('/rounds')} style={styles.secondaryBtn}>
             <Text style={styles.secondaryLabel}>SEE ROUNDS ALREADY ON HERE</Text>
