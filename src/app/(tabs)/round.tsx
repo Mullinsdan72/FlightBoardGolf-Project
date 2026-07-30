@@ -358,7 +358,7 @@ export default function StartRoundScreen() {
           <Text style={styles.secondaryArrow}>›</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push('/rounds')} style={styles.secondaryBtn}>
+        <Pressable onPress={() => router.push('/(tabs)/activity')} style={styles.secondaryBtn}>
           <Text style={styles.secondaryLabel}>PAST ROUNDS</Text>
           <Text style={styles.secondaryArrow}>›</Text>
         </Pressable>

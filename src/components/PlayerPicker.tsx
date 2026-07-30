@@ -61,7 +61,7 @@ export function PlayerPicker({
           <Text style={styles.primaryLabel}>SET THIS ROUND UP</Text>
           <Text style={styles.primaryArrow}>→</Text>
         </Pressable>
-        <Pressable onPress={() => router.push('/rounds')} style={styles.signInBtn}>
+        <Pressable onPress={() => router.push('/(tabs)/activity')} style={styles.signInBtn}>
           <Text style={styles.signInLabel}>OPEN A DIFFERENT ROUND</Text>
           <Text style={styles.signInArrow}>›</Text>
         </Pressable>

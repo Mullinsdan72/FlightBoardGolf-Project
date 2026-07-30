@@ -6,7 +6,6 @@ import { useRound } from '@/context/RoundContext';
 import { holeGameName, holeGameShortName, type HoleGameType } from '@/lib/sideGames';
 import { matchStateLabel } from '@/lib/teamChallenge';
 import { fmtMoney, parThreeDraw } from '@/lib/wolf';
-import { SetupBar, useInSetup } from '@/components/SetupBar';
 import { colors, font } from '@/theme';
 
 type Tab = 'standings' | 'setup' | 'holes' | 'challenge';
@@ -56,7 +55,6 @@ export default function GamesScreen() {
     challengeFor,
     setChallengeSettings,
   } = useRound();
-  const inSetup = useInSetup();
   const [tab, setTab] = useState<Tab | null>(null);
   const [newType, setNewType] = useState<HoleGameType>('ctp');
   const [newWager, setNewWager] = useState(500);
@@ -97,8 +95,7 @@ export default function GamesScreen() {
 
   return (
     <View style={styles.screen}>
-      <SetupBar step="games" />
-      <View style={[styles.header, inSetup && styles.headerInSetup]}>
+      <View style={[styles.header]}>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.kicker}>Side games</Text>

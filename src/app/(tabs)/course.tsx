@@ -5,7 +5,6 @@ import type { Hole } from '@/data/seed';
 import { fetchCourseDetail, searchCourses, type CourseSearchResult, type TeeSet } from '@/lib/courseApi';
 import type { HolesInPlay, SavedCourse } from '@/hooks/useRoundCourse';
 import { parTotalFor } from '@/lib/roundMath';
-import { SetupBar, useInSetup } from '@/components/SetupBar';
 import { colors, font } from '@/theme';
 
 const PLAY_SETS: Array<{ key: HolesInPlay; label: string; sub: string }> = [
@@ -28,7 +27,6 @@ export default function CourseScreen() {
     favoriteFromSearch,
     saveManualCourse,
   } = useRound();
-  const inSetup = useInSetup();
 
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -206,8 +204,7 @@ export default function CourseScreen() {
 
   return (
     <View style={styles.screen}>
-      <SetupBar step="course" />
-      <View style={[styles.header, inSetup && styles.headerInSetup]}>
+      <View style={[styles.header]}>
         <Text style={styles.kicker}>The card this round is played on</Text>
         <Text style={styles.title}>Course</Text>
       </View>

@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Wordmark } from '@/components/Wordmark';
 import { useRound } from '@/context/RoundContext';
 import { useRoundHistory } from '@/hooks/useRoundHistory';
+import { defaultRoundName, isoDaysFromNow } from '@/lib/invite';
 import { colors, font, fmtToPar } from '@/theme';
 
 const prettyDate = (iso: string | null) => {
@@ -25,7 +26,8 @@ const prettyDate = (iso: string | null) => {
  * shoot" and "did I beat him".
  */
 export default function ActivityScreen() {
-  const { rounds, roundsLoaded, activeRoundId, switchRound, deleteRound, myId } = useRound();
+  const { rounds, roundsLoaded, activeRoundId, switchRound, deleteRound, createRound, choose, myId } = useRound();
+  const [creating, setCreating] = useState(false);
 
   const roundIds = useMemo(() => rounds.map((r) => r.id), [rounds]);
   const { history, historyLoaded, historyError } = useRoundHistory(roundIds);
@@ -44,6 +46,51 @@ export default function ActivityScreen() {
   const resume = async (roundId: string) => {
     if (roundId !== activeRoundId) await switchRound(roundId);
     router.push('/(tabs)');
+  };
+
+  /**
+   * Start a new round.
+   *
+   * Named for today and dated today, because a blank name box is a door with a
+   * question on it and the day is a perfectly good name — it can be changed on
+   * the ROUND tab like everything else.
+   *
+   * Warns when the open round has scores in it. Nothing is lost either way —
+   * rounds are separate rows and the old one stays in this list — but replacing
+   * a half-played round looks exactly like losing it, and that is worth one tap
+   * to confirm.
+   */
+  const startNew = async () => {
+    const open = activeRoundId ? history[activeRoundId] : undefined;
+    const posted = open?.players.some((p) => p.holesPlayed > 0) ?? false;
+    if (posted) {
+      const go = await new Promise<boolean>((resolve) =>
+        Alert.alert(
+          'You have a round in progress',
+          'Scores are already posted in the round you have open. Starting a new one leaves it here, finished or not — nothing is deleted. Start a new round?',
+          [
+            { text: 'Keep playing', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Start new', onPress: () => resolve(true) },
+          ],
+        ),
+      );
+      if (!go) return;
+    }
+
+    setCreating(true);
+    const playedOn = isoDaysFromNow(0);
+    const { playerId, error } = await createRound({
+      name: defaultRoundName(playedOn),
+      playedOn,
+      creatorPlayerId: myId ?? null,
+    });
+    setCreating(false);
+    if (error) {
+      Alert.alert('Could not create the round', error);
+      return;
+    }
+    if (playerId) await choose(playerId);
+    router.push('/(tabs)/round');
   };
 
   const confirmDelete = (roundId: string, name: string) =>
@@ -141,8 +188,8 @@ export default function ActivityScreen() {
           );
         })}
 
-        <Pressable onPress={() => router.push('/rounds')} style={styles.newBtn}>
-          <Text style={styles.newLabel}>+ NEW ROUND</Text>
+        <Pressable onPress={startNew} disabled={creating} style={styles.newBtn}>
+          <Text style={styles.newLabel}>{creating ? 'STARTING…' : '+ NEW ROUND'}</Text>
           <Text style={styles.newArrow}>›</Text>
         </Pressable>
       </ScrollView>

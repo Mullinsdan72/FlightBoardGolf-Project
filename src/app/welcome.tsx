@@ -113,7 +113,7 @@ export default function WelcomeScreen() {
         </Pressable>
 
         {rounds.length > 0 && (
-          <Pressable onPress={() => router.replace('/rounds')} style={styles.secondaryBtn}>
+          <Pressable onPress={() => router.replace('/(tabs)/activity')} style={styles.secondaryBtn}>
             <Text style={styles.secondaryLabel}>SEE ROUNDS ALREADY ON HERE</Text>
             <Text style={styles.secondaryArrow}>›</Text>
           </Pressable>

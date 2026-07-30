@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
 import { allowanceFor, formatName, handicapName, type HandicapMode, type TeamFormat } from '@/lib/teams';
-import { SetupBar, useInSetup } from '@/components/SetupBar';
 import { colors, font, fmtToPar } from '@/theme';
 
 const SIZES = [1, 2, 3, 4];
@@ -54,7 +53,6 @@ export default function TeamsScreen() {
     teamAssign,
     teamClear,
   } = useRound();
-  const inSetup = useInSetup();
 
   const [picked, setPicked] = useState<string | null>(null);
 
@@ -106,8 +104,7 @@ export default function TeamsScreen() {
   if (!teamsLoaded) {
     return (
       <View style={styles.screen}>
-        <SetupBar step="teams" />
-        <View style={[styles.header, inSetup && styles.headerInSetup]}>
+        <View style={[styles.header]}>
           <Text style={styles.kicker}>{activeRound?.name || 'Round'}</Text>
           <Text style={styles.title}>Teams</Text>
         </View>
@@ -121,8 +118,7 @@ export default function TeamsScreen() {
 
   return (
     <View style={styles.screen}>
-      <SetupBar step="teams" />
-      <View style={[styles.header, inSetup && styles.headerInSetup]}>
+      <View style={[styles.header]}>
         <Text style={styles.kicker}>{activeRound?.name || 'Round'}</Text>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Teams</Text>
