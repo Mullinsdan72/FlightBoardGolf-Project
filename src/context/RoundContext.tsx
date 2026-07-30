@@ -1,5 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from 'react';
 import { mineInRoster } from '@/lib/claim';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { usePendingInvites } from '@/hooks/usePendingInvites';
+import type { PendingInvite } from '@/lib/invite';
 import { useActiveRound } from '@/hooks/useActiveRound';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { usePhoneAuth } from '@/hooks/usePhoneAuth';
@@ -20,7 +23,11 @@ type RoundContextValue = ReturnType<typeof useLiveScores> &
   ReturnType<typeof useWolf> &
   ReturnType<typeof useTeams> &
   ReturnType<typeof useHoleGames> &
-  ReturnType<typeof useActiveRound>;
+  ReturnType<typeof usePendingInvites> &
+  ReturnType<typeof useActiveRound> & {
+    joinInvite: (invite: PendingInvite) => Promise<string | null>;
+    declineInvite: (roundId: string) => Promise<void>;
+  };
 
 const RoundContext = createContext<RoundContextValue | null>(null);
 
@@ -66,13 +73,59 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     if (mine && identity.myId !== mine.id) identity.choose(mine.id);
   }, [mine, identity]);
 
+  // Rounds waiting for this phone. Deliberately given an empty "already joined"
+  // list: `rounds` is every round in the database while RLS is still open, so
+  // passing it would filter away every invitation there is. The hook works out
+  // acceptance from the player rows themselves — a row linked to your account is
+  // one you took — which is true whatever the policies say.
+  const pending = usePendingInvites(auth.userId, []);
+
+  /**
+   * Take the seat somebody made for you.
+   *
+   * Three things, in an order that matters: claim the row so it is yours on
+   * every device, make this phone that player, then open the round. Claiming
+   * last would leave a phone seated as a player it doesn't own.
+   */
+  const joinInvite = useCallback(
+    async (invite: PendingInvite): Promise<string | null> => {
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase.rpc('claim_player', { p_player_id: invite.playerId });
+        if (error) {
+          console.warn('joinInvite failed:', error.message);
+          return error.message;
+        }
+      }
+      await identity.choose(invite.playerId);
+      await round.switchRound(invite.roundId);
+      await round.loadRounds();
+      await pending.refreshInvites();
+      return null;
+    },
+    [identity, round, pending],
+  );
+
   const playerIds = useMemo(() => roster.players.map((p) => p.id), [roster.players]);
   const wolf = useWolf(roundId, playerIds, course.holes, scores.scores);
   const teams = useTeams(roundId, roster.players, course.holes, scores.scores, round.scoringMode);
   const holeGames = useHoleGames(roundId, playerIds);
   return (
     <RoundContext.Provider
-      value={{ ...identity, ...auth, ...profile, ...round, ...scores, ...roster, ...course, ...wolf, ...teams, ...holeGames }}
+      value={{
+        ...identity,
+        ...auth,
+        ...profile,
+        ...round,
+        ...scores,
+        ...roster,
+        ...course,
+        ...wolf,
+        ...teams,
+        ...holeGames,
+        ...pending,
+        joinInvite,
+        declineInvite: pending.decline,
+      }}
     >
       {children}
     </RoundContext.Provider>

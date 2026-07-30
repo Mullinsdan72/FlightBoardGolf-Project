@@ -161,6 +161,72 @@ check('rubbish in gives rubbish back, not a crash', inv.defaultRoundName('nonsen
 // Their subject — that a suggested team draw is not a saved one — survives in
 // CLAUDE.md and in the teams screen's own red box.
 
+
+// ------------------------------------------------- invitations waiting for you
+const waiting = (over) => ({
+  playerId: 'pl',
+  playerName: 'Dan',
+  roundId: 'r1',
+  roundName: 'Saturday',
+  courseName: 'Gladstan',
+  playedOn: '2026-08-01',
+  ...over,
+});
+const noFilter = { joinedRoundIds: [], declinedRoundIds: [] };
+
+check('an invitation to a round you are not in stands', inv.pendingInvites([waiting()], noFilter).map((i) => i.roundId), ['r1']);
+check(
+  'a round you already play is not an invitation',
+  inv.pendingInvites([waiting()], { joinedRoundIds: ['r1'], declinedRoundIds: [] }),
+  [],
+);
+// "Not now" has to stick or the question becomes noise you dismiss unread.
+check(
+  'a round you declined is not asked again',
+  inv.pendingInvites([waiting()], { joinedRoundIds: [], declinedRoundIds: ['r1'] }),
+  [],
+);
+check(
+  'two player rows in one round ask once',
+  inv.pendingInvites([waiting({ playerId: 'a' }), waiting({ playerId: 'b' })], noFilter).length,
+  1,
+);
+check(
+  'and it is the first one, not the last',
+  inv.pendingInvites([waiting({ playerId: 'a' }), waiting({ playerId: 'b' })], noFilter)[0].playerId,
+  'a',
+);
+check(
+  'separate rounds both stand',
+  inv.pendingInvites([waiting({ roundId: 'r1' }), waiting({ roundId: 'r2', playedOn: '2026-08-02' })], noFilter).map((i) => i.roundId),
+  ['r1', 'r2'],
+);
+check(
+  'the round played first is asked about first',
+  inv.pendingInvites(
+    [waiting({ roundId: 'late', playedOn: '2026-09-01' }), waiting({ roundId: 'soon', playedOn: '2026-08-01' })],
+    noFilter,
+  ).map((i) => i.roundId),
+  ['soon', 'late'],
+);
+check(
+  'a round with no date goes last, not first',
+  inv.pendingInvites(
+    [waiting({ roundId: 'undated', playedOn: null }), waiting({ roundId: 'dated', playedOn: '2026-08-01' })],
+    noFilter,
+  ).map((i) => i.roundId),
+  ['dated', 'undated'],
+);
+check('nothing waiting is an empty list, not a null', inv.pendingInvites([], noFilter), []);
+check(
+  'joined and declined together still filter',
+  inv.pendingInvites([waiting({ roundId: 'a' }), waiting({ roundId: 'b' }), waiting({ roundId: 'c' })], {
+    joinedRoundIds: ['a'],
+    declinedRoundIds: ['b'],
+  }).map((i) => i.roundId),
+  ['c'],
+);
+
 console.log('');
 if (failures.length) {
   console.error(`${failures.length} check(s) failed:\n`);

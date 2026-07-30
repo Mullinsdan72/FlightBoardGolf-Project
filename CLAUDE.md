@@ -147,6 +147,34 @@ everywhere in this codebase, not just the screens they were first written for.
    - Empty means nobody is organizer, not everybody. A card must not become unlockable just
      because the role is unclaimed.
 
+## Invitations waiting for you
+
+`/invited` (`src/app/invited.tsx`), `usePendingInvites`, and `pendingInvites` in
+`src/lib/invite.ts` — covered by `npm run check:invite`.
+
+- **An invitation outranks every other opening screen, including `/welcome`.** A guest whose
+  organizer typed their number is precisely a phone with no player and no round, so checking
+  welcome first sends the one person this was built for to "set a round up".
+- **The failure that matters isn't a wrong screen, it's a second round.** Hand somebody START
+  ROUND when they were already in a field and the group ends up on two leaderboards arguing
+  about which is real.
+- **It hangs entirely on `my_players()`, so it needs phone sign-in.** That is the only way a
+  phone can know an invitation is for *it* — the match is against `auth.users.phone`, which
+  the app can't read, which is why the function is `security definer`. Signed out there are
+  no invitations and the app behaves exactly as it did before. Nothing to switch on when
+  codes start delivering.
+- **"Not now" is remembered** (`flightboard.declinedInvites`). Asked on every cold start, the
+  question becomes something you dismiss unread — and then the one that mattered gets
+  dismissed too.
+- **Acceptance is read off the player row, not off the rounds list.** A row linked to your
+  account is one you took. `rounds` is every round in the database while RLS is open, so
+  passing it as "already joined" would filter away every invitation there is.
+- **ROUND comes off the tab bar for anyone who isn't the organizer.** The course, tees, field,
+  format and games are the organizer's; a tab full of settings you may not change is worse
+  than no tab. Not a trap — ACTIVITY's + NEW ROUND makes you organizer of your own round and
+  the tab returns. A round with no organizer or an empty field still shows it, because an
+  unclaimed round belongs to whoever turns up.
+
 ## Which tab the app opens on
 
 `src/lib/opening.ts` is pure and covered by `npm run check:opening` — 15 assertions.

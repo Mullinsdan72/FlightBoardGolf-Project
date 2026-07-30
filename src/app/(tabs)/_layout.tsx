@@ -72,6 +72,9 @@ export default function TabLayout() {
     playersLoaded,
     scores,
     scoresHydrated,
+    invites,
+    invitesReady,
+    organizerId,
   } = useRound();
   const { signoffs } = useSignoffs(activeRoundId);
 
@@ -93,7 +96,8 @@ export default function TabLayout() {
   // its flag and `useLiveScores` sets hydrated false and stops. Waiting on them
   // in that state is a permanent blank screen for a first-time user, which is
   // the exact bug this file has now shipped twice.
-  const decidable = roundsLoaded && !!signoffs && (!activeRoundId || (playersLoaded && scoresHydrated));
+  const decidable =
+    roundsLoaded && !!signoffs && invitesReady && (!activeRoundId || (playersLoaded && scoresHydrated));
   if (opened.current === null && decidable) {
     opened.current = opensOnRoundTab({
       hasRound: !!activeRoundId,
@@ -132,6 +136,22 @@ export default function TabLayout() {
   // `useSignoffs` returns {} rather than nothing — which is what stops this
   // being the third permanently-blank-screen bug in this file's history.
   if (activeRoundId === undefined || !roundsLoaded || myId === undefined || opened.current === null) return null;
+  // An invitation outranks everything else this layout can do, including the
+  // welcome — a guest whose organizer typed their number is exactly the phone
+  // with no player and no round, so checking welcome first would send the one
+  // person this screen was built for to "set a round up" instead.
+  //
+  // The worst outcome is not a wrong screen, it is a second round: hand somebody
+  // START ROUND when they were already in a field and the group ends up on two
+  // leaderboards, arguing about which is real.
+  //
+  // Same `sent` guard as below — asked once per cold start, and "not now" is
+  // remembered so it isn't asked again at all.
+  if (!sent.current && invites && invites.length > 0) {
+    sent.current = true;
+    return <Redirect href="/invited" />;
+  }
+
   // A phone with no player and no round has never been used. Send it to the
   // welcome rather than to a form asking it to name a round — and creating one
   // there mints the player too, which is what stops the organizer-less dead end.
@@ -160,7 +180,19 @@ export default function TabLayout() {
   // ROUND is the round's home and ME is who this phone is; both are always
   // available, including before a round exists — which is what makes the old
   // redirect-to-/rounds dance unnecessary.
-  const visible = ['index', 'board', 'activity', 'round', 'me'];
+  //
+  // ROUND is the exception, and it is the organizer's. Joining somebody else's
+  // round makes you a player in it: the course, the tees, the field, the format
+  // and the games are all theirs to set, and a tab full of settings you may not
+  // change is worse than no tab. A round nobody organizes, or one with an empty
+  // field, still shows it — an unclaimed round belongs to whoever turns up, and
+  // that rule predates this one.
+  //
+  // Not a trap: ACTIVITY's + NEW ROUND makes you the organizer of your own
+  // round, which brings the tab back. That is the standing rule — hiding a tab
+  // must never hide the last way to something — and this is the door.
+  const runsIt = amOrganizer || organizerId === null || players.length === 0;
+  const visible = runsIt ? ['index', 'board', 'activity', 'round', 'me'] : ['index', 'board', 'activity', 'me'];
   // A game nobody has set up isn't worth a tab; the organizer keeps it to set
   // one up with.
   // Only while something is actually being played for. GAMES is set up from

@@ -134,3 +134,66 @@ export const cleanName = (name: string): string => name.trim().replace(/\s+/g, '
 // logical step-by-step flow and then turned out to *be* the clunkiness — one
 // screen you can scan beats five you have to walk. Nothing links to it, and
 // keeping dead wayfinding around invites somebody to wire it back up.
+
+/**
+ * A round somebody has put you in that you have not joined yet.
+ *
+ * An organizer types your name and mobile number in long before you ever open
+ * the app — that is the *normal* way a field gets built here. So the moment
+ * your phone knows who it is, there may already be rounds waiting for it, and
+ * the app should say so rather than open on an empty ROUND tab and let you
+ * organize a duplicate of the round you were already invited to.
+ */
+export type PendingInvite = {
+  /** The player row the organizer created for you. Claiming it is joining. */
+  playerId: string;
+  /** The name they typed. Worth showing — it's how you'll appear on the board. */
+  playerName: string;
+  roundId: string;
+  roundName: string;
+  courseName: string;
+  /** ISO date, or null if they haven't set one. */
+  playedOn: string | null;
+};
+
+export type InviteFilter = {
+  /** Rounds this device is already playing. Not invitations — memberships. */
+  joinedRoundIds: string[];
+  /** Rounds this device has said "not now" to. Asked once, not every launch. */
+  declinedRoundIds: string[];
+};
+
+/**
+ * The invitations worth interrupting somebody for, soonest first.
+ *
+ * Two things are deliberately *not* invitations:
+ *
+ *   - **A round you are already in.** You joined; there is nothing to accept.
+ *   - **A round you declined.** Answering "not now" has to stick, or the
+ *     question becomes a thing you dismiss on every cold start until you stop
+ *     reading it — and then the one that mattered gets dismissed too.
+ *
+ * Sorted by the day it is played, undated last, so the round that is happening
+ * first is the one being asked about.
+ */
+export function pendingInvites(all: PendingInvite[], filter: InviteFilter): PendingInvite[] {
+  const joined = new Set(filter.joinedRoundIds);
+  const declined = new Set(filter.declinedRoundIds);
+  const seen = new Set<string>();
+  return all
+    .filter((i) => {
+      if (joined.has(i.roundId) || declined.has(i.roundId)) return false;
+      // One card per round, however many player rows matched your number. Two
+      // organizers typing you into the same round is their mistake to fix, not
+      // a question to ask you twice.
+      if (seen.has(i.roundId)) return false;
+      seen.add(i.roundId);
+      return true;
+    })
+    .sort((a, b) => {
+      if (a.playedOn === b.playedOn) return a.roundName.localeCompare(b.roundName);
+      if (!a.playedOn) return 1;
+      if (!b.playedOn) return -1;
+      return a.playedOn.localeCompare(b.playedOn);
+    });
+}
