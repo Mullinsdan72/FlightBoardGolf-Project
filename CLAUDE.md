@@ -127,6 +127,21 @@ everywhere in this codebase, not just the screens they were first written for.
    - Empty means nobody is organizer, not everybody. A card must not become unlockable just
      because the role is unclaimed.
 
+## Working with Dan
+
+Dan is building this as his first app and runs every change on a real phone. Two things
+follow from that, and both were asked for directly:
+
+- **Spell out every step, numbered, with the exact command to type and what success looks
+  like.** Not "apply the patch and restart" — the `cd`, the command, the expected output,
+  and what to do when it isn't that. He has lost time to instructions that assumed a step.
+- **Terminal commands and SQL are different places.** Never put `cd`, `git` and `pbcopy` in
+  the same block as something meant for the Supabase editor; that has already been pasted
+  into the wrong one. Label which window every block belongs to.
+- **After every `git am`, have him run `git log --oneline -1` before looking at the phone.**
+  Most "it isn't working" reports in this project have been a patch that never applied, and
+  that is indistinguishable from a bug at this end without the check.
+
 ## Working notes
 
 - `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` come from `.env` (gitignored,
