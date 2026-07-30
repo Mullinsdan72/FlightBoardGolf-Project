@@ -349,11 +349,12 @@ export default function StartRoundScreen() {
           </Text>
         )}
 
-        {/* The Course tab is off the tab bar now that search lives here, but
-            entering a card by hand is only on that screen — so this door has to
-            stay open. Hiding a tab must never hide the last way to something. */}
-        <Pressable onPress={() => router.push('/(tabs)/course')} style={styles.secondaryBtn}>
-          <Text style={styles.secondaryLabel}>ENTER A CARD BY HAND</Text>
+        {/* Named for the moment you need it, not for what it does. You reach
+            for this having just failed to find your course, so "Course not
+            listed?" is the sentence in your head — and it opens the card form
+            with no search on it, because search is what has already failed. */}
+        <Pressable onPress={() => router.push('/course-card')} style={styles.secondaryBtn}>
+          <Text style={styles.secondaryLabel}>COURSE NOT LISTED?</Text>
           <Text style={styles.secondaryArrow}>›</Text>
         </Pressable>
 
