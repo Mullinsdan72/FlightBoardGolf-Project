@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Wordmark } from '@/components/Wordmark';
 import { useRound } from '@/context/RoundContext';
+import { PRIVACY_URL, SMS_CONSENT } from '@/lib/legal';
 import { isOtpValid, isPhoneValid, prettyPhone } from '@/lib/phone';
 import { colors, font } from '@/theme';
 
@@ -81,10 +82,16 @@ export default function SignInScreen() {
               <Text style={styles.primaryArrow}>→</Text>
             </Pressable>
 
-            <Text style={styles.note}>
-              Standard message rates apply. Your number is used to sign you in and to match you to rounds you’ve been
-              invited to — nothing else, and it is never shown to anyone outside a round you’re in.
-            </Text>
+            {/* The consent itself. Carriers require this to be on the screen
+                that collects the number, not buried in a policy — and they ask
+                for a screenshot of it during registration. */}
+            <Text style={styles.consent}>{SMS_CONSENT}</Text>
+            {PRIVACY_URL && (
+              <Pressable onPress={() => Linking.openURL(PRIVACY_URL as string)} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryLabel}>PRIVACY POLICY</Text>
+                <Text style={styles.secondaryArrow}>›</Text>
+              </Pressable>
+            )}
           </>
         ) : (
           <>
@@ -161,7 +168,7 @@ const styles = StyleSheet.create({
   btnOff: { opacity: 0.35 },
   primaryLabel: { fontFamily: font.heading, fontSize: 17, letterSpacing: 0.3, color: '#fff' },
   primaryArrow: { fontFamily: font.heading, fontSize: 20, color: '#fff' },
-  note: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, marginTop: 14 },
+  consent: { fontFamily: font.body, fontSize: 11, lineHeight: 17, color: colors.muted, marginTop: 16 },
   secondaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
