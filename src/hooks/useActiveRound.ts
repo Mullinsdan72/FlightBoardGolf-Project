@@ -31,6 +31,9 @@ export function useActiveRound() {
   const [activeRoundId, setActiveRoundId] = useState<string | null | undefined>(undefined);
   const [rounds, setRounds] = useState<RoundSummary[]>([]);
   const [roundsLoaded, setRoundsLoaded] = useState(!isSupabaseConfigured);
+  // Why there are no rounds, when the reason is a failure rather than a fresh
+  // install. Identical-looking states, opposite responses.
+  const [roundsError, setRoundsError] = useState<string | null>(null);
 
   const loadRounds = useCallback(async (): Promise<RoundSummary[]> => {
     if (!isSupabaseConfigured || !supabase) return [];
@@ -40,8 +43,15 @@ export function useActiveRound() {
       .order('created_at', { ascending: false });
     if (error || !data) {
       console.warn('loadRounds failed:', error?.message);
+      // Loaded, even though it failed. Leaving this false left `roundsLoaded`
+      // permanently false, and the tabs layout returns null while it is — so a
+      // failed fetch showed a blank white screen after the splash, with no
+      // error and no way forward. Exactly the failure the players roster had.
+      setRoundsError(error?.message ?? 'Could not load your rounds.');
+      setRoundsLoaded(true);
       return [];
     }
+    setRoundsError(null);
     const list = (data as any[]).map((r) => ({
       id: r.id,
       name: r.name ?? '',
@@ -213,6 +223,7 @@ export function useActiveRound() {
     activeRound,
     rounds,
     roundsLoaded,
+    roundsError,
     loadRounds,
     switchRound,
     createRound,

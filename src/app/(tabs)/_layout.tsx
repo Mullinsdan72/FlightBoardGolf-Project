@@ -53,10 +53,25 @@ function ModernistTabBar({ state, navigation, visible }: any) {
 }
 
 export default function TabLayout() {
-  const { activeRoundId, roundsLoaded, amOrganizer, organizerId, players, playersLoaded, wolf, challenge, holeGames, myId } = useRound();
+  const { activeRoundId, roundsLoaded, roundsError, amOrganizer, organizerId, players, playersLoaded, wolf, challenge, holeGames, myId } = useRound();
 
   // Nothing to score against until a round exists, so send a first-time user
   // (or anyone who just deleted their last round) to create one.
+  // A blank screen is the worst thing this layout can render, and returning
+  // null while loading is one failed fetch away from doing it forever. If the
+  // round list actually failed, say so — the message is the database's own, and
+  // it names the problem in one line where silence named nothing.
+  if (roundsError && !activeRoundId) {
+    return (
+      <View style={loadStyles.wrap}>
+        <Text style={loadStyles.kicker}>Could not load your rounds</Text>
+        <Text style={loadStyles.body}>{roundsError}</Text>
+        <Text style={loadStyles.hint}>
+          Usually the phone has no connection to the database. Check signal, then close and reopen the app.
+        </Text>
+      </View>
+    );
+  }
   if (activeRoundId === undefined || !roundsLoaded || myId === undefined) return null;
   // A phone with no player and no round has never been used. Send it to the
   // welcome rather than to a form asking it to name a round — and creating one
@@ -112,4 +127,17 @@ const styles = StyleSheet.create({
   tabInner: { paddingHorizontal: 6, paddingTop: 12, paddingBottom: 2 },
   label: { fontFamily: font.heading, fontSize: 10.5, letterSpacing: 0.2 },
   sub: { fontFamily: font.body, fontSize: 8, color: colors.mutedFaint, marginTop: 5 },
+});
+
+const loadStyles = StyleSheet.create({
+  wrap: { flex: 1, backgroundColor: colors.bg, paddingTop: 96, paddingHorizontal: 24 },
+  kicker: {
+    fontFamily: font.bodySemi,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.accent,
+  },
+  body: { fontFamily: font.heading, fontSize: 20, color: colors.text, marginTop: 10 },
+  hint: { fontFamily: font.body, fontSize: 12.5, lineHeight: 19, color: colors.muted, marginTop: 14 },
 });
