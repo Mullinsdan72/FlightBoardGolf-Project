@@ -26,6 +26,8 @@ export default function GamesScreen() {
   const {
     myId,
     choose,
+    userId,
+    claimPlayer,
     amOrganizer,
     organizerId,
     players,
@@ -65,7 +67,7 @@ export default function GamesScreen() {
   // The ledger marks your own holes and your own swing, so it needs to know who
   // you are before it can render anything honestly.
   if (!wolfLoaded || myId === undefined) return <View style={styles.screen} />;
-  if (!myId) return <PlayerPicker players={players} onChoose={choose} />;
+  if (!myId) return <PlayerPicker players={players} onChoose={choose} userId={userId} onClaim={claimPlayer} />;
 
   const canPlay = players.length >= 3;
   const par3s = parThreeDraw(wolfOrder, holes, wolfDecisions);

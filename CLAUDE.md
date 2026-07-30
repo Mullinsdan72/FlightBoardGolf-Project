@@ -136,7 +136,8 @@ everywhere in this codebase, not just the screens they were first written for.
   before everyone has signed in and claimed a player would make every existing round
   invisible to its own players. The order is fixed and must be kept:
     1. `supabase/auth.sql` + phone sign-in in the app — **done**
-    2. everyone signs in once and claims their player row — *not done*
+    2. everyone signs in once and claims their player row — **built**, needs doing
+       for real once codes are being delivered
     3. `supabase/rls.sql`, the actual lockdown — *not written*
   Step 3 is the one no tap in the app can undo, so it goes last.
 - **Signing in and being a player are two different things.** `usePhoneAuth` proves whose
@@ -147,6 +148,15 @@ everywhere in this codebase, not just the screens they were first written for.
 - `claim_player()` and `my_players()` are `security definer` because `players.user_id` must
   never be writable directly. Writing it directly is "claim anybody", including the
   organizer — the one row that decides who can reopen a signed card.
+- **Owning a row is read; taking one is a decision.** `src/lib/claim.ts` is pure and covered
+  by `npm run check:claim` (25 assertions). `RoundProvider` auto-adopts a row whose `userId`
+  is already yours — signing in on a second phone must not ask who you are again — but an
+  *unclaimed* row always needs a deliberate tap, because guessing wrong seats you as somebody
+  else and hands you their card. Signed out, a claimed row reads `taken`, never `you`; there
+  is an assertion for exactly that.
+- **A claimed row is shown and refused, never hidden.** A four-ball that displays two names
+  looks broken, and the organizer "fixes" it by adding a duplicate — the precise mess
+  claiming exists to prevent.
 - **`auth.users.phone` has no leading `+`; the app writes proper E.164 with one.** Comparing
   them raw silently never matches, and the failure looks exactly like "nobody invited you".
   `my_players()` strips it. `src/lib/phone.ts` is the only place a typed number becomes a

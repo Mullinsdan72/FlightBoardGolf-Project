@@ -1,14 +1,40 @@
+import { useState } from 'react';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Wordmark } from '@/components/Wordmark';
 import type { SeedPlayer } from '@/data/seed';
+import { claimRoster } from '@/lib/claim';
 import { colors, font } from '@/theme';
 
 // Still how a device says which player it is, but no longer the only door:
 // phone sign-in exists now, and this screen is where you reach it. Picking a
 // name off a list stays for the moment because most of a field is unclaimed —
 // an organizer types Steve in long before Steve ever opens the app.
-export function PlayerPicker({ players, onChoose }: { players: SeedPlayer[]; onChoose: (id: string) => void }) {
+export function PlayerPicker({
+  players,
+  onChoose,
+  userId,
+  onClaim,
+}: {
+  players: SeedPlayer[];
+  onChoose: (id: string) => void;
+  /** Signed in as. Null keeps the old pick-a-name behaviour untouched. */
+  userId?: string | null;
+  /** Take an unclaimed row. Returns an error message, or null. */
+  onClaim?: (id: string) => Promise<string | null>;
+}) {
+  const signedIn = !!userId && !!onClaim;
+  const [busy, setBusy] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const rows = claimRoster(players, userId);
+
+  const take = async (id: string) => {
+    if (!onClaim) return onChoose(id);
+    setBusy(id);
+    setProblem(await onClaim(id));
+    setBusy(null);
+  };
   // An empty roster is a normal state, not an error — it's what a fresh round
   // looks like before anyone has been added. Without this the screen would be a
   // dead end: a question with no answers.
@@ -32,20 +58,36 @@ export function PlayerPicker({ players, onChoose }: { players: SeedPlayer[]; onC
       {/* The first screen a new phone ever shows, so the one place a name badge
           genuinely helps: it says what you've just opened. */}
       <Wordmark />
-      <Text style={[styles.kicker, { marginTop: 18 }]}>No sign-in yet</Text>
-      <Text style={styles.title}>Who are you?</Text>
+      <Text style={[styles.kicker, { marginTop: 18 }]}>{signedIn ? 'Signed in' : 'No sign-in yet'}</Text>
+      <Text style={styles.title}>Which one are you?</Text>
       <Text style={styles.body}>
-        Phone-number sign-in comes later. For now, pick your name so your device knows which score is yours.
+        {signedIn
+          ? 'Tap your name to claim it. That links this round to your account, on every phone you sign in on — so nobody has to ask who you are again.'
+          : 'Pick your name so your device knows which score is yours. Signing in with your number makes it stick.'}
       </Text>
       <View style={styles.list}>
-        {players.map((p) => (
-          <Pressable key={p.id} onPress={() => onChoose(p.id)} style={styles.row}>
-            <Text style={styles.rowName}>{p.name}</Text>
-            <Text style={styles.rowMeta}>HCP {p.handicap}</Text>
-            <Text style={styles.rowArrow}>→</Text>
-          </Pressable>
-        ))}
+        {rows.map((p) => {
+          // A row somebody else has claimed is shown and refused, not hidden.
+          // A four-ball that displays two names looks broken, and the organizer
+          // "fixes" it by adding a duplicate — the exact mess claiming prevents.
+          const locked = signedIn && p.status === 'taken';
+          return (
+            <Pressable
+              key={p.id}
+              onPress={() => !locked && take(p.id)}
+              disabled={locked || busy != null}
+              style={[styles.row, locked && styles.rowLocked]}
+            >
+              <Text style={styles.rowName}>{p.name}</Text>
+              <Text style={styles.rowMeta}>
+                {locked ? 'signed in already' : `HCP ${p.handicap}`}
+              </Text>
+              <Text style={styles.rowArrow}>{busy === p.id ? '…' : locked ? '' : '→'}</Text>
+            </Pressable>
+          );
+        })}
       </View>
+      {problem && <Text style={styles.problem}>{problem}</Text>}
       <SignInLink />
     </View>
   );
@@ -85,6 +127,8 @@ const styles = StyleSheet.create({
   rowName: { flex: 1, fontFamily: font.heading, fontSize: 16, color: colors.text },
   rowMeta: { fontFamily: font.body, fontSize: 11.5, color: colors.muted },
   rowArrow: { fontFamily: font.heading, fontSize: 16, color: colors.accent },
+  rowLocked: { opacity: 0.4 },
+  problem: { fontFamily: font.body, fontSize: 11.5, color: colors.accent, marginTop: 12 },
   signInBtn: {
     flexDirection: 'row',
     alignItems: 'center',

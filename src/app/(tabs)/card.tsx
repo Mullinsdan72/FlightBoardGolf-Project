@@ -33,6 +33,8 @@ export default function ScorecardScreen() {
   const {
     myId,
     choose,
+    userId,
+    claimPlayer,
     clear,
     scores,
     players,
@@ -115,7 +117,7 @@ export default function ScorecardScreen() {
   }, [shownId]);
 
   if (myId === undefined || signedAt === undefined) return <View style={styles.screen} />;
-  if (!myId || !me) return <PlayerPicker players={players} onChoose={choose} />;
+  if (!myId || !me) return <PlayerPicker players={players} onChoose={choose} userId={userId} onClaim={claimPlayer} />;
 
   const who = viewed ?? me;
   const cardId = who.id;

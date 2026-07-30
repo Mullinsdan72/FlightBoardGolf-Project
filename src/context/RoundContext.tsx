@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
+import { mineInRoster } from '@/lib/claim';
 import { useActiveRound } from '@/hooks/useActiveRound';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { usePhoneAuth } from '@/hooks/usePhoneAuth';
@@ -47,6 +48,18 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   const scores = useLiveScores(roundId);
   const roster = useRoundPlayers(roundId, identity.myId);
   const course = useRoundCourse(roundId, identity.myId);
+  // Signing in on a second phone shouldn't ask who you are again. If a row in
+  // this round already belongs to your account, that isn't a claim to make —
+  // it's a fact to read, so adopt it.
+  //
+  // Only ever adopts a row you already own. Taking an *unclaimed* row still
+  // needs a deliberate tap, because guessing wrong seats you as somebody else
+  // and hands you their scorecard.
+  const mine = mineInRoster(roster.players, auth.userId);
+  useEffect(() => {
+    if (mine && identity.myId !== mine.id) identity.choose(mine.id);
+  }, [mine, identity]);
+
   const playerIds = useMemo(() => roster.players.map((p) => p.id), [roster.players]);
   const wolf = useWolf(roundId, playerIds, course.holes, scores.scores);
   const teams = useTeams(roundId, roster.players, course.holes, scores.scores);

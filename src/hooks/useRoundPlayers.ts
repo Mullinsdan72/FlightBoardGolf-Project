@@ -3,7 +3,7 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { PLAYERS as SEED_PLAYERS } from '@/data/seed';
 import type { SeedPlayer } from '@/data/seed';
 
-type Row = { player_id: string; players: { id: string; name: string; handicap: number } | null };
+type Row = { player_id: string; players: { id: string; name: string; handicap: number; user_id: string | null } | null };
 
 // The round's actual roster — who's in this group.
 //
@@ -19,7 +19,7 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
   const refresh = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase || !roundId) return;
     const [rosterRes, roundRes] = await Promise.all([
-      supabase.from('round_players').select('player_id, players(id, name, handicap)').eq('round_id', roundId),
+      supabase.from('round_players').select('player_id, players(id, name, handicap, user_id)').eq('round_id', roundId),
       supabase.from('rounds').select('organizer_player_id').eq('id', roundId).maybeSingle(),
     ]);
     if (rosterRes.error || !rosterRes.data) {
@@ -31,7 +31,7 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
       rows
         .map((r) => r.players)
         .filter((p): p is NonNullable<Row['players']> => p != null)
-        .map((p) => ({ id: p.id, name: p.name, handicap: p.handicap }))
+        .map((p) => ({ id: p.id, name: p.name, handicap: p.handicap, userId: p.user_id ?? null }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     );
     setOrganizerId((roundRes.data as any)?.organizer_player_id ?? null);
@@ -99,6 +99,29 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
     [roundId, refresh],
   );
 
+  /**
+   * Take ownership of a player row — "that one is me".
+   *
+   * Goes through the `claim_player` function rather than updating the column,
+   * because a directly writable `user_id` is "claim anybody", including the
+   * organizer. The database refuses a row somebody else already owns; this
+   * returns that refusal rather than swallowing it, since silently failing to
+   * claim leaves you looking at a round you can't score in.
+   */
+  const claimPlayer = useCallback(
+    async (playerId: string): Promise<string | null> => {
+      if (!isSupabaseConfigured || !supabase) return null;
+      const { error } = await supabase.rpc('claim_player', { p_player_id: playerId });
+      if (error) {
+        console.warn('claimPlayer failed:', error.message);
+        return error.message;
+      }
+      await refresh();
+      return null;
+    },
+    [refresh],
+  );
+
   const removePlayer = useCallback(
     async (playerId: string) => {
       setPlayers((prev) => prev.filter((p) => p.id !== playerId));
@@ -117,6 +140,7 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
   );
 
   return {
+    claimPlayer,
     players,
     playersLoaded,
     addPlayer,

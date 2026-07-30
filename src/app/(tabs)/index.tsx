@@ -16,6 +16,8 @@ export default function ScoreEntryScreen() {
   const {
     myId,
     choose,
+    userId,
+    claimPlayer,
     clear,
     scores,
     setScores,
@@ -59,7 +61,7 @@ export default function ScoreEntryScreen() {
   }, [myId, players, amInRound]);
 
   if (myId === undefined || signedAt === undefined) return <View style={styles.screen} />;
-  if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} />;
+  if (!myId || !amInRound) return <PlayerPicker players={players} onChoose={choose} userId={userId} onClaim={claimPlayer} />;
 
   if (signedAt) {
     return (
