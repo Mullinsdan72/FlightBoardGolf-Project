@@ -45,9 +45,20 @@ export function PlayerPicker({
         <Text style={[styles.kicker, { marginTop: 18 }]}>Nobody in this round yet</Text>
         <Text style={styles.title}>Add the players first</Text>
         <Text style={styles.body}>
-          Open the <Text style={styles.bodyStrong}>PLAYERS</Text> tab and add everyone playing — name and handicap. Then
-          come back here and pick which one is you.
+          Add everyone playing — name and handicap — then come back here and pick which one is you.
         </Text>
+        {/* Buttons, not instructions. This screen used to say "open the PLAYERS
+            tab", which is hidden unless you organize the round — so the one
+            person who most needed it was told to tap something that wasn't
+            there. A door beats a direction. */}
+        <Pressable onPress={() => router.push('/setup')} style={styles.primaryBtn}>
+          <Text style={styles.primaryLabel}>SET THIS ROUND UP</Text>
+          <Text style={styles.primaryArrow}>→</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/rounds')} style={styles.signInBtn}>
+          <Text style={styles.signInLabel}>OPEN A DIFFERENT ROUND</Text>
+          <Text style={styles.signInArrow}>›</Text>
+        </Pressable>
         <SignInLink />
       </View>
     );
@@ -129,6 +140,17 @@ const styles = StyleSheet.create({
   rowArrow: { fontFamily: font.heading, fontSize: 16, color: colors.accent },
   rowLocked: { opacity: 0.4 },
   problem: { fontFamily: font.body, fontSize: 11.5, color: colors.accent, marginTop: 12 },
+  primaryBtn: {
+    marginTop: 26,
+    height: 72,
+    backgroundColor: colors.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  primaryLabel: { fontFamily: font.heading, fontSize: 16, letterSpacing: 0.3, color: '#fff' },
+  primaryArrow: { fontFamily: font.heading, fontSize: 20, color: '#fff' },
   signInBtn: {
     flexDirection: 'row',
     alignItems: 'center',

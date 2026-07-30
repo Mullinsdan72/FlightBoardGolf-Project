@@ -53,7 +53,7 @@ function ModernistTabBar({ state, navigation, visible }: any) {
 }
 
 export default function TabLayout() {
-  const { activeRoundId, roundsLoaded, amOrganizer, wolf, challenge, holeGames, myId } = useRound();
+  const { activeRoundId, roundsLoaded, amOrganizer, organizerId, players, playersLoaded, wolf, challenge, holeGames, myId } = useRound();
 
   // Nothing to score against until a round exists, so send a first-time user
   // (or anyone who just deleted their last round) to create one.
@@ -76,7 +76,13 @@ export default function TabLayout() {
   // A game nobody has set up isn't worth a tab; the organizer keeps it to set
   // one up with.
   if (anyGame || amOrganizer) visible.push('games');
-  if (amOrganizer) visible.push('players', 'course');
+  // Hiding these two is tidiness for a player, and a trap for anyone else. A
+  // round nobody has claimed, or one with an empty field, has to be set up by
+  // whoever is holding the phone — and the picker's own advice is "open the
+  // PLAYERS tab", which isn't there to open. Same rule as `canSetUp` on /setup:
+  // an unclaimed round belongs to whoever turns up.
+  const needsSettingUp = !organizerId || (playersLoaded && players.length === 0);
+  if (amOrganizer || needsSettingUp) visible.push('players', 'course');
 
   return (
     <Tabs
