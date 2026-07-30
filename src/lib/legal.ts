@@ -9,14 +9,18 @@
  */
 
 /**
- * Where the privacy policy is hosted. `docs/privacy.html` is the source.
+ * Where the policies are hosted. `docs/` holds the source of both pages, so the
+ * repo and the live site can't drift apart without it being visible in a diff.
  *
- * Null until it's actually published, and the screen adapts rather than
- * rendering a dead link — the same rule as `APP_STORE_URL`. A privacy link that
- * 404s is worse than none, because the one place it will certainly be clicked
- * is a carrier compliance review.
+ * These stay null until actually published, and the screen hides the link
+ * rather than rendering a dead one — the same rule as `APP_STORE_URL`. A
+ * privacy link that 404s is worse than none, because the one place it is
+ * certain to be clicked is a carrier compliance review.
  */
-export const PRIVACY_URL: string | null = null;
+const SITE = 'https://flightboardgolf.netlify.app';
+
+export const PRIVACY_URL: string | null = `${SITE}/privacy.html`;
+export const TERMS_URL: string | null = `${SITE}/terms.html`;
 
 /**
  * The line beside the sign-in button.

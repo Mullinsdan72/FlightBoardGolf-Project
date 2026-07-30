@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Wordmark } from '@/components/Wordmark';
 import { useRound } from '@/context/RoundContext';
-import { PRIVACY_URL, SMS_CONSENT } from '@/lib/legal';
+import { PRIVACY_URL, SMS_CONSENT, TERMS_URL } from '@/lib/legal';
 import { isOtpValid, isPhoneValid, prettyPhone } from '@/lib/phone';
 import { colors, font } from '@/theme';
 
@@ -89,6 +89,12 @@ export default function SignInScreen() {
             {PRIVACY_URL && (
               <Pressable onPress={() => Linking.openURL(PRIVACY_URL as string)} style={styles.secondaryBtn}>
                 <Text style={styles.secondaryLabel}>PRIVACY POLICY</Text>
+                <Text style={styles.secondaryArrow}>›</Text>
+              </Pressable>
+            )}
+            {TERMS_URL && (
+              <Pressable onPress={() => Linking.openURL(TERMS_URL as string)} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryLabel}>TERMS OF SERVICE</Text>
                 <Text style={styles.secondaryArrow}>›</Text>
               </Pressable>
             )}
