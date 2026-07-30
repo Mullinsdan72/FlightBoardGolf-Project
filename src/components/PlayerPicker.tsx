@@ -57,7 +57,7 @@ export function PlayerPicker({
             tab", which is hidden unless you organize the round — so the one
             person who most needed it was told to tap something that wasn't
             there. A door beats a direction. */}
-        <Pressable onPress={() => router.push('/start')} style={styles.primaryBtn}>
+        <Pressable onPress={() => router.push('/(tabs)/round')} style={styles.primaryBtn}>
           <Text style={styles.primaryLabel}>SET THIS ROUND UP</Text>
           <Text style={styles.primaryArrow}>→</Text>
         </Pressable>

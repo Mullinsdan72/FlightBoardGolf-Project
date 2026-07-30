@@ -156,7 +156,7 @@ export default function ScoreEntryScreen() {
                 from inside a round — the one that was missing the day a fourth
                 player turned up and there was nowhere to add him. Past rounds
                 and switching live one link further on, from there. */}
-            <Pressable onPress={() => router.push('/start')} hitSlop={8} style={styles.roundChip}>
+            <Pressable onPress={() => router.push('/(tabs)/round')} hitSlop={8} style={styles.roundChip}>
               <Text style={styles.roundChipName} numberOfLines={1}>
                 {activeRound?.name || 'Round'}
               </Text>

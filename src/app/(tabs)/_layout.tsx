@@ -5,14 +5,20 @@ import { Redirect } from 'expo-router';
 import { useRound } from '@/context/RoundContext';
 import { colors, font } from '@/theme';
 
-const TAB_META: Record<string, { label: string; sub: string }> = {
-  index: { label: 'SCORE', sub: 'hole-by-hole' },
-  // Spelled out when there's room for it. At six tabs there isn't.
-  board: { label: 'BOARD', sub: 'live' },
-  card: { label: 'CARD', sub: 'sign off' },
-  players: { label: 'PLAYERS', sub: 'add · swap' },
-  course: { label: 'COURSE', sub: 'the card' },
-  games: { label: 'GAMES', sub: 'side bets' },
+// One word each, and no sub-labels. At four tabs "LEADERBOARD" already
+// truncated to "LEADERBO…" on a real phone; at six there is no room at all, and
+// a truncated tab is a tab nobody taps.
+const TAB_META: Record<string, { label: string }> = {
+  index: { label: 'SCORE' },
+  board: { label: 'BOARD' },
+  card: { label: 'CARD' },
+  activity: { label: 'ACTIVITY' },
+  round: { label: 'ROUND' },
+  me: { label: 'ME' },
+  games: { label: 'GAMES' },
+  // Reachable, never a tab: PLAYERS and COURSE are opened from ROUND.
+  players: { label: 'PLAYERS' },
+  course: { label: 'COURSE' },
 };
 
 function ModernistTabBar({ state, navigation, visible }: any) {
@@ -40,9 +46,6 @@ function ModernistTabBar({ state, navigation, visible }: any) {
             <View style={styles.tabInner}>
               <Text style={[styles.label, { color: focused ? colors.text : colors.mutedFaint }]} numberOfLines={1}>
                 {label}
-              </Text>
-              <Text style={styles.sub} numberOfLines={1}>
-                {meta.sub}
               </Text>
             </View>
           </Pressable>
@@ -87,10 +90,15 @@ export default function TabLayout() {
   // pick any player and become the organizer, and the routes stay reachable by
   // URL. The real boundary arrives with accounts and RLS.
   const anyGame = wolf.enabled || challenge.enabled || holeGames.length > 0;
-  const visible = ['index', 'board', 'card'];
+  // ROUND is the round's home and ME is who this phone is; both are always
+  // available, including before a round exists — which is what makes the old
+  // redirect-to-/rounds dance unnecessary.
+  const visible = ['index', 'board', 'activity', 'round', 'me'];
   // A game nobody has set up isn't worth a tab; the organizer keeps it to set
   // one up with.
-  if (anyGame || amOrganizer) visible.push('games');
+  // Only while something is actually being played for. GAMES is set up from
+  // the tile on ROUND, so the organizer no longer needs it standing empty.
+  if (anyGame) visible.splice(3, 0, 'games');
   // Hiding these two is tidiness for a player, and a trap for anyone else. A
   // round nobody has claimed, or one with an empty field, has to be set up by
   // whoever is holding the phone — and the picker's own advice is "open the
@@ -113,7 +121,10 @@ export default function TabLayout() {
         <Tabs.Screen name="index" options={{ title: 'Score' }} />
         <Tabs.Screen name="board" options={{ title: 'Board' }} />
         <Tabs.Screen name="card" options={{ title: 'Card' }} />
-        <Tabs.Screen name="players" options={{ title: 'Field' }} />
+        <Tabs.Screen name="activity" options={{ title: 'Activity' }} />
+        <Tabs.Screen name="round" options={{ title: 'Round' }} />
+        <Tabs.Screen name="me" options={{ title: 'Me' }} />
+        <Tabs.Screen name="players" options={{ title: 'Players' }} />
         <Tabs.Screen name="course" options={{ title: 'Course' }} />
       <Tabs.Screen name="games" options={{ title: 'Games' }} />
     </Tabs>
@@ -130,9 +141,10 @@ const styles = StyleSheet.create({
   tab: { flex: 1 },
   tabDivider: { borderRightWidth: 1, borderRightColor: colors.divider },
   topBar: { height: 3 },
-  tabInner: { paddingHorizontal: 6, paddingTop: 12, paddingBottom: 2 },
-  label: { fontFamily: font.heading, fontSize: 10.5, letterSpacing: 0.2 },
-  sub: { fontFamily: font.body, fontSize: 8, color: colors.mutedFaint, marginTop: 5 },
+  // Tight, because six tabs across a phone leaves about 60pt each and ACTIVITY
+  // is eight characters. Centred so short labels (ME) don't look adrift.
+  tabInner: { paddingHorizontal: 2, paddingTop: 13, paddingBottom: 10, alignItems: 'center' },
+  label: { fontFamily: font.heading, fontSize: 9.5, letterSpacing: 0 },
 });
 
 const loadStyles = StyleSheet.create({

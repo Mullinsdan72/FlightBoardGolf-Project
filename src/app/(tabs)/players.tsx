@@ -84,7 +84,7 @@ export default function PlayersScreen() {
             on /start — so it needs a way back of its own. A tab screen without a
             tab is a room with the door bricked up. */}
         <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/start'))}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/round'))}
           hitSlop={10}
           style={styles.backBtn}
         >
@@ -224,7 +224,7 @@ export default function PlayersScreen() {
           <Text style={styles.addBtnArrow}>→</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push('/start')} style={styles.teamsBtn}>
+        <Pressable onPress={() => router.push('/(tabs)/round')} style={styles.teamsBtn}>
           <View style={{ flex: 1 }}>
             <Text style={styles.teamsLabel}>SET UP THE ROUND</Text>
             <Text style={styles.teamsNote}>Step by step: course, players, invites, teams, games</Text>

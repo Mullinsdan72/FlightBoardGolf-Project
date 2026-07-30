@@ -134,6 +134,28 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
     [refresh],
   );
 
+  /**
+   * Change a player's handicap.
+   *
+   * Optimistic, because every net figure and every team allowance is worked out
+   * from this number and the screen has to move under your thumb. A failure
+   * refetches rather than leaving the wrong number looking saved.
+   */
+  const setHandicap = useCallback(
+    async (playerId: string, handicap: number): Promise<string | null> => {
+      setPlayers((prev) => prev.map((p) => (p.id === playerId ? { ...p, handicap } : p)));
+      if (!isSupabaseConfigured || !supabase) return null;
+      const { error } = await supabase.from('players').update({ handicap }).eq('id', playerId);
+      if (error) {
+        console.warn('setHandicap failed:', error.message);
+        await refresh();
+        return error.message;
+      }
+      return null;
+    },
+    [refresh],
+  );
+
   const removePlayer = useCallback(
     async (playerId: string) => {
       setPlayers((prev) => prev.filter((p) => p.id !== playerId));
@@ -152,6 +174,7 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
   );
 
   return {
+    setHandicap,
     playersError,
     claimPlayer,
     players,
