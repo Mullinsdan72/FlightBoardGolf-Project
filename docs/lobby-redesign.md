@@ -1,120 +1,133 @@
 # The lobby: restructuring how a round gets started
 
-Brief from Dan, 30 July 2026, after using the app to set a round up and finding
-it clunky. Reference points are Arccos screenshots, which he likes for the shape
-of the setup screen rather than for its features or its dark styling.
+Brief from Dan, 30 July 2026, refined over several rounds of screenshots from
+another golf app. Reference points are borrowed for **shape**, not for features
+or dark styling.
 
-**Status: agreed, not built.** Written down so it survives the conversation.
+**Status: agreed. Partly built.**
 
-## The idea underneath it
+## Built already
 
-**Two tab bars, not one.**
+- `rounds.scoring_mode` — gross / net / low man belongs to the round, and the
+  leaderboard *ranks* by it rather than mentioning it.
+- `/start` — one screen: course header, favourites, search, six tiles, START ROUND.
+- `Sheet` and `Tile` components; no Save anywhere, the tile is the state.
+- Stars on the chosen course, on cached matches and on online results.
+- COURSE and PLAYERS off the tab bar; the round name on SCORE opens `/start`.
 
-Before a round exists you are in a *lobby*. Once you are in a round, the scoring
-tabs take over. Flight Board today only has the second one, which is why creating
-a round feels like something you do inside an app that already expects you to be
-scoring — and why `/rounds`, `/welcome` and `/setup` all sit awkwardly outside
-the tabs.
+## The target shape
 
-## The lobby — three tabs, shown only when no round is started or joined
+**Six tabs, one bar** (not the two-bar lobby idea from the first draft):
 
 | Tab | Holds |
 | --- | --- |
-| **Start Round** | the whole setup, one screen. Opens here by default. |
-| **Activity** | past rounds (absorbs `/rounds`) |
-| **Player** | your name, handicap, phone, sign out, legal |
+| SCORE | hole-by-hole entry |
+| BOARD | live leaderboard |
+| ACTIVITY | past rounds, one card each |
+| ROUND | the setup screen — course, tiles, START ROUND |
+| ME | your name, handicap, phone, who this device is |
+| GAMES | only while a game is running |
 
-## Start Round — one screen, top to bottom
+`/start` becomes the **ROUND** tab.
 
-1. **Course header** — name, location, hole count, ♥ favourite. The current pick,
-   large.
-2. **Search** — box directly underneath, for anything not already saved.
-3. **Six tiles**, two rows of three. Each shows its current value; tapping opens
-   a bottom sheet.
-4. **A big START ROUND button.**
+### Tiles on ROUND
 
-| Tile | Reads | Sheet offers |
-| --- | --- | --- |
-| WHEN | Today | Today / Tomorrow / pick a date |
-| TEE BOX | Blue · 6433 | every tee, name + yardage |
-| HOLES | All 18 | Front 9 / Back 9 / All 18 |
-| PLAYERS | 4 added | the roster |
-| TEAMS | Net · 2 teams *or* Not playing | the draw |
-| GAMES | Wolf · CTP *or* None | side games |
+TEE BOX · HOLES · SCORING · PLAYERS · TEAMS · GAMES
 
-**No start hole.** Discussed and dropped — the HOLES tile covers what this group
-actually does, and a real starting hole would change what "thru 6" means and
-which segment a back-nine re-draw applies to. Not free, not wanted.
+### The players screen
 
-## The sheet pattern
+Four ways to add somebody, in the order they should appear:
 
-Copied from Arccos as *behaviour*, not styling — Flight Board stays light,
-square-cornered, Archivo.
+1. **From contacts** — preferred, because it captures name *and* number, so an
+   invite can be sent.
+2. **By phone number** — typed. Also invitable.
+3. **By name only** — last resort. Added, never invited, because there is
+   nowhere to send an invite to.
 
-- Rises from the bottom; the page stays visible behind it.
-- Titled, so it says what it is for ("Select Tee").
-- One big thumb-sized row per option.
-- An "Other" escape only where an uncommon case genuinely exists.
-- Cancel gapped away from the choices so it cannot be mis-tapped.
-- **No Save.** Tap a value, the sheet closes, the tile shows it. The tile *is*
-  the state — which is exactly the trap that made USE THESE TEAMS necessary.
+## Decisions taken by default (Dan didn't pick; all cheap to flip)
 
-## What this replaces
+- **Six tabs with single-word labels, sub-labels dropped.** At four tabs the
+  screenshot already showed `LEADERBO…`. Six needs the width.
+- **Invites warn once before sending** while `flightboard://` resolves to
+  nothing. The text still goes; the link starts working the day there's a build.
+- **Picking a contact adds the player; INVITE is a separate tap** on their row.
+  A mis-tapped contact must not text a stranger, and there is no undo on a sent
+  message. It also lets you add four people and invite them together.
 
-`/setup`'s five-step run-through. It was built to Dan's earlier brief for "a
-logical step by step order and flow", and having used it he has changed his mind:
-one screen you can scan beats five you have to walk. The tile grid keeps the
-guidance — a tile with nothing set is visibly empty — without the marching.
+## Problems found, and what to do about them
 
-`SETUP_ORDER`, `STEP_ROUTE`, `stepAfter`/`stepBefore` and `SetupBar` all go, or
-shrink to whatever the tiles need.
+### 1. "Start Round" is the wrong name for a tab
 
-## Activity
+Mid-round, tapping a tab called START ROUND implies abandoning the round you are
+in. It is really *the round's settings*, which is also where a new round starts.
+**Call the tab ROUND.** The new-round action lives inside it as a button, and on
+ACTIVITY as `+ NEW ROUND`.
 
-A card per round, absorbing `/rounds`:
+### 2. Starting a new round while one is unfinished
 
-```
-Gladstan GC                            30 Jul 2026
-Saturday round
+Nothing currently stops a half-played round being replaced by a new one. Scores
+aren't lost — rounds are separate rows — but it looks like loss.
+**Confirm when the current round has posted scores and no signed cards**: "You
+have a round in progress at Gladstan. Start a new one anyway?"
 
-84   +12    18 holes    net 72
+### 3. ACTIVITY and CARD both show past rounds
 
-1  Mike      78   +6
-2  Dan       84  +12   <- you
-3  Steve     91  +19
-4  Rob       94  +22
+CARD grew a past-rounds switcher because CARD was the only door left after FIELD
+was hidden. ACTIVITY makes that redundant.
+**CARD becomes current-round only; the switcher moves to ACTIVITY.**
 
-Wolf, closest to the pin        you won $12
+### 4. `/rounds` stops having a job
 
-[ CARD ]  [ BOARD ]  [ MONEY ]  [ ... ]
-```
+It lists rounds (ACTIVITY does that) and creates them (ROUND and ACTIVITY do
+that). **Delete it once both are built** — not before, because it is still the
+only way to delete a round.
 
-Your score big at the top, the full finishing order under it, and what the round
-settled at. Arccos shows FWY/GIR/UP&DN/PUTTS there; we have no shot tracking and
-should not pretend otherwise — the money is our equivalent and is more
-interesting.
+### 5. A manually-added player cannot be invited
 
-## Open questions
+Correct by design, but a dead INVITE button is worse than none.
+**Say why on the row**: "no number — added by hand".
 
-- **Should gross / net / off-the-low-man become a round-level tile** governing
-  the leaderboard, rather than living inside TEAMS where it only affects team
-  standings? More honest than "net" meaning two different things. Bigger change
-  than it looks, and it touches money.
-- **Handicap Index instead of a typed integer.** We already store slope and
-  rating per tee, so `Index x (Slope / 113) + (Rating - Par)` would give a real
-  course handicap per tee. More correct, more work.
-  - **If we do this, tees can no longer be collapsed by name.** Gladstan's men's
-    and women's Gold share a yardage but not a rating, so merging them would
-    quietly hand somebody the wrong stroke count. They would need distinguishing
-    by rating (`5295 yds · 70.1 / 124`) rather than by gender symbol — which is
-    both more useful and closer to what Dan asked for.
-  - Without it, collapsing same-named tees is safe, because nothing we compute
-    reads rating or slope.
+### 6. The same person added twice
 
-## Not possible: connecting a USGA/GHIN handicap
+Contacts, then typed by hand, gives two rows and two scorecards.
+**Match on phone number** using `samePhone` from `src/lib/phone.ts`, which
+already normalises the five spellings; keep the existing duplicate-name warning
+for people with no number.
 
-Arccos has a "Connect USGA HDCP ID" flow. GHIN data is licensed through the USGA
-and the allied golf associations, and Arccos is an official partner — there is no
-public API to call. This is a partnership, not an integration, and should be
-planned around rather than attempted. Storing a GHIN number as a display-only
-reference is fine; fetching an index by it is not.
+### 7. "Course not listed?" must not show search
+
+The manual card form currently lives inside the Course tab, which also has
+search — the redundancy Dan flagged.
+**Give the form its own route** with no search on it: title, tee, then par,
+yardage and stroke index per hole, and one **SAVE AND USE CARD** which sets it as
+the round's course and returns to ROUND.
+
+### 8. ME needs a player before it can show anything
+
+Identity is per-device (`myId`), and a fresh phone has none.
+**ME absorbs the player picker** — it is the natural home for "who is this phone",
+and it retires "NOT YOU?" from the bottom of SCORE.
+
+### 9. Empty tabs before a round exists
+
+SCORE, BOARD and CARD are meaningless with no course and no players.
+**Keep the existing redirect**: with no round, land on ROUND. With a round but no
+card, the tiles show what is missing — which is what they are for.
+
+### 10. TEAMS is reachable twice
+
+A TEAMS tile on ROUND, and a TEAMS row inside the players screen.
+**Drop the row**; the tile is the door.
+
+## Still not possible
+
+Connecting a USGA/GHIN handicap. GHIN data is licensed through the USGA and the
+allied golf associations, and Arccos is an official partner — there is no public
+API. Storing a GHIN number as a display-only reference is fine; fetching an index
+by it is not.
+
+## Still open
+
+- Handicaps stay a typed integer (decided). Revisiting means a real Handicap
+  Index, and **tees could then no longer be collapsed by name** — men's and
+  women's Gold share a yardage but not a rating.
