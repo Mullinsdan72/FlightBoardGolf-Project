@@ -48,9 +48,19 @@ export default function SignInScreen() {
     cancelCode();
   };
 
+  // Every screen needs a door out, and this one had none: you arrived by tapping
+  // a link, and the only exit was a code that cannot arrive until the carrier
+  // registration clears. That is a trap, not a sign-in screen.
+  const leave = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
   return (
     <View style={styles.screen}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
+        <Pressable onPress={leave} style={styles.backBtn} hitSlop={10}>
+          <Text style={styles.backArrow}>‹</Text>
+          <Text style={styles.backLabel}>BACK</Text>
+        </Pressable>
+
         <Wordmark width={220} />
 
         {!sent ? (
@@ -134,6 +144,15 @@ export default function SignInScreen() {
         )}
 
         {(problem || authError) && <Text style={styles.errorText}>{problem ?? authError}</Text>}
+
+        <Pressable onPress={leave} style={styles.secondaryBtn}>
+          <Text style={styles.secondaryLabel}>SKIP FOR NOW — PICK A NAME INSTEAD</Text>
+          <Text style={styles.secondaryArrow}>›</Text>
+        </Pressable>
+        <Text style={styles.consent}>
+          Signing in is optional while the round is just you and your regular group. It becomes the way in once
+          invites go out to people who aren’t on this phone.
+        </Text>
       </ScrollView>
     </View>
   );
@@ -141,7 +160,10 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  scroll: { paddingTop: 72, paddingHorizontal: 20, paddingBottom: 40 },
+  scroll: { paddingTop: 64, paddingHorizontal: 20, paddingBottom: 40 },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 18 },
+  backArrow: { fontFamily: font.heading, fontSize: 20, color: colors.accent, lineHeight: 22 },
+  backLabel: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.7, color: colors.accent },
   lede: { fontFamily: font.body, fontSize: 13.5, lineHeight: 21, color: colors.muted, marginTop: 18 },
   fieldLabel: {
     fontFamily: font.bodySemi,
