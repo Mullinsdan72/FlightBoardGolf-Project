@@ -3,7 +3,10 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { PLAYERS as SEED_PLAYERS } from '@/data/seed';
 import type { SeedPlayer } from '@/data/seed';
 
-type Row = { player_id: string; players: { id: string; name: string; handicap: number; user_id: string | null } | null };
+type Row = {
+  player_id: string;
+  players: { id: string; name: string; handicap: number; user_id: string | null; phone: string | null } | null;
+};
 
 // The round's actual roster — who's in this group.
 //
@@ -22,7 +25,7 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
   const refresh = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase || !roundId) return;
     const [rosterRes, roundRes] = await Promise.all([
-      supabase.from('round_players').select('player_id, players(id, name, handicap, user_id)').eq('round_id', roundId),
+      supabase.from('round_players').select('player_id, players(id, name, handicap, user_id, phone)').eq('round_id', roundId),
       supabase.from('rounds').select('organizer_player_id').eq('id', roundId).maybeSingle(),
     ]);
     if (rosterRes.error || !rosterRes.data) {
@@ -42,7 +45,7 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
       rows
         .map((r) => r.players)
         .filter((p): p is NonNullable<Row['players']> => p != null)
-        .map((p) => ({ id: p.id, name: p.name, handicap: p.handicap, userId: p.user_id ?? null }))
+        .map((p) => ({ id: p.id, name: p.name, handicap: p.handicap, userId: p.user_id ?? null, phone: p.phone ?? null }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     );
     setOrganizerId((roundRes.data as any)?.organizer_player_id ?? null);
@@ -85,16 +88,16 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
   // created — which is what joining from an invite link needs. Null means the
   // add failed and nothing was created.
   const addPlayer = useCallback(
-    async (name: string, handicap: number): Promise<string | null> => {
+    async (name: string, handicap: number, phone: string | null = null): Promise<string | null> => {
       if (!isSupabaseConfigured || !supabase || !roundId) {
         // Local-only fallback: keep it in memory for this session.
         const localId = `local-${Date.now()}`;
-        setPlayers((prev) => [...prev, { id: localId, name, handicap }]);
+        setPlayers((prev) => [...prev, { id: localId, name, handicap, phone }]);
         return localId;
       }
       const { data: inserted, error: playerErr } = await supabase
         .from('players')
-        .insert({ name, handicap })
+        .insert({ name, handicap, phone })
         .select('id')
         .single();
       if (playerErr || !inserted) {
@@ -156,6 +159,29 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
     [refresh],
   );
 
+  /**
+   * Give an existing player a number.
+   *
+   * Somebody added by name alone can never be invited and can never claim their
+   * own row — phone sign-in matches accounts to players by number. Without this
+   * that is a one-way door: the guest who later wants the app would need a
+   * second player row, and a second scorecard.
+   */
+  const setPhone = useCallback(
+    async (playerId: string, phone: string | null): Promise<string | null> => {
+      setPlayers((prev) => prev.map((p) => (p.id === playerId ? { ...p, phone } : p)));
+      if (!isSupabaseConfigured || !supabase) return null;
+      const { error } = await supabase.from('players').update({ phone }).eq('id', playerId);
+      if (error) {
+        console.warn('setPhone failed:', error.message);
+        await refresh();
+        return error.message;
+      }
+      return null;
+    },
+    [refresh],
+  );
+
   const removePlayer = useCallback(
     async (playerId: string) => {
       setPlayers((prev) => prev.filter((p) => p.id !== playerId));
@@ -175,6 +201,7 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
 
   return {
     setHandicap,
+    setPhone,
     playersError,
     claimPlayer,
     players,

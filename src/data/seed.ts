@@ -33,7 +33,7 @@ export const HOLES: Hole[] = [
 
 // `userId` is who owns this row once accounts exist — null means unclaimed,
 // which is the normal state for most of a field rather than an error.
-export type SeedPlayer = { id: string; name: string; handicap: number; userId?: string | null };
+export type SeedPlayer = { id: string; name: string; handicap: number; userId?: string | null; phone?: string | null };
 
 // Matches design/prototype's PLAYERS — group 12, four hard-coded golfers.
 export const PLAYERS: SeedPlayer[] = [

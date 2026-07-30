@@ -1,88 +1,165 @@
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
+import * as SMS from 'expo-sms';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
+import { pickContact } from '@/lib/contacts';
+import { APP_STORE_URL, cleanName, inviteMessage } from '@/lib/invite';
+import { isPhoneValid, prettyPhone, samePhone, toE164 } from '@/lib/phone';
 import { thruFor } from '@/lib/roundMath';
-import { formatName, handicapName } from '@/lib/teams';
 import { colors, font } from '@/theme';
 
+type Adding = null | 'number' | 'name';
+
+/**
+ * Who is playing.
+ *
+ * Three ways in, in the order they should be reached for:
+ *
+ *   1. **Contacts** — best, because it captures a name *and* a number in one
+ *      tap. The number is what makes an invite possible and what lets that
+ *      person claim their own row when they later sign in.
+ *   2. **A typed number** — same benefits, for somebody not in your phone.
+ *   3. **A name alone** — the guest who doesn't want the app. Added, never
+ *      invited, because there is nowhere to send an invite to.
+ *
+ * Adding and inviting are deliberately two actions. Sending a text is
+ * outward-facing and cannot be undone, so a mistapped contact must not already
+ * have messaged a stranger — and it lets you add four people, then invite them
+ * together.
+ */
 export default function PlayersScreen() {
   const {
-    myId,
     players,
+    playersLoaded,
+    playersError,
     addPlayer,
     removePlayer,
+    myId,
     scores,
     holes,
-    organizerId,
-    amOrganizer,
-    claimOrganizer,
     activeRound,
-    teams,
+    activeRoundId,
+    course,
   } = useRound();
+
+  const [adding, setAdding] = useState<Adding>(null);
   const [name, setName] = useState('');
+  const [phone, setPhoneInput] = useState('');
   const [handicap, setHandicap] = useState('');
   const [busy, setBusy] = useState(false);
-  // Who's being replaced, if anyone. A swap is the same form as an add, with the
-  // outgoing player taken off once the incoming one is in.
   const [swapping, setSwapping] = useState<string | null>(null);
 
-  const organizerName = organizerId ? (players.find((p) => p.id === organizerId)?.name ?? null) : null;
-
-  const trimmedName = name.trim();
-  const parsedHandicap = handicap.trim() === '' ? 0 : Number(handicap.trim());
-  const handicapValid = Number.isInteger(parsedHandicap) && parsedHandicap >= 0 && parsedHandicap <= 54;
-  const canAdd = trimmedName.length > 0 && handicapValid && !busy;
-
   const swappingFor = swapping ? players.find((p) => p.id === swapping) : null;
+  const tidy = cleanName(name);
+  const parsedHandicap = handicap.trim() === '' ? 0 : Number(handicap.trim());
+  const handicapOk = Number.isFinite(parsedHandicap) && parsedHandicap >= 0 && parsedHandicap <= 54;
+  const canAdd = tidy.length > 0 && handicapOk && !busy && (adding !== 'number' || isPhoneValid(phone));
 
-  /**
-   * Add a player, or put one in somebody else's place.
-   *
-   * A substitution is add-then-remove rather than a rename, because they're two
-   * different golfers: the person who dropped out keeps whatever they posted, and
-   * the one taking their place starts on a clean card. Renaming would hand a
-   * stranger someone else's scores.
-   */
+  const reset = () => {
+    setName('');
+    setPhoneInput('');
+    setHandicap('');
+    setAdding(null);
+    setSwapping(null);
+  };
+
+  /** Add somebody, having checked they aren't already here twice over. */
+  const commit = async (who: { name: string; phone: string | null }) => {
+    // A number is the only reliable identity we have, so it is checked first.
+    // The same person picked from contacts and typed by hand must not become two
+    // players with two scorecards.
+    if (who.phone) {
+      const clash = players.find((p) => p.phone && samePhone(p.phone, who.phone!));
+      if (clash) {
+        Alert.alert('Already in the round', `${clash.name} is already playing on that number.`);
+        return;
+      }
+    }
+    const sameName = players.find((p) => p.name.toLowerCase() === who.name.toLowerCase());
+    if (sameName) {
+      const go = await new Promise<boolean>((resolve) =>
+        Alert.alert(
+          `${who.name} is already in this round`,
+          'Two of the same name is confusing on a leaderboard, but two people really can share one. Add them anyway?',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Add anyway', onPress: () => resolve(true) },
+          ],
+        ),
+      );
+      if (!go) return;
+    }
+
+    setBusy(true);
+    const added = await addPlayer(who.name, parsedHandicap, who.phone);
+    // A swap adds before it removes, so a failed add can never leave the round
+    // a player short.
+    if (added && swappingFor) await removePlayer(swappingFor.id);
+    setBusy(false);
+    reset();
+  };
+
+  const fromContacts = async () => {
+    const out = await pickContact();
+    if (!out.ok) {
+      if (out.reason === 'denied') {
+        Alert.alert(
+          'Contacts not allowed',
+          'Flight Board can only read your contacts if you allow it in Settings. You can always type someone in instead.',
+        );
+      } else if (out.reason === 'noName') {
+        Alert.alert(
+          'Could not read a name from that contact',
+          'It may only have a company or an email on it. Type them in by hand instead.',
+        );
+      }
+      return;
+    }
+    await commit(out.contact);
+  };
+
   const submit = async () => {
     if (!canAdd) return;
-    setBusy(true);
-    const added = await addPlayer(trimmedName, parsedHandicap);
-    if (added && swappingFor) {
-      await removePlayer(swappingFor.id);
+    await commit({ name: tidy, phone: adding === 'number' ? toE164(phone) : null });
+  };
+
+  /**
+   * Text somebody the link to this round.
+   *
+   * Warns first, because `flightboard://` resolves to nothing until there is a
+   * real build — the message arrives, the link does nothing, and your friend
+   * asks why. Better they hear that from you than watch it fail. The same text
+   * starts working the day the build lands, unchanged.
+   */
+  const invite = async (playerId: string) => {
+    const who = players.find((p) => p.id === playerId);
+    if (!who?.phone || !activeRoundId) return;
+
+    if (!APP_STORE_URL) {
+      const go = await new Promise<boolean>((resolve) =>
+        Alert.alert(
+          'Invite links do not open yet',
+          `${who.name} will get the message, but the link won't open Flight Board until the app is properly installed rather than run through Expo Go. Send it anyway?`,
+          [
+            { text: 'Not yet', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Send anyway', onPress: () => resolve(true) },
+          ],
+        ),
+      );
+      if (!go) return;
     }
-    setName('');
-    setHandicap('');
-    setSwapping(null);
-    setBusy(false);
-  };
 
-  // claimOrganizer reports why it failed; a button that silently does nothing is
-  // indistinguishable from a missing database column, which is exactly how this
-  // went wrong the first time.
-  const setOrganizer = async (playerId: string | null) => {
-    const message = await claimOrganizer(playerId);
-    if (message) Alert.alert('Could not change who is running the round', message);
-  };
-
-  const confirmRemove = (playerId: string, playerName: string) => {
-    const played = thruFor(holes, scores, playerId);
-    const warning =
-      played > 0
-        ? `${playerName} has ${played} hole${played === 1 ? '' : 's'} posted. Removing them takes them off this round — their posted scores stay in the database but stop showing on the board.`
-        : `Remove ${playerName} from this round?`;
-    Alert.alert('Remove player', warning, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => removePlayer(playerId) },
-    ]);
+    if (!(await SMS.isAvailableAsync())) {
+      Alert.alert('No messaging on this device', 'Send them the link from a phone that can text.');
+      return;
+    }
+    await SMS.sendSMSAsync([who.phone], inviteMessage({ roundId: activeRoundId, roundName: activeRound?.name ?? '' }));
   };
 
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        {/* This screen is no longer a tab — it is reached from the PLAYERS tile
-            on /start — so it needs a way back of its own. A tab screen without a
-            tab is a room with the door bricked up. */}
         <Pressable
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/round'))}
           hitSlop={10}
@@ -91,79 +168,64 @@ export default function PlayersScreen() {
           <Text style={styles.backArrow}>‹</Text>
           <Text style={styles.backLabel}>ROUND SETUP</Text>
         </Pressable>
-        <Text style={styles.kicker}>{activeRound?.name || 'Round'}</Text>
+        <Text style={styles.kicker}>
+          {[activeRound?.name, course?.courseName].filter(Boolean).join(' · ') || 'Round'}
+        </Text>
         <Text style={styles.title}>Players</Text>
       </View>
 
-      <View style={styles.statsRow}>
-        <View style={styles.statCell}>
-          <Text style={styles.statVal}>{players.length}</Text>
-          <Text style={styles.statLabel}>Players</Text>
-        </View>
-        <View style={styles.statCell}>
-          <Text style={styles.statVal}>1</Text>
-          <Text style={styles.statLabel}>Group</Text>
-        </View>
-        <View style={[styles.statCell, { borderRightWidth: 0 }]}>
-          <Text style={[styles.statVal, { color: colors.accent }]}>
-            {players.filter((p) => thruFor(holes, scores, p.id) > 0).length}
-          </Text>
-          <Text style={styles.statLabel}>Started</Text>
-        </View>
-      </View>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }}>
+        {playersError && <Text style={styles.error}>{playersError}</Text>}
 
-      <ScrollView keyboardShouldPersistTaps="handled">
-        <Text style={styles.sectionLabel}>Running this round</Text>
-        <View style={styles.organizerBlock}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.organizerName}>
-              {organizerName ?? 'Nobody yet'}
-              {amOrganizer ? ' (you)' : ''}
-            </Text>
-            <Text style={styles.organizerNote}>
-              Whoever's running the round picks the course, sets up the games, and can reopen a signed card. With no
-              sign-in anyone can take it over, so this records who's in charge rather than truly restricting anything.
-            </Text>
-          </View>
-          {myId && !amOrganizer && (
-            <Pressable onPress={() => setOrganizer(myId)} style={styles.claimBtn}>
-              <Text style={styles.claimLabel}>THAT'S ME</Text>
-            </Pressable>
-          )}
-          {amOrganizer && (
-            <Pressable onPress={() => setOrganizer(null)} style={styles.claimBtn}>
-              <Text style={styles.claimLabel}>HAND OVER</Text>
-            </Pressable>
-          )}
-        </View>
+        <Text style={styles.sectionLabel}>Playing this round · {players.length}</Text>
+        {!playersLoaded && <Text style={styles.note}>Loading…</Text>}
+        {playersLoaded && players.length === 0 && (
+          <Text style={styles.note}>Nobody yet. Add everyone playing, starting with yourself.</Text>
+        )}
 
-        <Text style={styles.sectionLabel}>Playing this round</Text>
         {players.map((p) => {
           const played = thruFor(holes, scores, p.id);
           return (
-            <View key={p.id} style={[styles.playerRow, p.id === myId && styles.rowYou]}>
-              <View style={[styles.dot, { backgroundColor: played > 0 ? colors.accent : colors.dividerFaint }]} />
-              <View style={styles.playerNameCol}>
-                <Text style={styles.playerName}>{p.id === myId ? `${p.name} (you)` : p.name}</Text>
-                <Text style={styles.playerMeta}>
+            <View key={p.id} style={[styles.row, p.id === myId && styles.rowYou]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowName}>
+                  {p.name}
+                  {p.id === myId ? ' (you)' : ''}
+                </Text>
+                <Text style={styles.rowMeta}>
                   HCP {p.handicap} · {played > 0 ? `${played} played` : 'not started'}
+                  {p.phone ? ` · ${prettyPhone(p.phone)}` : ' · no number'}
                 </Text>
               </View>
+
+              {/* A dead INVITE button is worse than none, so somebody added by
+                  name alone simply doesn't get one. */}
+              {p.phone && p.id !== myId && (
+                <Pressable onPress={() => invite(p.id)} style={styles.rowBtn} hitSlop={6}>
+                  <Text style={styles.rowBtnLabel}>INVITE</Text>
+                </Pressable>
+              )}
               <Pressable
                 onPress={() => {
                   setSwapping((prev) => (prev === p.id ? null : p.id));
-                  setName('');
-                  setHandicap('');
+                  setAdding('name');
                 }}
-                style={[styles.removeBtn, swapping === p.id && styles.swapBtnOn]}
-                hitSlop={8}
+                style={styles.rowBtn}
+                hitSlop={6}
               >
-                <Text style={[styles.removeLabel, swapping === p.id && styles.swapLabelOn]}>
-                  {swapping === p.id ? 'SWAPPING' : 'SWAP'}
-                </Text>
+                <Text style={[styles.rowBtnLabel, swapping === p.id && { color: colors.accent }]}>SWAP</Text>
               </Pressable>
-              <Pressable onPress={() => confirmRemove(p.id, p.name)} style={styles.removeBtn} hitSlop={8}>
-                <Text style={styles.removeLabel}>REMOVE</Text>
+              <Pressable
+                onPress={() =>
+                  Alert.alert(`Remove ${p.name}?`, 'Their scores for this round go with them.', [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Remove', style: 'destructive', onPress: () => removePlayer(p.id) },
+                  ])
+                }
+                style={styles.rowBtn}
+                hitSlop={6}
+              >
+                <Text style={[styles.rowBtnLabel, { color: colors.mutedFaint }]}>×</Text>
               </Pressable>
             </View>
           );
@@ -173,81 +235,92 @@ export default function PlayersScreen() {
           {swappingFor ? `Who is playing instead of ${swappingFor.name}` : 'Add a player'}
         </Text>
         {swappingFor && (
-          <Text style={styles.swapNote}>
-            {thruFor(holes, scores, swappingFor.id) > 0
-              ? `${swappingFor.name} has holes posted. They keep them, but come off the board — the player you add starts on a clean card.`
-              : `${swappingFor.name} comes off the round as soon as their replacement is in.`}
-          </Text>
-        )}
-        <View style={styles.addBlock}>
-          <Text style={styles.fieldLabel}>Name</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="First and last"
-            placeholderTextColor={colors.ghost}
-            style={styles.input}
-            autoCapitalize="words"
-            returnKeyType="next"
-          />
-          <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Handicap</Text>
-          <TextInput
-            value={handicap}
-            onChangeText={setHandicap}
-            placeholder="0"
-            placeholderTextColor={colors.ghost}
-            style={styles.input}
-            keyboardType="number-pad"
-            returnKeyType="done"
-            onSubmitEditing={submit}
-          />
-          {handicap.trim() !== '' && !handicapValid && (
-            <Text style={styles.errorText}>Handicap must be a whole number from 0 to 54.</Text>
-          )}
-        </View>
-
-        {swappingFor && (
-          <Pressable onPress={() => setSwapping(null)} style={styles.cancelSwap}>
-            <Text style={styles.cancelSwapLabel}>CANCEL THE SWAP</Text>
+          <Pressable onPress={reset} style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
+            <Text style={styles.cancelSwap}>CANCEL THE SWAP</Text>
           </Pressable>
         )}
-        <Pressable onPress={submit} disabled={!canAdd} style={[styles.addBtn, !canAdd && styles.addBtnDisabled]}>
-          <Text style={styles.addBtnLabel}>
-            {busy
-              ? swappingFor
-                ? 'SWAPPING…'
-                : 'ADDING…'
-              : swappingFor
-                ? `REPLACE ${swappingFor.name.toUpperCase()}`
-                : 'ADD TO THE ROUND'}
-          </Text>
-          <Text style={styles.addBtnArrow}>→</Text>
+
+        {/* Contacts first, on purpose: the only route that captures a name and a
+            number in one tap, and the number is what makes both the invite and a
+            future claim possible. */}
+        <Pressable onPress={fromContacts} style={styles.bigBtn}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bigLabel}>FROM MY CONTACTS</Text>
+            <Text style={styles.bigNote}>Name and number in one tap. Nothing is uploaded.</Text>
+          </View>
+          <Text style={styles.bigArrow}>›</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push('/(tabs)/round')} style={styles.teamsBtn}>
+        <Pressable onPress={() => setAdding(adding === 'number' ? null : 'number')} style={styles.bigBtn}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.teamsLabel}>SET UP THE ROUND</Text>
-            <Text style={styles.teamsNote}>Step by step: course, players, invites, teams, games</Text>
+            <Text style={styles.bigLabel}>BY PHONE NUMBER</Text>
+            <Text style={styles.bigNote}>For someone not in your phone. Can be invited.</Text>
           </View>
-          <Text style={styles.teamsArrow}>›</Text>
+          <Text style={styles.bigArrow}>{adding === 'number' ? '⌃' : '›'}</Text>
         </Pressable>
 
-        {/* Players, then teams, then side games — the design's own step order. */}
-        <Pressable onPress={() => router.push('/teams')} style={styles.teamsBtn}>
+        <Pressable onPress={() => setAdding(adding === 'name' ? null : 'name')} style={styles.bigBtn}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.teamsLabel}>TEAMS</Text>
-            <Text style={styles.teamsNote}>
-              {teams.enabled
-                ? `${formatName(teams.format)} ${handicapName(teams.handicapMode)} · ${teams.count} team${teams.count === 1 ? '' : 's'} of ${teams.size}`
-                : 'Best ball or team total, drawn by handicap'}
-            </Text>
+            <Text style={styles.bigLabel}>JUST A NAME</Text>
+            <Text style={styles.bigNote}>The guest who doesn’t want the app. No invite.</Text>
           </View>
-          <Text style={styles.teamsArrow}>›</Text>
+          <Text style={styles.bigArrow}>{adding === 'name' ? '⌃' : '›'}</Text>
         </Pressable>
+
+        {adding && (
+          <View style={styles.form}>
+            <Text style={styles.fieldLabel}>Name</Text>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="First and last"
+              placeholderTextColor={colors.ghost}
+              style={styles.input}
+              autoCapitalize="words"
+            />
+
+            {adding === 'number' && (
+              <>
+                <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Mobile number</Text>
+                <TextInput
+                  value={phone}
+                  onChangeText={setPhoneInput}
+                  placeholder="(555) 123-4567"
+                  placeholderTextColor={colors.ghost}
+                  style={styles.input}
+                  keyboardType="phone-pad"
+                />
+                {phone.trim() !== '' && !isPhoneValid(phone) && (
+                  <Text style={styles.error}>That doesn’t look like a phone number yet.</Text>
+                )}
+              </>
+            )}
+
+            <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Handicap</Text>
+            <TextInput
+              value={handicap}
+              onChangeText={setHandicap}
+              placeholder="0"
+              placeholderTextColor={colors.ghost}
+              style={styles.input}
+              keyboardType="number-pad"
+              onSubmitEditing={submit}
+            />
+            {!handicapOk && <Text style={styles.error}>Use a whole number between 0 and 54.</Text>}
+
+            <Pressable onPress={submit} disabled={!canAdd} style={[styles.addBtn, !canAdd && styles.addOff]}>
+              <Text style={styles.addLabel}>
+                {busy ? 'ADDING…' : swappingFor ? `REPLACE ${swappingFor.name.toUpperCase()}` : 'ADD TO THE ROUND'}
+              </Text>
+              <Text style={styles.addArrow}>→</Text>
+            </Pressable>
+          </View>
+        )}
 
         <Text style={styles.note}>
-          Everyone here shows up in score entry's group view, on the leaderboard, and in the scorer mode that posts for
-          the whole group. Adding by phone number and texting the round link come with sign-in, in a later phase.
+          Adding somebody and inviting them are two separate taps. Anyone with a number gets an INVITE button on their
+          row, so a mistapped contact can never text a stranger — and you can add everyone first, then invite them
+          together.
         </Text>
       </ScrollView>
     </View>
@@ -256,16 +329,12 @@ export default function PlayersScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
   backArrow: { fontFamily: font.heading, fontSize: 20, color: colors.accent, lineHeight: 22 },
   backLabel: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.7, color: colors.accent },
-  header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
-  kicker: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.accent },
+  kicker: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase', color: colors.accent },
   title: { fontFamily: font.heading, fontSize: 28, letterSpacing: -0.6, marginTop: 8, color: colors.text },
-  statsRow: { flexDirection: 'row', borderTopWidth: 2, borderBottomWidth: 2, borderColor: colors.divider },
-  statCell: { flex: 1, paddingVertical: 12, paddingHorizontal: 16, borderRightWidth: 1, borderColor: colors.divider },
-  statVal: { fontFamily: font.heading, fontSize: 26, color: colors.text },
-  statLabel: { fontFamily: font.bodySemi, fontSize: 9.5, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.muted, marginTop: 5 },
   sectionLabel: {
     fontFamily: font.bodySemi,
     fontSize: 10,
@@ -273,80 +342,61 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: colors.muted,
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 24,
     paddingBottom: 10,
   },
-  playerRow: {
+  note: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, paddingHorizontal: 20, paddingTop: 14 },
+  error: { fontFamily: font.body, fontSize: 11.5, color: colors.accent, paddingHorizontal: 20, paddingTop: 8 },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
+    gap: 6,
     paddingHorizontal: 20,
+    paddingVertical: 13,
     borderTopWidth: 1,
     borderColor: colors.divider,
   },
   rowYou: { backgroundColor: 'rgba(236,48,19,0.06)' },
-  organizerBlock: {
+  rowName: { fontFamily: font.heading, fontSize: 15, color: colors.text },
+  rowMeta: { fontFamily: font.body, fontSize: 11, color: colors.muted, marginTop: 3 },
+  rowBtn: { paddingHorizontal: 7, paddingVertical: 6 },
+  rowBtnLabel: { fontFamily: font.heading, fontSize: 11, letterSpacing: 0.5, color: colors.text },
+  cancelSwap: { fontFamily: font.heading, fontSize: 11.5, letterSpacing: 0.6, color: colors.accent },
+  bigBtn: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 2,
-    borderColor: colors.divider,
+    marginHorizontal: 20,
+    marginTop: 10,
+    backgroundColor: '#e7e4e2',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
   },
-  organizerName: { fontFamily: font.heading, fontSize: 15, color: colors.text },
-  organizerNote: { fontFamily: font.body, fontSize: 11, lineHeight: 16, color: colors.muted, marginTop: 5 },
-  claimBtn: { borderWidth: 2, borderColor: colors.text, paddingVertical: 9, paddingHorizontal: 11 },
-  claimLabel: { fontFamily: font.heading, fontSize: 10, letterSpacing: 0.9, color: colors.text },
-  dot: { width: 9, height: 9 },
-  playerNameCol: { flex: 1 },
-  playerName: { fontFamily: font.heading, fontSize: 15, color: colors.text },
-  playerMeta: { fontFamily: font.body, fontSize: 11, color: colors.muted, marginTop: 4 },
-  removeBtn: { borderWidth: 1, borderColor: colors.divider, paddingVertical: 7, paddingHorizontal: 9 },
-  removeLabel: { fontFamily: font.heading, fontSize: 10, letterSpacing: 0.8, color: colors.mutedFaint },
-  swapBtnOn: { backgroundColor: colors.accent, borderColor: colors.accent },
-  swapLabelOn: { color: '#fff' },
-  swapNote: { fontFamily: font.body, fontSize: 11.5, lineHeight: 17, color: colors.text, paddingHorizontal: 20, paddingBottom: 12 },
-  cancelSwap: { paddingHorizontal: 20, paddingTop: 14 },
-  cancelSwapLabel: { fontFamily: font.heading, fontSize: 10.5, letterSpacing: 0.9, color: colors.accent },
-  addBlock: { paddingHorizontal: 20, paddingBottom: 4, borderTopWidth: 1, borderColor: colors.divider, paddingTop: 16 },
+  bigLabel: { fontFamily: font.heading, fontSize: 13.5, letterSpacing: 0.5, color: colors.text },
+  bigNote: { fontFamily: font.body, fontSize: 11, color: colors.muted, marginTop: 4 },
+  bigArrow: { fontFamily: font.heading, fontSize: 17, color: colors.ghost },
+  form: { paddingHorizontal: 20, paddingTop: 18 },
   fieldLabel: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase', color: colors.muted },
   input: {
     fontFamily: font.heading,
-    fontSize: 22,
+    fontSize: 20,
     color: colors.text,
     borderBottomWidth: 2,
     borderColor: colors.text,
     paddingVertical: 8,
     marginTop: 8,
   },
-  errorText: { fontFamily: font.body, fontSize: 11.5, color: colors.accent, marginTop: 10 },
   addBtn: {
-    marginTop: 20,
-    height: 72,
+    marginTop: 22,
+    height: 68,
     backgroundColor: colors.accent,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
   },
-  addBtnDisabled: { opacity: 0.35 },
-  addBtnLabel: { fontFamily: font.heading, fontSize: 17, letterSpacing: 0.3, color: '#fff' },
-  addBtnArrow: { fontFamily: font.heading, fontSize: 20, color: '#fff' },
-  note: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, padding: 20 },
-  teamsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 2,
-    borderBottomWidth: 2,
-    borderColor: colors.divider,
-  },
-  teamsLabel: { fontFamily: font.heading, fontSize: 14, letterSpacing: 0.4, color: colors.text },
-  teamsNote: { fontFamily: font.body, fontSize: 11, color: colors.muted, marginTop: 5 },
-  teamsArrow: { fontFamily: font.heading, fontSize: 18, color: colors.ghost },
+  addOff: { opacity: 0.35 },
+  addLabel: { fontFamily: font.heading, fontSize: 15, letterSpacing: 0.3, color: '#fff' },
+  addArrow: { fontFamily: font.heading, fontSize: 19, color: '#fff' },
 });
