@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useActiveRound } from '@/hooks/useActiveRound';
 import { useLiveScores } from '@/hooks/useLiveScores';
+import { usePhoneAuth } from '@/hooks/usePhoneAuth';
 import { usePlayerIdentity } from '@/hooks/usePlayerIdentity';
 import { useRoundCourse } from '@/hooks/useRoundCourse';
 import { useHoleGames } from '@/hooks/useHoleGames';
@@ -12,6 +13,7 @@ type RoundContextValue = ReturnType<typeof useLiveScores> &
   ReturnType<typeof useRoundPlayers> &
   ReturnType<typeof useRoundCourse> &
   ReturnType<typeof usePlayerIdentity> &
+  ReturnType<typeof usePhoneAuth> &
   ReturnType<typeof useWolf> &
   ReturnType<typeof useTeams> &
   ReturnType<typeof useHoleGames> &
@@ -36,6 +38,10 @@ const RoundContext = createContext<RoundContextValue | null>(null);
 //    tab immediately, not just the one that made the change.
 export function RoundProvider({ children }: { children: ReactNode }) {
   const identity = usePlayerIdentity();
+  // Signing in proves whose phone this is. Which player row that person is in a
+  // given round stays `usePlayerIdentity`'s job for now — the two are separate
+  // on purpose, and joining a round is never automatic.
+  const auth = usePhoneAuth();
   const round = useActiveRound();
   const roundId = round.activeRoundId;
   const scores = useLiveScores(roundId);
@@ -47,7 +53,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   const holeGames = useHoleGames(roundId, playerIds);
   return (
     <RoundContext.Provider
-      value={{ ...identity, ...round, ...scores, ...roster, ...course, ...wolf, ...teams, ...holeGames }}
+      value={{ ...identity, ...auth, ...round, ...scores, ...roster, ...course, ...wolf, ...teams, ...holeGames }}
     >
       {children}
     </RoundContext.Provider>

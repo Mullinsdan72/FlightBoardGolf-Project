@@ -130,10 +130,28 @@ everywhere in this codebase, not just the screens they were first written for.
   idempotent). It seeds nothing: rounds and players are both created in the app, and a
   seeded row nobody created is what caused the filler data that couldn't be deleted.
   `supabase/reset.sql` wipes everything back to that empty state.
-- RLS policies in `supabase/schema.sql` currently allow full anon access. That's deliberate
-  for now — there's no sign-in yet, so there's no identity to scope by — but it must be
-  replaced with policies scoped to a real signed-in user before anyone but the developer
-  uses this for real (Build Guide Phase 2).
+- RLS policies in `supabase/schema.sql` still allow full anon access, and that is now the
+  **single most important open item**. Phone sign-in exists (`supabase/auth.sql`,
+  `usePhoneAuth`, `/signin`) but the policies have not been flipped, because flipping them
+  before everyone has signed in and claimed a player would make every existing round
+  invisible to its own players. The order is fixed and must be kept:
+    1. `supabase/auth.sql` + phone sign-in in the app — **done**
+    2. everyone signs in once and claims their player row — *not done*
+    3. `supabase/rls.sql`, the actual lockdown — *not written*
+  Step 3 is the one no tap in the app can undo, so it goes last.
+- **Signing in and being a player are two different things.** `usePhoneAuth` proves whose
+  phone this is; `usePlayerIdentity` still decides which player row this device is. Don't
+  collapse them — a link that seated whoever opened it is the same mistake as an invite that
+  auto-joins, and `players.user_id` being null is the *normal* state for most of a field
+  (an organizer types Steve in long before Steve opens the app).
+- `claim_player()` and `my_players()` are `security definer` because `players.user_id` must
+  never be writable directly. Writing it directly is "claim anybody", including the
+  organizer — the one row that decides who can reopen a signed card.
+- **`auth.users.phone` has no leading `+`; the app writes proper E.164 with one.** Comparing
+  them raw silently never matches, and the failure looks exactly like "nobody invited you".
+  `my_players()` strips it. `src/lib/phone.ts` is the only place a typed number becomes a
+  stored one, covered by `npm run check:phone` — a number that normalises two ways doesn't
+  error, it quietly creates a second account with none of your rounds in it.
 - **Never call GolfCourseAPI from the app.** The key lives as a Supabase secret on the
   `courses` Edge Function (`supabase/functions/courses/index.ts`); the app talks only to that
   function via `src/lib/courseApi.ts`. An `EXPO_PUBLIC_` key would be compiled into the
