@@ -27,6 +27,27 @@ export type RoundSummary = {
 // Everything else keys off the active round id, so a new round each week is a
 // new row rather than wiping the last one — which is what makes round history
 // possible at all.
+/**
+ * Turn a policy refusal into a sentence somebody can act on.
+ *
+ * With RLS live, every write the database refuses comes back as "new row
+ * violates row-level security policy for table X" — accurate, and useless on a
+ * first tee. There are only two ways an ordinary person hits it: they are not
+ * signed in, or they are signed in but no player row belongs to them yet, so
+ * `auth_player_ids()` is empty and `create a round you organize` has nothing to
+ * match. Both are fixed on the ME tab, so the message says so.
+ *
+ * Deliberately not a guess about which of the two it is — the app cannot tell
+ * from the error, and naming the wrong one sends people looking in the wrong
+ * place.
+ */
+function friendlyWriteError(message: string | undefined, what: string): string {
+  if (message && /row-level security/i.test(message)) {
+    return `The database would not let this phone ${what}. Open the ME tab: sign in with your phone number if you have not, then tap your own name in the list to claim it. Rounds belong to the account that creates them.`;
+  }
+  return message ?? `Could not ${what}.`;
+}
+
 export function useActiveRound() {
   const [activeRoundId, setActiveRoundId] = useState<string | null | undefined>(undefined);
   const [rounds, setRounds] = useState<RoundSummary[]>([]);
@@ -131,7 +152,7 @@ export function useActiveRound() {
           .select('id')
           .single();
         if (personErr || !person) {
-          return { id: null, playerId: null, error: personErr?.message ?? 'Could not create your player.' };
+          return { id: null, playerId: null, error: friendlyWriteError(personErr?.message, 'create your player') };
         }
         organizerId = person.id as string;
         mintedPlayerId = organizerId;
@@ -150,7 +171,7 @@ export function useActiveRound() {
         .select('id')
         .single();
       if (error || !data) {
-        return { id: null, playerId: mintedPlayerId, error: error?.message ?? 'Could not create the round.' };
+        return { id: null, playerId: mintedPlayerId, error: friendlyWriteError(error?.message, 'create the round') };
       }
 
       if (organizerId) {
