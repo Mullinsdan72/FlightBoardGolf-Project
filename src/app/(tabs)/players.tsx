@@ -323,11 +323,33 @@ export default function PlayersScreen() {
           together.
         </Text>
       </ScrollView>
+
+      {/* Adding players has no natural end — the list just sits there, and the
+          only way out was a small back-link in the header nobody looked at. A
+          finish button says the step is over and puts you back where the round
+          gets set up. `replace`, not `push`: going "back" from the setup screen
+          should not land you in the roster again. */}
+      <Pressable onPress={() => router.replace('/(tabs)/round')} style={styles.doneBtn}>
+        <Text style={styles.doneLabel}>
+          DONE · {players.length} PLAYER{players.length === 1 ? '' : 'S'}
+        </Text>
+        <Text style={styles.doneArrow}>→</Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  doneBtn: {
+    height: 68,
+    backgroundColor: colors.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  doneLabel: { fontFamily: font.heading, fontSize: 15, letterSpacing: 0.4, color: '#fff' },
+  doneArrow: { fontFamily: font.heading, fontSize: 19, color: '#fff' },
   screen: { flex: 1, backgroundColor: colors.bg },
   header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },

@@ -801,11 +801,29 @@ export default function GamesScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Same reason as the players roster: setting games up has no end state of
+          its own, so it needs a door back to the tiles rather than a tab press
+          the organizer has to think of. */}
+      <Pressable onPress={() => router.replace('/(tabs)/round')} style={styles.doneBtn}>
+        <Text style={styles.doneLabel}>DONE · ROUND SETUP</Text>
+        <Text style={styles.doneArrow}>→</Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  doneBtn: {
+    height: 68,
+    backgroundColor: colors.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  doneLabel: { fontFamily: font.heading, fontSize: 15, letterSpacing: 0.4, color: '#fff' },
+  doneArrow: { fontFamily: font.heading, fontSize: 19, color: '#fff' },
   headerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   linkRow: {
     flexDirection: 'row',

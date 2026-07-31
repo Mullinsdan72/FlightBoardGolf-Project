@@ -37,6 +37,7 @@ export default function ScoreEntryScreen() {
     activeRound,
     activeRoundId,
     amOrganizer,
+    scoresHydrated,
   } = useRound();
   const { signoffs, refreshSignoffs } = useSignoffs(activeRoundId);
 
@@ -55,16 +56,32 @@ export default function ScoreEntryScreen() {
   const startedAt = useRef(false);
   const amInRound = !myId || players.some((p) => p.id === myId);
 
-  // Jump to the first unplayed hole once, the first time this player's
-  // posted scores load — after that, hole navigation is the golfer's own.
+  // A new round starts at its own first hole, not wherever you were standing in
+  // the last one. The Score tab stays mounted across a round switch, so both of
+  // these survived it — you set up a fresh round and the card opened on the
+  // twelfth because that is where the previous round got to.
   useEffect(() => {
-    if (startedAt.current || !myId || !holes.length) return;
-    const thru = thruFor(holes, scores, myId);
-    if (thru > 0) {
-      startedAt.current = true;
-      setHoleIndex(Math.min(holes.length - 1, thru));
-    }
-  }, [scores, myId, holes]);
+    startedAt.current = false;
+    setHoleIndex(0);
+  }, [activeRoundId]);
+
+  // Then, once this round's scores are actually loaded, jump to the first hole
+  // you have not posted. Only once — after that, hole navigation is the
+  // golfer's own and the app must not move under them.
+  //
+  // Found by *searching* for a gap rather than counting posted holes and using
+  // the count as an index. Those agree only while holes are posted in order,
+  // and the first person to correct the fourth hole after playing the fifth
+  // would have been dropped a hole short.
+  useEffect(() => {
+    if (startedAt.current || !myId || !holes.length || !scoresHydrated) return;
+    startedAt.current = true;
+    const firstUnplayed = holes.findIndex((h) => scores[h.hole]?.[myId] == null);
+    // Index 0 is the lowest hole in play — hole 1 on the front, hole 10 on the
+    // back — because `holes` is the round's own card in order. Nothing here
+    // may assume hole numbers start at 1.
+    setHoleIndex(firstUnplayed === -1 ? holes.length - 1 : firstUnplayed);
+  }, [scores, myId, holes, scoresHydrated, activeRoundId]);
 
   // If this device's chosen player was removed from the round elsewhere,
   // fall back to the picker rather than keep scoring as a ghost player.
