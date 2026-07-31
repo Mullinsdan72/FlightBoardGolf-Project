@@ -246,7 +246,13 @@ follow from that, and both were asked for directly:
   seeded row nobody created is what caused the filler data that couldn't be deleted.
   `supabase/reset.sql` wipes everything back to that empty state.
 - RLS policies in `supabase/schema.sql` still allow full anon access, and that is now the
-  **single most important open item**. Phone sign-in exists (`supabase/auth.sql`,
+  **single most important open item**.
+  - **`ROUNDS THAT WOULD VANISH: 0` is not on its own a pass.** It reads 0 when there are no
+    rounds, which is what an empty or freshly-cleared database looks like — and running the
+    lockdown there leaves an account owning no player row, which `create a round you
+    organize` refuses. No round then means no roster on screen to claim a seat from, so the
+    app cannot get you out and only `rls-rollback.sql` can. **`PLAYER ROWS YOU OWN` must be
+    at least 1**, and the preflight checks both. Phone sign-in exists (`supabase/auth.sql`,
   `usePhoneAuth`, `/signin`) but the policies have not been flipped, because flipping them
   before everyone has signed in and claimed a player would make every existing round
   invisible to its own players. The order is fixed and must be kept:

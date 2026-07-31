@@ -37,7 +37,32 @@ select 'ROUNDS THAT WOULD VANISH', count(*)::text
      join players p on p.id = rp.player_id
     where rp.round_id = r.id
       and p.user_id is not null
- );
+ )
+
+union all
+
+-- 3b. THE OTHER ONE THAT MATTERS, and it passes silently when you are not
+--     looking for it. Creating a round requires naming yourself as its
+--     organizer, and the policy checks that the organizer row is one you own:
+--
+--       with check (organizer_player_id in (select auth_player_ids()))
+--
+--     So an account owning no player row cannot create a round after the
+--     lockdown — and with no round there is no roster on screen to claim a seat
+--     from, which is a locked door with the key inside. An empty database reads
+--     as "0 rounds would vanish" and looks like a pass, which is exactly how
+--     somebody walks into it.
+--
+--     This must be at least 1 before you run rls.sql.
+select 'PLAYER ROWS YOU OWN', count(*)::text
+  from players where user_id is not null
+
+union all
+
+-- 3c. Context for the number above: with no rounds at all, the app has no
+--     roster to claim from. Create a round first, claim your seat in it, then
+--     lock down.
+select 'rounds in the database', count(*)::text from rounds;
 
 -- 4. Name the rounds at risk, so you can go and claim a seat in each one rather
 --    than guessing which is which.
