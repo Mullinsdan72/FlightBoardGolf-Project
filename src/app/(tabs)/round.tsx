@@ -230,7 +230,13 @@ export default function StartRoundScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        // Lifts the content so the field you are typing into is not behind the
+        // keyboard. The course search sits mid-screen and iOS covers it.
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scroll}
+      >
         <View style={styles.topRow}>
           <Wordmark width={170} />
           {activeRoundId && (
@@ -459,7 +465,13 @@ export default function StartRoundScreen() {
         visible={open === 'scoring'}
         title="How the round is scored"
         onClose={() => setOpen(null)}
-        onPick={(k) => setScoringMode(k as ScoringMode)}
+        // Optimistic, then reverted by a refetch if the write is refused — so
+        // without this the tile flicked to GROSS and quietly flicked back, and
+        // the only trace was a console warning nobody on a golf course can see.
+        onPick={async (k) => {
+          const message = await setScoringMode(k as ScoringMode);
+          if (message) Alert.alert('Could not change the scoring', message);
+        }}
         options={[
           { key: 'gross', label: 'Gross', detail: 'handicaps ignored', selected: scoringMode === 'gross' },
           { key: 'net', label: 'Net', detail: 'full handicap', selected: scoringMode === 'net' },

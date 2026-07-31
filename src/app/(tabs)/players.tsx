@@ -177,7 +177,14 @@ export default function PlayersScreen() {
         <Text style={styles.title}>Players</Text>
       </View>
 
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        // Lifts the content so the field you are typing into is not behind the
+        // keyboard. Adding a player is a name box near the bottom of a list,
+        // which is exactly where iOS puts the keyboard.
+        automaticallyAdjustKeyboardInsets
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
         {playersError && <Text style={styles.error}>{playersError}</Text>}
 
         {/* Who is running this round, and the way to take it on.

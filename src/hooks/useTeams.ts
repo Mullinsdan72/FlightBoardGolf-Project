@@ -67,6 +67,7 @@ export function useTeams(
   const [state, setState] = useState<TeamsState>(DEFAULTS);
   const [assignments, setAssignments] = useState<Assignments>({});
   const [loaded, setLoaded] = useState(!isSupabaseConfigured);
+  const [error, setError] = useState<string | null>(null);
   const [segIndex, setSegIndex] = useState(0);
   const [challenge, setChallenge] = useState<ChallengeState>(CHALLENGE_DEFAULTS);
 
@@ -88,7 +89,14 @@ export function useTeams(
   }, [roundId]);
 
   const load = useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase || !roundId) return;
+    // Loaded, even with nothing to load. `/teams` renders a bare "Loading…"
+    // header while this is false and offers no way off the screen, so a flag
+    // that never settles is a dead end you have to force-quit out of. This app
+    // has shipped that shape of bug more than once.
+    if (!isSupabaseConfigured || !supabase || !roundId) {
+      setLoaded(true);
+      return;
+    }
     const [gameRes, memberRes] = await Promise.all([
       supabase
         .from('team_games')
@@ -119,6 +127,12 @@ export function useTeams(
       next[seg][ti].push(row.player_id);
     }
     setAssignments(next);
+    // Any read here can be refused by a policy rather than fail outright, in
+    // which case `data` is null and the defaults stand. Say so rather than
+    // showing an empty draw as though it were the truth.
+    const failure = gameRes.error?.message ?? memberRes.error?.message ?? null;
+    if (failure) console.warn('useTeams load failed:', failure);
+    setError(failure);
     await loadChallenge();
     setLoaded(true);
   }, [roundId, loadChallenge]);
@@ -131,6 +145,7 @@ export function useTeams(
     setAssignments({});
     setSegIndex(0);
     setChallenge(CHALLENGE_DEFAULTS);
+    setError(null);
     setLoaded(false);
   }, [roundId]);
 
@@ -402,6 +417,7 @@ export function useTeams(
   return {
     teams: { ...state, handicapMode: scoringMode },
     teamsLoaded: loaded,
+    teamsError: error,
     challenge,
     challengeFor,
     challengePositions,

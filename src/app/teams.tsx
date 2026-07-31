@@ -37,6 +37,7 @@ export default function TeamsScreen() {
     activeRound,
     teams,
     teamsLoaded,
+    teamsError,
     teamSegments,
     teamSegIndex,
     setTeamSegIndex,
@@ -101,12 +102,22 @@ export default function TeamsScreen() {
       { text: 'Clear', style: 'destructive', onPress: () => run(() => teamClear(), 'clear the draw') },
     ]);
 
+  // A loading screen with no way off it is a trap, and this one was: the header
+  // rendered, the body said "Loading…", and if the flag never settled there was
+  // nothing to tap. Every early return from here carries the same DONE control
+  // the loaded screen has.
   if (!teamsLoaded) {
     return (
       <View style={styles.screen}>
         <View style={[styles.header]}>
           <Text style={styles.kicker}>{activeRound?.name || 'Round'}</Text>
-          <Text style={styles.title}>Teams</Text>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>Teams</Text>
+            <Pressable onPress={goBack} style={styles.doneBtn} hitSlop={8}>
+              <Text style={styles.doneLabel}>DONE</Text>
+              <Text style={styles.doneArrow}>→</Text>
+            </Pressable>
+          </View>
         </View>
         <Text style={styles.note}>Loading…</Text>
       </View>
@@ -128,6 +139,8 @@ export default function TeamsScreen() {
           </Pressable>
         </View>
       </View>
+
+      {!!teamsError && <Text style={styles.error}>{teamsError}</Text>}
 
       {/* Terms are visible to everyone playing under them and editable only by
           the organizer. Hiding them from someone whose money is on it would be
@@ -479,6 +492,7 @@ export default function TeamsScreen() {
 }
 
 const styles = StyleSheet.create({
+  error: { fontFamily: font.body, fontSize: 12, color: colors.accent, paddingHorizontal: 20, paddingTop: 12 },
   screen: { flex: 1, backgroundColor: colors.bg },
   headerInSetup: { paddingTop: 18 },
   header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
