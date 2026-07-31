@@ -26,6 +26,7 @@ export function useMyProfile(myId: string | null | undefined, userId?: string | 
   const [profile, setProfile] = useState<SeedPlayer | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [owned, setOwned] = useState<SeedPlayer[]>([]);
+  const [ownedLoaded, setOwnedLoaded] = useState(false);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase || !myId) {
@@ -71,12 +72,14 @@ export function useMyProfile(myId: string | null | undefined, userId?: string | 
   const loadOwned = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase || !userId) {
       setOwned([]);
+      setOwnedLoaded(true);
       return;
     }
     const { data, error } = await supabase.rpc('my_players');
     if (error || !data) {
       if (error) console.warn('my_players failed:', error.message);
       setOwned([]);
+      setOwnedLoaded(true);
       return;
     }
     setOwned(
@@ -90,6 +93,7 @@ export function useMyProfile(myId: string | null | undefined, userId?: string | 
           phone: r.phone ?? null,
         })),
     );
+    setOwnedLoaded(true);
   }, [userId]);
 
   useEffect(() => {
@@ -98,6 +102,7 @@ export function useMyProfile(myId: string | null | undefined, userId?: string | 
   }, [load]);
 
   useEffect(() => {
+    setOwnedLoaded(false);
     loadOwned();
   }, [loadOwned]);
 
@@ -105,5 +110,13 @@ export function useMyProfile(myId: string | null | undefined, userId?: string | 
     await Promise.all([load(), loadOwned()]);
   }, [load, loadOwned]);
 
-  return { myProfile: profile, myProfileLoaded: loaded, myOwnedPlayers: owned, reloadMyProfile: reload };
+  return {
+    myProfile: profile,
+    myProfileLoaded: loaded,
+    myOwnedPlayers: owned,
+    /** False until `my_players()` has answered. Nothing may conclude "this
+     *  phone has no player" before it has. */
+    myOwnedLoaded: ownedLoaded,
+    reloadMyProfile: reload,
+  };
 }

@@ -75,6 +75,8 @@ export default function TabLayout() {
     invites,
     invitesReady,
     organizerId,
+    authStage,
+    myOwnedLoaded,
   } = useRound();
   const { signoffs } = useSignoffs(activeRoundId);
 
@@ -158,7 +160,25 @@ export default function TabLayout() {
   // until it lands would avoid one frame of SCORE before the jump to ROUND, and
   // buy that with a whole app that shows nothing if any input never settles.
   // This file has shipped that blank screen twice; one frame is the cheaper bug.
-  if (activeRoundId === undefined || !roundsLoaded || myId === undefined) return null;
+  // Also waits for auth to answer and for `my_players()` to come back.
+  //
+  // Without that, a signed-in phone with a claimed player was thrown to the
+  // first-run welcome in the window before either resolved — and the welcome's
+  // START A ROUND then tried to mint a *second* player, which the policies
+  // refuse because the session had not restored yet either. Two confusing
+  // failures, both from concluding "this phone has no player" too early.
+  //
+  // Both settle even when they fail: `authStage` leaves 'loading' either way,
+  // and `myOwnedLoaded` is set on every path including a refused read.
+  if (
+    activeRoundId === undefined ||
+    !roundsLoaded ||
+    myId === undefined ||
+    authStage === 'loading' ||
+    !myOwnedLoaded
+  ) {
+    return null;
+  }
   // A phone with no player and no round has never been used. Send it to the
   // welcome rather than to a form asking it to name a round — and creating one
   // there mints the player too, which is what stops the organizer-less dead end.
