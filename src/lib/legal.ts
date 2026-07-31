@@ -31,7 +31,10 @@ export const TERMS_URL: string | null = `${SITE}/terms.html`;
  */
 export const SMS_CONSENT =
   'By tapping the button above you agree to receive a one-time verification code by text ' +
-  'from Flight Board. Message frequency varies — normally one text per sign-in. Message and ' +
+  // The registered A2P brand, not the app's name. Carriers ask for a screenshot
+  // of this exact screen during campaign registration and compare the sender
+  // named here against the brand on the campaign.
+  'from Flight Leaderboard Golf. Message frequency varies — normally one text per sign-in. Message and ' +
   'data rates may apply. Reply STOP to opt out, HELP for help. Your number is used to sign ' +
   'you in and match you to rounds you’ve been invited to, and is never shared with anyone ' +
   'for marketing.';
