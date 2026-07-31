@@ -179,6 +179,24 @@ everywhere in this codebase, not just the screens they were first written for.
   the tab returns. A round with no organizer or an empty field still shows it, because an
   unclaimed round belongs to whoever turns up.
 
+## The round setup checklist
+
+`(tabs)/round.tsx` builds one `checklist` array, and both the tile ticks and the START ROUND
+gate read from it. Two definitions would eventually show six checks above a button that
+refuses to press, which is the app arguing with itself.
+
+- **Done is "has a value OR the tile has been opened".** Value alone leaves HOLES and SCORING
+  highlighted forever, since both hold a working default and would never look chosen. Opened
+  alone ticks a tile you glanced at and closed — a checklist that lies is worse than none.
+  Teams and games are optional, so opening one *is* the decision.
+- **Opened tiles live in `useRoundChecklist`**, per round and per phone, in AsyncStorage. It
+  records what you looked at rather than a fact about the round, so it is preference, not
+  data: losing it costs a highlight.
+- **START ROUND names what is left**, not "not ready". A disabled button with no reason on it
+  is the thing people tap twice and then put the phone down.
+- Three tiles across is held by percentages that sum under 100 with `space-between`. `gap`
+  plus a percentage width overflowed by a fraction and silently wrapped to two columns.
+
 ## Which tab the app opens on
 
 `src/lib/opening.ts` is pure and covered by `npm run check:opening` — 15 assertions.

@@ -203,9 +203,27 @@ export default function StartRoundScreen() {
 
   const gamesCount = (wolf.enabled ? 1 : 0) + (challenge.enabled ? 1 : 0) + holeGames.length;
 
-  // The card is the one thing a round cannot be played without, so it is the
-  // only thing that blocks the button. Everything else has a workable default.
-  const ready = holes.length > 0 && players.length > 0;
+  /**
+   * The checklist, in one place — used to tick the tiles and to gate the button,
+   * so the two can never disagree. A grid showing six checks above a START ROUND
+   * that refuses to press is the app arguing with itself.
+   *
+   * Each entry is done when the setting has a value *or* you have opened its
+   * tile. Holes and scoring always hold a working default, so opening them is
+   * the only signal you looked and kept it; teams and games are optional, so
+   * opening one is the decision.
+   */
+  const checklist = [
+    { key: 'course', label: 'Course', done: !!course?.courseName && holes.length > 0 },
+    { key: 'tee', label: 'Tee box', done: !!course?.teeName },
+    { key: 'holes', label: 'Holes', done: openedTiles.has('holes') },
+    { key: 'scoring', label: 'Scoring', done: openedTiles.has('scoring') },
+    { key: 'players', label: 'Players', done: players.length > 0 },
+    { key: 'teams', label: 'Teams', done: teams.enabled || openedTiles.has('teams') },
+    { key: 'games', label: 'Games', done: gamesCount > 0 || openedTiles.has('games') },
+  ];
+  const remaining = checklist.filter((c) => !c.done);
+  const ready = remaining.length === 0;
 
   return (
     <View style={styles.screen}>
@@ -332,27 +350,27 @@ export default function StartRoundScreen() {
             label="Tee box"
             value={course?.teeName || 'Pick'}
             unset={!course?.teeName}
-            done={!!course?.teeName}
+            done={checklist[1].done}
             disabled={!selectedCourse}
             onPress={() => openTile('tee', () => setOpen('tee'))}
           />
           <Tile
             label="Holes"
             value={HOLE_LABEL[holesInPlay]}
-            done={openedTiles.has('holes')}
+            done={checklist[2].done}
             onPress={() => openTile('holes', () => setOpen('holes'))}
           />
           <Tile
             label="Scoring"
             value={SCORING_LABEL[scoringMode]}
-            done={openedTiles.has('scoring')}
+            done={checklist[3].done}
             onPress={() => openTile('scoring', () => setOpen('scoring'))}
           />
           <Tile
             label="Players"
             value={!playersLoaded ? '…' : players.length ? `${players.length} in` : 'Add'}
             unset={playersLoaded && players.length === 0}
-            done={players.length > 0}
+            done={checklist[4].done}
             onPress={() => openTile('players', () => router.push('/(tabs)/players'))}
           />
           {/* Teams and games are optional, so opening one counts as dealing with
@@ -360,13 +378,13 @@ export default function StartRoundScreen() {
           <Tile
             label="Teams"
             value={teamsValue}
-            done={teams.enabled || openedTiles.has('teams')}
+            done={checklist[5].done}
             onPress={() => openTile('teams', () => router.push('/teams'))}
           />
           <Tile
             label="Games"
             value={gamesCount ? `${gamesCount} on` : 'None'}
-            done={gamesCount > 0 || openedTiles.has('games')}
+            done={checklist[6].done}
             // `setup=1` is what turns the GAMES screen into the setup view. From
             // the tab bar it is a scoreboard; the controls belong to this tile.
             onPress={() =>
@@ -384,11 +402,17 @@ export default function StartRoundScreen() {
           <Text style={styles.startArrow}>→</Text>
         </Pressable>
 
+        {/* Name what is left rather than saying "not ready". A disabled button
+            with no reason on it is the thing people tap twice and then put the
+            phone down. */}
         {!ready && (
           <Text style={styles.note}>
-            {holes.length === 0
-              ? 'Pick a course first — a round with no card has nothing to score against.'
-              : 'Add at least one player. A round on your own is a real round.'}
+            {remaining.length === 1
+              ? `${remaining[0].label} still to do.`
+              : `Still to do: ${remaining.map((c) => c.label).join(', ')}.`}
+            {!course?.courseName
+              ? ' Start with the course — a round with no card has nothing to score against.'
+              : ''}
           </Text>
         )}
 
