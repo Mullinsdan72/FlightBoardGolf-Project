@@ -367,7 +367,11 @@ export default function StartRoundScreen() {
             label="Games"
             value={gamesCount ? `${gamesCount} on` : 'None'}
             done={gamesCount > 0 || openedTiles.has('games')}
-            onPress={() => openTile('games', () => router.push('/(tabs)/games'))}
+            // `setup=1` is what turns the GAMES screen into the setup view. From
+            // the tab bar it is a scoreboard; the controls belong to this tile.
+            onPress={() =>
+              openTile('games', () => router.push({ pathname: '/(tabs)/games', params: { setup: '1' } }))
+            }
           />
         </TileGrid>
 

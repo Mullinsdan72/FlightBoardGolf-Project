@@ -458,6 +458,15 @@ tab's third sub-tab.
 - Terms are the organizer's (adding, removing and pricing a game); **recording who won a hole
   is any player's**, like posting a score. That's the existing three-tier permission model, not
   a new one.
+- **GAMES is a scoreboard, not a setup screen.** The two things it does that setup cannot are
+  *recording what happened* — who won the seventh, who the wolf took — and *showing the money
+  as it moves*. Both are during-round jobs. Setting a game up is setup, and setup lives on
+  ROUND.
+  - The SET UP sub-tab therefore only appears when you arrive from the ROUND tab's GAMES
+    tile, which is the one place carrying `?setup=1`. From the tab bar the organizer gets the
+    same scoreboard as everyone else, plus one CHANGE THE GAMES link back to the tile.
+  - One screen, two entrances — not two copies of the controls. The standing rule still
+    holds: hiding the sub-tab must never hide the last way to it, and the tile is that way.
 
 ### Team challenge
 

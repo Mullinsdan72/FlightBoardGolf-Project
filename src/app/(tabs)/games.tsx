@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { useRound } from '@/context/RoundContext';
@@ -56,6 +56,18 @@ export default function GamesScreen() {
     setChallengeSettings,
   } = useRound();
   const [tab, setTab] = useState<Tab | null>(null);
+  /**
+   * Setting the games up is a *setup* job, and setup lives on ROUND. This
+   * screen is what you look at while you're playing them: whose wolf it is,
+   * who won the seventh, what the match stands at, and what it is all worth so
+   * far.
+   *
+   * So SET UP only appears when you arrived from the Games tile, which is the
+   * one place that carries `?setup=1`. Reached from the tab bar mid-round, this
+   * is a scoreboard.
+   */
+  const params = useLocalSearchParams<{ setup?: string }>();
+  const settingUp = params.setup === '1';
   const [newType, setNewType] = useState<HoleGameType>('ctp');
   const [newWager, setNewWager] = useState(500);
   const [newHoles, setNewHoles] = useState<number[]>([]);
@@ -88,7 +100,10 @@ export default function GamesScreen() {
   if (wolf.enabled) available.push('standings');
   if (holeGames.length) available.push('holes');
   if (challenge.enabled) available.push('challenge');
-  if (canEdit) available.push('setup');
+  // Only from the tile. From the tab bar the organizer gets the same scoreboard
+  // as everyone else, plus a link back to the tile — which is the one door, not
+  // a second copy of the controls.
+  if (canEdit && settingUp) available.push('setup');
 
   // Falls back as games are switched on and off under you.
   const active: Tab | null = tab && available.includes(tab) ? tab : (available[0] ?? null);
@@ -109,11 +124,20 @@ export default function GamesScreen() {
                     : 'Wolf'}
             </Text>
           </View>
-          {/* Every game converges here — the money is one screen, not one per game. */}
-          <Pressable onPress={() => router.push('/settle')} style={styles.settleBtn} hitSlop={8}>
-            <Text style={styles.settleLabel}>SETTLE UP</Text>
-            <Text style={styles.settleArrow}>→</Text>
-          </Pressable>
+          {/* Every game converges on /settle — the money is one screen, not one
+              per game. While setting up there is no money yet, so the link is
+              the way back to the rest of the setup instead. */}
+          {settingUp ? (
+            <Pressable onPress={() => router.replace('/(tabs)/round')} style={styles.settleBtn} hitSlop={8}>
+              <Text style={styles.settleLabel}>ROUND SETUP</Text>
+              <Text style={styles.settleArrow}>→</Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => router.push('/settle')} style={styles.settleBtn} hitSlop={8}>
+              <Text style={styles.settleLabel}>SETTLE UP</Text>
+              <Text style={styles.settleArrow}>→</Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -137,7 +161,9 @@ export default function GamesScreen() {
       <ScrollView>
         {active === null && (
           <Text style={styles.note}>
-            No games are running. Whoever's organizing the round sets them up, and they'll show here the moment they do.
+            {canEdit
+              ? "No games are running yet. Set them up from the GAMES tile on the ROUND tab, and this becomes the scoreboard for them — whose wolf it is, who won a hole, and what it is worth so far."
+              : "No games are running. Whoever's organizing the round sets them up, and they'll show here the moment they do."}
           </Text>
         )}
 
@@ -802,18 +828,40 @@ export default function GamesScreen() {
         )}
       </ScrollView>
 
-      {/* Same reason as the players roster: setting games up has no end state of
-          its own, so it needs a door back to the tiles rather than a tab press
-          the organizer has to think of. */}
-      <Pressable onPress={() => router.replace('/(tabs)/round')} style={styles.doneBtn}>
-        <Text style={styles.doneLabel}>DONE · ROUND SETUP</Text>
-        <Text style={styles.doneArrow}>→</Text>
-      </Pressable>
+      {/* Only while setting up. On the scoreboard this bar was nonsense: it
+          offered to finish a job this screen was no longer doing. */}
+      {settingUp ? (
+        <Pressable onPress={() => router.replace('/(tabs)/round')} style={styles.doneBtn}>
+          <Text style={styles.doneLabel}>DONE · ROUND SETUP</Text>
+          <Text style={styles.doneArrow}>→</Text>
+        </Pressable>
+      ) : (
+        canEdit && (
+          <Pressable
+            onPress={() => router.push({ pathname: '/(tabs)/games', params: { setup: '1' } })}
+            style={styles.setupLink}
+          >
+            <Text style={styles.setupLinkLabel}>CHANGE THE GAMES</Text>
+            <Text style={styles.setupLinkArrow}>›</Text>
+          </Pressable>
+        )
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  setupLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 2,
+    borderColor: colors.divider,
+  },
+  setupLinkLabel: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.9, color: colors.accent },
+  setupLinkArrow: { fontFamily: font.heading, fontSize: 16, color: colors.ghost },
   doneBtn: {
     height: 68,
     backgroundColor: colors.accent,
