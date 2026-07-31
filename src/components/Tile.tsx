@@ -10,18 +10,27 @@ import { colors, font } from '@/theme';
  * cannot scan five screens.
  *
  * `unset` is styled rather than hidden — an empty tile is information.
+ *
+ * `done` turns the grid into a checklist. A tile you have not dealt with is
+ * washed in the accent colour and carries no mark; one you have shows a check in
+ * the corner. Both states are derived from whether the setting has a value or
+ * the tile has been opened — never from a tap alone, because a checklist that
+ * ticks itself for opening and closing a sheet is a checklist that lies.
  */
 export function Tile({
   label,
   value,
   unset,
+  done,
   onPress,
   disabled,
 }: {
   label: string;
   value: string;
-  /** Nothing chosen yet. Draws the value in ghost and marks the border. */
+  /** Nothing chosen yet. Draws the value in the accent colour. */
   unset?: boolean;
+  /** Dealt with: it has a value, or you have opened it. Shows the check. */
+  done?: boolean;
   onPress: () => void;
   disabled?: boolean;
 }) {
@@ -29,12 +38,15 @@ export function Tile({
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={[styles.tile, unset && styles.tileUnset, disabled && styles.tileOff]}
+      style={[styles.tile, !done && styles.tileTodo, unset && styles.tileUnset, disabled && styles.tileOff]}
     >
       <Text style={styles.label}>{label}</Text>
       <Text style={[styles.value, unset && styles.valueUnset]} numberOfLines={2}>
         {value}
       </Text>
+      {/* Bottom right, small, and only when there is something to say. A mark on
+          every tile is a mark that means nothing. */}
+      {done && <Text style={styles.check}>✓</Text>}
     </Pressable>
   );
 }
@@ -62,7 +74,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     justifyContent: 'space-between',
   },
-  tileUnset: { borderColor: colors.accent, backgroundColor: 'rgba(236,48,19,0.07)' },
+  // Not dealt with yet: a pale wash of the accent, so the grid reads as a list
+  // of things still to do without shouting.
+  tileTodo: { backgroundColor: 'rgba(236,48,19,0.10)', borderColor: 'rgba(236,48,19,0.35)' },
+  // Required and empty — stronger than merely untouched, because START ROUND
+  // is waiting on it.
+  tileUnset: { borderColor: colors.accent, backgroundColor: 'rgba(236,48,19,0.16)' },
   tileOff: { opacity: 0.4 },
   label: {
     fontFamily: font.bodySemi,
@@ -73,4 +90,12 @@ const styles = StyleSheet.create({
   },
   value: { fontFamily: font.heading, fontSize: 15, color: colors.text, marginTop: 8 },
   valueUnset: { color: colors.accent },
+  check: {
+    position: 'absolute',
+    right: 8,
+    bottom: 6,
+    fontFamily: font.heading,
+    fontSize: 13,
+    color: colors.accent,
+  },
 });

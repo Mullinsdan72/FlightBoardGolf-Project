@@ -6,6 +6,7 @@ import { Tile, TileGrid } from '@/components/Tile';
 import { Wordmark } from '@/components/Wordmark';
 import { useRound } from '@/context/RoundContext';
 import { useCourseSearch } from '@/hooks/useCourseSearch';
+import { useRoundChecklist } from '@/hooks/useRoundChecklist';
 import { fetchCourseDetail, type CourseSearchResult } from '@/lib/courseApi';
 import type { HolesInPlay } from '@/hooks/useRoundCourse';
 import type { ScoringMode } from '@/hooks/useActiveRound';
@@ -63,6 +64,13 @@ export default function StartRoundScreen() {
     challenge,
     holeGames,
   } = useRound();
+
+  const { openedTiles, markOpened } = useRoundChecklist(activeRoundId);
+  /** Tick the tile, then go where it goes. One place, so no tile forgets. */
+  const openTile = (key: string, go: () => void) => {
+    markOpened(key);
+    go();
+  };
 
   const [open, setOpen] = useState<Open>(null);
 
@@ -214,7 +222,10 @@ export default function StartRoundScreen() {
         {/* The course, large, the way you'd read it off a scorecard. Not a
             button: switching course is the search box and the favourites list
             below, both of which are visible without tapping anything. */}
-        <View style={styles.courseBlock}>
+        {/* The course is the first thing on the checklist and the one everything
+            else waits on — no card, nothing to score against — so it carries the
+            same wash as an untouched tile until one is picked. */}
+        <View style={[styles.courseBlock, !course?.courseName && styles.courseBlockTodo]}>
           <View style={styles.courseTitleRow}>
             <Text style={styles.courseName} numberOfLines={2}>
               {course?.courseName || 'Pick a course'}
@@ -308,27 +319,55 @@ export default function StartRoundScreen() {
 
         <Text style={styles.sectionLabel}>Round setup</Text>
 
+        {/* Six tiles, three across, in the order a round is actually built:
+            where you are teeing from, how much of the course, how it is scored,
+            who is playing, then the two optional things.
+
+            Each is done when it has a value *or* you have opened it. Value alone
+            would leave HOLES and SCORING highlighted forever, since both hold a
+            working default; opening alone would tick a tile you glanced at and
+            closed. Together they mean "you have dealt with this". */}
         <TileGrid>
           <Tile
             label="Tee box"
             value={course?.teeName || 'Pick'}
             unset={!course?.teeName}
+            done={!!course?.teeName}
             disabled={!selectedCourse}
-            onPress={() => setOpen('tee')}
+            onPress={() => openTile('tee', () => setOpen('tee'))}
           />
-          <Tile label="Holes" value={HOLE_LABEL[holesInPlay]} onPress={() => setOpen('holes')} />
-          <Tile label="Scoring" value={SCORING_LABEL[scoringMode]} onPress={() => setOpen('scoring')} />
+          <Tile
+            label="Holes"
+            value={HOLE_LABEL[holesInPlay]}
+            done={openedTiles.has('holes')}
+            onPress={() => openTile('holes', () => setOpen('holes'))}
+          />
+          <Tile
+            label="Scoring"
+            value={SCORING_LABEL[scoringMode]}
+            done={openedTiles.has('scoring')}
+            onPress={() => openTile('scoring', () => setOpen('scoring'))}
+          />
           <Tile
             label="Players"
             value={!playersLoaded ? '…' : players.length ? `${players.length} in` : 'Add'}
             unset={playersLoaded && players.length === 0}
-            onPress={() => router.push('/(tabs)/players')}
+            done={players.length > 0}
+            onPress={() => openTile('players', () => router.push('/(tabs)/players'))}
           />
-          <Tile label="Teams" value={teamsValue} onPress={() => router.push('/teams')} />
+          {/* Teams and games are optional, so opening one counts as dealing with
+              it — "we're not playing teams today" is a decision. */}
+          <Tile
+            label="Teams"
+            value={teamsValue}
+            done={teams.enabled || openedTiles.has('teams')}
+            onPress={() => openTile('teams', () => router.push('/teams'))}
+          />
           <Tile
             label="Games"
             value={gamesCount ? `${gamesCount} on` : 'None'}
-            onPress={() => router.push('/(tabs)/games')}
+            done={gamesCount > 0 || openedTiles.has('games')}
+            onPress={() => openTile('games', () => router.push('/(tabs)/games'))}
           />
         </TileGrid>
 
@@ -406,6 +445,19 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
   exit: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.7, color: colors.accent },
   courseBlock: { paddingHorizontal: 20, paddingTop: 22 },
+  // Overrides the block's own padding so the wash sits as a card with air
+  // around it, rather than a band running edge to edge.
+  courseBlockTodo: {
+    marginHorizontal: 20,
+    marginTop: 18,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 14,
+    backgroundColor: 'rgba(236,48,19,0.10)',
+    borderWidth: 2,
+    borderColor: 'rgba(236,48,19,0.35)',
+    borderRadius: 10,
+  },
   courseTitleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   star: { fontFamily: font.heading, fontSize: 24, color: colors.ghost },
   starOn: { color: colors.accent },
