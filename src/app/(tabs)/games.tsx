@@ -3,7 +3,13 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { useRound } from '@/context/RoundContext';
-import { holeGameName, holeGameShortName, type HoleGameType } from '@/lib/sideGames';
+import {
+  holeGameName,
+  holeGameShortName,
+  settleEverything,
+  type GamePositions,
+  type HoleGameType,
+} from '@/lib/sideGames';
 import { matchStateLabel } from '@/lib/teamChallenge';
 import { fmtMoney, parThreeDraw } from '@/lib/wolf';
 import { colors, font } from '@/theme';
@@ -54,6 +60,7 @@ export default function GamesScreen() {
     challenge,
     challengeFor,
     setChallengeSettings,
+    challengePositions,
   } = useRound();
   const [tab, setTab] = useState<Tab | null>(null);
   /**
@@ -68,6 +75,29 @@ export default function GamesScreen() {
    */
   const params = useLocalSearchParams<{ setup?: string }>();
   const settingUp = params.setup === '1';
+
+  /**
+   * What the whole afternoon is worth to you so far.
+   *
+   * Recomputed from posted scores every render, never stored — a running total
+   * that drifts from the ledgers it came from is the thing an argument starts
+   * over (rule 3). Assembled exactly as `/settle` assembles it, so the number in
+   * this header and the number on that screen cannot disagree.
+   *
+   * A game that is switched off is not in the settlement at all, rather than in
+   * it at zero.
+   */
+  const moneyGames: GamePositions[] = [];
+  if (wolf.enabled) moneyGames.push({ key: 'wolf', name: 'Wolf', positions: wolfLedger.totals });
+  if (challenge.enabled && Object.keys(challengePositions).length) {
+    moneyGames.push({ key: 'challenge', name: 'Team challenge', positions: challengePositions });
+  }
+  for (const ledger of holeGameLedgers) {
+    moneyGames.push({ key: ledger.gameId, name: holeGameName(ledger.type), positions: ledger.positions });
+  }
+  const myCents = myId ? (settleEverything(moneyGames).totals[myId] ?? 0) : 0;
+  // Nothing has paid out yet is not the same as being square, so it says so.
+  const anyMoney = moneyGames.length > 0;
   const [newType, setNewType] = useState<HoleGameType>('ctp');
   const [newWager, setNewWager] = useState(500);
   const [newHoles, setNewHoles] = useState<number[]>([]);
@@ -134,8 +164,25 @@ export default function GamesScreen() {
             </Pressable>
           ) : (
             <Pressable onPress={() => router.push('/settle')} style={styles.settleBtn} hitSlop={8}>
-              <Text style={styles.settleLabel}>SETTLE UP</Text>
-              <Text style={styles.settleArrow}>→</Text>
+              {/* Your position, live, next to the door to the full breakdown.
+                  Signed and coloured, because "up twelve" and "down twelve" are
+                  the two things you actually want to tell apart at a glance. */}
+              {anyMoney && (
+                <Text
+                  style={[
+                    styles.runningTotal,
+                    myCents > 0 && styles.runningUp,
+                    myCents < 0 && styles.runningDown,
+                  ]}
+                >
+                  {myCents > 0 ? '+' : ''}
+                  {fmtMoney(myCents)}
+                </Text>
+              )}
+              <View style={styles.settleRow}>
+                <Text style={styles.settleLabel}>SETTLE UP</Text>
+                <Text style={styles.settleArrow}>→</Text>
+              </View>
             </Pressable>
           )}
         </View>
@@ -851,6 +898,11 @@ export default function GamesScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Square is muted; up is the accent; down is ink. Three states, told apart at
+  // a glance without reading the sign.
+  runningTotal: { fontFamily: font.heading, fontSize: 20, letterSpacing: -0.4, color: colors.muted },
+  runningUp: { color: colors.accent },
+  runningDown: { color: colors.text },
   setupLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -904,7 +956,9 @@ const styles = StyleSheet.create({
   matchLabel: { fontFamily: font.bodySemi, fontSize: 12, color: colors.text, width: 84 },
   matchDetail: { flex: 1, fontFamily: font.body, fontSize: 11, color: colors.muted },
   matchAmt: { fontFamily: font.heading, fontSize: 13.5, color: colors.text, minWidth: 62, textAlign: 'right' },
-  settleBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingBottom: 4 },
+  // Stacked, right-aligned: the money reads first and the link sits under it.
+  settleBtn: { alignItems: 'flex-end', paddingBottom: 4 },
+  settleRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 3 },
   settleLabel: { fontFamily: font.heading, fontSize: 12, letterSpacing: 0.6, color: colors.accent },
   settleArrow: { fontFamily: font.heading, fontSize: 14, color: colors.accent },
   gameBlock: { borderTopWidth: 2, borderColor: colors.divider, marginTop: 16 },
