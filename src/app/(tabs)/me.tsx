@@ -146,6 +146,12 @@ export default function MeScreen() {
                 }
                 await choose(p.id);
                 setPicking(false);
+                // The profile is fetched separately from the roster and has to
+                // be told, exactly as saving a handicap already does. Without
+                // this the header still reads "not claimed" after a claim that
+                // worked — and the one screen that reports whether you are
+                // claimed is the screen you check before locking down RLS.
+                await reloadMyProfile();
               }}
               style={[styles.row, p.id === myId && styles.rowOn, locked && styles.rowLocked]}
             >
