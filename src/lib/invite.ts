@@ -56,6 +56,13 @@ export type InviteContext = {
  * and the point of the message isn't the app — it's that nobody has to carry a
  * pencil.
  *
+ * **The first line must name the registered A2P brand exactly.** Carriers check
+ * the sample messages against the brand on the campaign, and a message that
+ * opens with a different name than the one registered reads as somebody else's
+ * traffic. This says "Flight Leaderboard Golf" — the approved brand — and not
+ * "Flight Board", which is what the app is called. Changing one without the
+ * other is a rejected campaign, which is how this wording got here.
+ *
  * Deliberately says nothing about which round, which course, who invited them
  * or when: the text arrives from the organizer's own number, so the recipient
  * already knows. It also means the wording doesn't go stale on a round set up
@@ -66,7 +73,7 @@ export type InviteContext = {
  */
 export function inviteMessage(ctx: InviteContext): string {
   const lines = [
-    "You've been added to Flight Board Golf.",
+    "You've been added to Flight Leaderboard Golf.",
     '',
     "A live scoring leaderboard without the math. Everyone's round as it happens, the games being played inside it, and you keep your own score.",
     '',

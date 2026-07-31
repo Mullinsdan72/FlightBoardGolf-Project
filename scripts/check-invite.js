@@ -83,9 +83,15 @@ const msg = inv.inviteMessage({
   roundId: ROUND,
 });
 
-check('it opens by saying what happened', msg.startsWith("You've been added to Flight Board Golf."), true);
-// Matches the wordmark, which reads FLIGHT BOARD GOLF.
-check('the brand is capitalised', msg.includes('Flight Board Golf'), true);
+check('it opens by saying what happened', msg.startsWith("You've been added to Flight Leaderboard Golf."), true);
+// The registered A2P brand, exactly. Carriers check sample messages against the
+// brand on the campaign; a different name reads as somebody else's traffic, and
+// that is what got the first campaign rejected.
+check('it names the registered brand', msg.includes('Flight Leaderboard Golf'), true);
+// The app is called Flight Board and the brand is not. The message follows the
+// brand, so an edit that "corrects" it back to the app's name fails here rather
+// than at a carrier three weeks later.
+check('and does not use the app name instead', /Flight Board(?! Golf)/.test(msg), false);
 // Nothing time-bound in the wording, so an invite sent the night before still
 // reads correctly the next morning.
 check('it does not claim the round is today', msg.toLowerCase().includes('today'), false);
