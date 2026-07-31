@@ -9,7 +9,6 @@
     "userInterfaceStyle": "light",
     "backgroundColor": "#f3f2f2",
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.flightboardgolf.app",
       "supportsTablet": true
     },
