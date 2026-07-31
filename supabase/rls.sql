@@ -293,8 +293,15 @@ begin
       'using (is_round_organizer(round_id)) with check (is_round_organizer(round_id))', t);
   end loop;
 
-  -- What happened: any player in the round may record it, same as posting a score.
-  foreach t in array array['wolf_holes','hole_game_winners']
+  -- What happened: any player in the round may record it, same as posting a
+  -- score. Only `wolf_holes` is in this loop — `hole_game_winners` looks like it
+  -- belongs here and does not, because it has no `round_id`. Its round is one
+  -- join away, through the game it belongs to, so it gets its own policies
+  -- below. Looping over both raised "column round_id does not exist" *at run
+  -- time*, and because a DO block is a single statement the whole side-games
+  -- section rolled back with it — leaving seven tables with RLS on and no
+  -- policies at all, which is every side game and every team draw unreachable.
+  foreach t in array array['wolf_holes']
   loop
     execute format('drop policy if exists "read what happened" on %I', t);
     execute format(
@@ -305,6 +312,37 @@ begin
       'using (is_round_member(round_id)) with check (is_round_member(round_id))', t);
   end loop;
 end $$;
+
+-- `hole_game_winners` is keyed by (game_id, hole) — the round is on the game.
+-- Same rule as wolf_holes, one join further out.
+drop policy if exists "read what happened" on hole_game_winners;
+create policy "read what happened" on hole_game_winners
+  for select to authenticated
+  using (
+    exists (
+      select 1 from hole_games g
+       where g.id = hole_game_winners.game_id
+         and is_round_member(g.round_id)
+    )
+  );
+
+drop policy if exists "any player records what happened" on hole_game_winners;
+create policy "any player records what happened" on hole_game_winners
+  for all to authenticated
+  using (
+    exists (
+      select 1 from hole_games g
+       where g.id = hole_game_winners.game_id
+         and is_round_member(g.round_id)
+    )
+  )
+  with check (
+    exists (
+      select 1 from hole_games g
+       where g.id = hole_game_winners.game_id
+         and is_round_member(g.round_id)
+    )
+  );
 
 -- Teams are drawn by the organizer; everyone in the round sees the draw.
 drop policy if exists "read the draw" on team_members;
