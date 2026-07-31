@@ -287,6 +287,13 @@ follow from that, and both were asked for directly:
 - `claim_player()` and `my_players()` are `security definer` because `players.user_id` must
   never be writable directly. Writing it directly is "claim anybody", including the
   organizer — the one row that decides who can reopen a signed card.
+- **Once RLS is live, a signed-in phone must always be able to find a row it owns.** Every
+  write is gated on `auth_player_ids()`, so a phone whose stored player id is stale owns
+  nothing and is refused everything — including creating the round that would give it a
+  roster to pick from. ME's picker therefore offers `my_players()` alongside the round's
+  field, and `RoundProvider` adopts an owned row even when there is no round at all. Without
+  both, deleting your last round while signed in is a locked door with the key on the other
+  side, and the only symptom is "new row violates row-level security policy".
 - **Owning a row is read; taking one is a decision.** `src/lib/claim.ts` is pure and covered
   by `npm run check:claim` (25 assertions). `RoundProvider` auto-adopts a row whose `userId`
   is already yours — signing in on a second phone must not ask who you are again — but an

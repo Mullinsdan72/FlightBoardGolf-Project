@@ -28,6 +28,7 @@ export default function MeScreen() {
     playersLoaded,
     setHandicap,
     myProfile,
+    myOwnedPlayers,
     myProfileLoaded,
     reloadMyProfile,
     userId,
@@ -44,7 +45,20 @@ export default function MeScreen() {
   const [hcp, setHcp] = useState('');
   // The picker is a deliberate act now, not the default state of the screen.
   const [picking, setPicking] = useState(false);
-  const rows = claimRoster(players, userId);
+  /**
+   * Who this phone could be: the round's field, plus every row your account
+   * already owns.
+   *
+   * The roster alone is empty when there are no rounds, so a signed-in person
+   * had nothing to pick and could not get back onto their own claimed row —
+   * which then refuses every write, because a round may only be created naming
+   * a player you own. The key was on the wrong side of the door.
+   */
+  const pickable = [...players];
+  for (const owned of myOwnedPlayers) {
+    if (!pickable.some((p) => p.id === owned.id)) pickable.push(owned);
+  }
+  const rows = claimRoster(pickable, userId);
 
   const saveHandicap = async () => {
     if (!me) return;
@@ -123,14 +137,17 @@ export default function MeScreen() {
           <>
             <Text style={styles.sectionLabel}>{me ? 'Pick someone else' : 'Which one are you?'}</Text>
             {!myProfileLoaded && <Text style={styles.note}>Loading…</Text>}
-            {playersLoaded && players.length === 0 && (
+            {playersLoaded && pickable.length === 0 && (
               <Text style={styles.note}>
-                Nobody is in the open round yet. Add players on the ROUND tab, or open a different round from ACTIVITY.
+                {userId
+                  ? 'No player row belongs to your account yet. Start a round from ACTIVITY and you will be seated in it.'
+                  : 'Nobody is in the open round yet. Add players on the ROUND tab, or open a different round from ACTIVITY.'}
               </Text>
             )}
           </>
         )}
-        {(!me || picking) && rows.map((p) => {
+        {(!me || picking) &&
+          rows.map((p) => {
           const locked = !!userId && p.status === 'taken';
           return (
             <Pressable

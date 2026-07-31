@@ -55,7 +55,7 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   // Who this phone is, independent of any round. Reading it out of the open
   // round's roster made the app forget you the moment you opened a round you
   // weren't in.
-  const profile = useMyProfile(identity.myId);
+  const profile = useMyProfile(identity.myId, auth.userId);
   const round = useActiveRound();
   const roundId = round.activeRoundId;
   const scores = useLiveScores(roundId);
@@ -72,6 +72,25 @@ export function RoundProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (mine && identity.myId !== mine.id) identity.choose(mine.id);
   }, [mine, identity]);
+
+  /**
+   * The same recognition, without needing a round to do it in.
+   *
+   * With no rounds the roster is empty, so the adoption above never fires — and
+   * a signed-in phone whose stored player id is stale or missing then owns
+   * nothing as far as the policies are concerned. Every write is refused,
+   * including the one that would create the round that would give it a roster.
+   *
+   * Only ever adopts a row `my_players()` says is already yours, so this is
+   * still reading a fact rather than taking a seat. Taking an *unclaimed* row
+   * remains a deliberate tap.
+   */
+  const ownedByMe = profile.myOwnedPlayers;
+  useEffect(() => {
+    if (!auth.userId || ownedByMe.length === 0) return;
+    if (identity.myId && ownedByMe.some((p) => p.id === identity.myId)) return;
+    identity.choose(ownedByMe[0].id);
+  }, [auth.userId, ownedByMe, identity]);
 
   // Rounds waiting for this phone. Deliberately given an empty "already joined"
   // list: `rounds` is every round in the database while RLS is still open, so
