@@ -187,8 +187,16 @@ everywhere in this codebase, not just the screens they were first written for.
 - **Decided once, then never revisited.** A layout that kept re-deciding would pull you off
   ROUND the moment somebody posted a hole and off SCORE the moment the last card was signed.
   The opening tab is an opening move, not a rule about where you may be.
-- **It has to be a `<Redirect>`, not `initialRouteName`.** A cold start opens the URL `/`,
-  and `/` *is* the Score tab, so the navigator's initial route loses to the link every time.
+- **Never return `<Redirect>` in place of the navigator that owns the target route.** The
+  first version of this returned `<Redirect href="/(tabs)/round" />` from `(tabs)/_layout`,
+  which is a route *inside* the `<Tabs>` that layout renders — so the navigator never
+  mounted, the target could not resolve, and the app bundled cleanly and then showed nothing
+  at all. No crash, no error in the log. The tabs render first and one effect moves once.
+  `initialRouteName` can't do the job either: a cold start opens the URL `/`, and `/` *is*
+  the Score tab, so the navigator's initial route loses to the link every time.
+- **Don't hold the render until the decision lands.** Waiting avoids one frame of SCORE
+  before the jump and buys it with a whole app that shows nothing if any input never
+  settles. One frame is the cheaper bug.
 - **`playersLoaded` and `scoresHydrated` only settle for a round that exists.** With no
   round, `useRoundPlayers.refresh` returns before setting its flag and `useLiveScores` stops
   at hydrated false. Gate on them unconditionally and a first-time user gets a permanent

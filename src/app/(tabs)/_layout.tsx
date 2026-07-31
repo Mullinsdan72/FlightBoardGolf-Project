@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { Tabs } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { router, Tabs } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Redirect } from 'expo-router';
@@ -85,11 +85,18 @@ export default function TabLayout() {
   // posted a hole, and off SCORE the moment the last card was signed — the app
   // taking the screen you chose away from you.
   //
-  // It has to be a redirect rather than `initialRouteName`: a cold start opens
-  // the URL `/`, and `/` *is* the Score tab, so the navigator's initial route
-  // loses to the link every time.
-  const opened = useRef<'index' | 'round' | null>(null);
-  const sent = useRef(false);
+  // **It moves after the navigator is up, never instead of it.** The first
+  // version returned `<Redirect href="/(tabs)/round" />` from this layout, which
+  // is a route *inside* the navigator this layout renders — so the navigator
+  // never mounted, the target could not resolve, and the app bundled cleanly and
+  // then showed nothing at all. Not a crash, no error in the log: the worst kind
+  // of failure, and it shipped.
+  //
+  // `initialRouteName` can't do this job either: a cold start opens the URL `/`,
+  // and `/` *is* the Score tab, so the navigator's initial route loses to the
+  // link every time. So the tabs render, and one effect moves once.
+  const [opening, setOpening] = useState<'index' | 'round' | null>(null);
+  const moved = useRef(false);
   const scoreState = scores as Record<number, Record<string, number>>;
   // `playersLoaded` and `scoresHydrated` only ever settle for a round that
   // exists — with no round, `useRoundPlayers.refresh` returns before setting
@@ -98,20 +105,37 @@ export default function TabLayout() {
   // the exact bug this file has now shipped twice.
   const decidable =
     roundsLoaded && !!signoffs && invitesReady && (!activeRoundId || (playersLoaded && scoresHydrated));
-  if (opened.current === null && decidable) {
-    opened.current = opensOnRoundTab({
-      hasRound: !!activeRoundId,
-      // Posted scores come off local disk first, so this is what the phone
-      // knows before the network answers. On a phone that has never seen the
-      // round it reads as unplayed and opens on ROUND — one tap wrong, and far
-      // better than holding the whole app on a network call at a tee.
-      holesPosted: Object.values(scoreState).filter((byPlayer) => Object.keys(byPlayer).length > 0).length,
-      fieldSize: players.length,
-      cardsSigned: Object.keys(signoffs).length,
-    })
-      ? 'round'
-      : 'index';
-  }
+  const hasInvites = !!invites && invites.length > 0;
+
+  useEffect(() => {
+    if (opening !== null || !decidable) return;
+    setOpening(
+      opensOnRoundTab({
+        hasRound: !!activeRoundId,
+        // Posted scores come off local disk first, so this is what the phone
+        // knows before the network answers. On a phone that has never seen the
+        // round it reads as unplayed and opens on ROUND — one tap wrong, and far
+        // better than holding the whole app on a network call at a tee.
+        holesPosted: Object.values(scoreState).filter((byPlayer) => Object.keys(byPlayer).length > 0).length,
+        fieldSize: players.length,
+        cardsSigned: Object.keys(signoffs ?? {}).length,
+      })
+        ? 'round'
+        : 'index',
+    );
+  }, [opening, decidable, activeRoundId, scoreState, players.length, signoffs]);
+
+  // The one move, once the tabs exist to move within.
+  //
+  // An invitation outranks the opening tab: somebody has already built a round
+  // with you in it, and handing that person START ROUND is how a group ends up
+  // on two leaderboards arguing about which is real.
+  useEffect(() => {
+    if (moved.current || opening === null) return;
+    moved.current = true;
+    if (hasInvites) router.replace('/invited');
+    else if (opening === 'round') router.replace('/(tabs)/round');
+  }, [opening, hasInvites]);
 
   // Nothing to score against until a round exists, so send a first-time user
   // (or anyone who just deleted their last round) to create one.
@@ -130,40 +154,19 @@ export default function TabLayout() {
       </View>
     );
   }
-  // Also waits on the opening decision, so the app doesn't show a frame of
-  // SCORE before jumping to ROUND. Every input to it settles even on failure —
-  // `roundsLoaded` and `playersLoaded` are set on a failed fetch too, and
-  // `useSignoffs` returns {} rather than nothing — which is what stops this
-  // being the third permanently-blank-screen bug in this file's history.
-  if (activeRoundId === undefined || !roundsLoaded || myId === undefined || opened.current === null) return null;
-  // An invitation outranks everything else this layout can do, including the
-  // welcome — a guest whose organizer typed their number is exactly the phone
-  // with no player and no round, so checking welcome first would send the one
-  // person this screen was built for to "set a round up" instead.
-  //
-  // The worst outcome is not a wrong screen, it is a second round: hand somebody
-  // START ROUND when they were already in a field and the group ends up on two
-  // leaderboards, arguing about which is real.
-  //
-  // Same `sent` guard as below — asked once per cold start, and "not now" is
-  // remembered so it isn't asked again at all.
-  if (!sent.current && invites && invites.length > 0) {
-    sent.current = true;
-    return <Redirect href="/invited" />;
-  }
-
+  // Deliberately does *not* wait on the opening decision. Holding the render
+  // until it lands would avoid one frame of SCORE before the jump to ROUND, and
+  // buy that with a whole app that shows nothing if any input never settles.
+  // This file has shipped that blank screen twice; one frame is the cheaper bug.
+  if (activeRoundId === undefined || !roundsLoaded || myId === undefined) return null;
   // A phone with no player and no round has never been used. Send it to the
   // welcome rather than to a form asking it to name a round — and creating one
   // there mints the player too, which is what stops the organizer-less dead end.
-  if (activeRoundId === null && !myId) return <Redirect href="/welcome" />;
+  // Not for a guest with an invitation waiting: they are exactly a phone with
+  // no player and no round, so welcome would catch the one person the
+  // invitation screen was built for.
+  if (activeRoundId === null && !myId && !hasInvites) return <Redirect href="/welcome" />;
 
-  // Nothing in progress: open on ROUND, where START ROUND is. Guarded by `sent`
-  // so it fires on the cold start and never again — without that, every tap on
-  // SCORE would bounce straight back here.
-  if (opened.current === 'round' && !sent.current) {
-    sent.current = true;
-    return <Redirect href="/(tabs)/round" />;
-  }
   // No redirect for "round is null" any more. It pointed at /rounds, which was
   // deleted when ROUND became the round's home — so it sent anyone with no
   // round to a route that no longer exists. The opening decision below already
