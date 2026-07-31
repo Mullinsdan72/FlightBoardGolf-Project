@@ -19,7 +19,7 @@ import { colors, font } from '@/theme';
  * — course, players, games — can wait for the run-through.
  */
 export default function WelcomeScreen() {
-  const { createRound, choose, rounds } = useRound();
+  const { createRound, choose, rounds, userId, authStage } = useRound();
 
   const [name, setName] = useState('');
   const [dayOffset, setDayOffset] = useState(0);
@@ -62,6 +62,31 @@ export default function WelcomeScreen() {
           and you keep your own score.
         </Text>
 
+        {/* Signing in comes first now, and it is not a preference.
+            
+            Every write is gated on an account: creating your player row needs
+            `to authenticated`, and creating a round needs you to already own the
+            player you name as organizer. So on a signed-out phone the button
+            below cannot work, and before this it was the biggest thing on the
+            screen — you typed your name, tapped START, and got a policy error
+            for your trouble. First-run, first impression.
+            
+            The name and day are still here and still remembered, so the answer
+            to "what were you doing" survives the trip to the sign-in screen. */}
+        {authStage !== 'loading' && !userId && (
+          <View style={styles.gate}>
+            <Text style={styles.gateTitle}>Start with your number</Text>
+            <Text style={styles.gateBody}>
+              Your rounds and your scores belong to your phone number — it is how the group knows it is you, and how an
+              invite finds you. One text, no password.
+            </Text>
+            <Pressable onPress={() => router.push('/signin')} style={styles.gateBtn}>
+              <Text style={styles.gateBtnLabel}>TEXT ME A CODE</Text>
+              <Text style={styles.gateBtnArrow}>→</Text>
+            </Pressable>
+          </View>
+        )}
+
         <Text style={styles.fieldLabel}>Your name</Text>
         <TextInput
           value={name}
@@ -90,14 +115,19 @@ export default function WelcomeScreen() {
           ))}
         </View>
 
-        <Pressable onPress={start} disabled={!canStart} style={[styles.startBtn, !canStart && styles.startBtnOff]}>
+        <Pressable
+          onPress={start}
+          disabled={!canStart || !userId}
+          style={[styles.startBtn, (!canStart || !userId) && styles.startBtnOff]}
+        >
           <Text style={styles.startLabel}>{busy ? 'STARTING…' : 'START A ROUND'}</Text>
           <Text style={styles.startArrow}>→</Text>
         </Pressable>
 
         <Text style={styles.note}>
-          You'll be running this round: you pick the course and who's in it. Next comes the course, then everyone
-          playing. It takes about a minute, and handicaps and anything else can be set once you're in.
+          {!userId
+            ? 'Sign in above first — a round belongs to the account that creates it, so there has to be one.'
+            : "You'll be running this round: you pick the course and who's in it. Next comes the course, then everyone playing. It takes about a minute, and handicaps and anything else can be set once you're in."}
         </Text>
 
         {/* Somebody who was texted a link isn't starting a round, they're
@@ -107,10 +137,14 @@ export default function WelcomeScreen() {
           <Text style={styles.secondaryArrow}>›</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push('/signin')} style={styles.secondaryBtn}>
-          <Text style={styles.secondaryLabel}>SIGN IN WITH YOUR PHONE</Text>
-          <Text style={styles.secondaryArrow}>›</Text>
-        </Pressable>
+        {/* Only when there is no gate above it — two sign-in buttons on one
+            screen is a screen that cannot decide what it wants. */}
+        {!!userId && (
+          <Pressable onPress={() => router.push('/signin')} style={styles.secondaryBtn}>
+            <Text style={styles.secondaryLabel}>USE A DIFFERENT NUMBER</Text>
+            <Text style={styles.secondaryArrow}>›</Text>
+          </Pressable>
+        )}
 
         {rounds.length > 0 && (
           <Pressable onPress={() => router.replace('/(tabs)/activity')} style={styles.secondaryBtn}>
@@ -124,6 +158,27 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  gate: {
+    marginTop: 26,
+    padding: 16,
+    backgroundColor: 'rgba(236,48,19,0.10)',
+    borderWidth: 2,
+    borderColor: colors.accent,
+    borderRadius: 10,
+  },
+  gateTitle: { fontFamily: font.heading, fontSize: 18, color: colors.text },
+  gateBody: { fontFamily: font.body, fontSize: 13, lineHeight: 20, color: colors.muted, marginTop: 8 },
+  gateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    height: 56,
+    paddingHorizontal: 16,
+    backgroundColor: colors.accent,
+  },
+  gateBtnLabel: { fontFamily: font.heading, fontSize: 14, letterSpacing: 0.5, color: '#fff' },
+  gateBtnArrow: { fontFamily: font.heading, fontSize: 18, color: '#fff' },
   screen: { flex: 1, backgroundColor: colors.bg },
   scroll: { paddingTop: 72, paddingHorizontal: 20, paddingBottom: 40 },
   lede: { fontFamily: font.body, fontSize: 13.5, lineHeight: 21, color: colors.muted, marginTop: 18 },
