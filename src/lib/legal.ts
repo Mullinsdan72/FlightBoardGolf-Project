@@ -29,12 +29,22 @@ export const TERMS_URL: string | null = `${SITE}/terms.html`;
  * often, that rates apply, and how to stop. Keep it that way — trimming this
  * for tidiness is trimming the thing the registration was granted on.
  */
+// Word for word what the A2P campaign's "opt-in message" field says, and inside
+// its 320-character cap. Carriers compare the two, and a screenshot of this
+// screen is what they compare it against — so editing this is editing a filed
+// regulatory document, not app copy.
+//
+// Two deliberate things. "Flight Leaderboard Golf" is the registered brand, not
+// the app's name. And it no longer mentions being invited to rounds: those texts
+// are sent from the organizer's own phone, never through Twilio, and every
+// mention of them in the filing read as person-to-person traffic — which is what
+// got the campaign rejected.
+//
+// Plain hyphen and plain apostrophes on purpose: a curly dash here cuts an SMS
+// segment from 160 characters to 70, and this text is quoted verbatim in the
+// registration.
 export const SMS_CONSENT =
-  'By tapping the button above you agree to receive a one-time verification code by text ' +
-  // The registered A2P brand, not the app's name. Carriers ask for a screenshot
-  // of this exact screen during campaign registration and compare the sender
-  // named here against the brand on the campaign.
-  'from Flight Leaderboard Golf. Message frequency varies — normally one text per sign-in. Message and ' +
-  'data rates may apply. Reply STOP to opt out, HELP for help. Your number is used to sign ' +
-  'you in and match you to rounds you’ve been invited to, and is never shared with anyone ' +
-  'for marketing.';
+  'By tapping TEXT ME A CODE you agree to receive a one-time verification code by text from ' +
+  'Flight Leaderboard Golf. Msg frequency varies - normally one text per sign-in. Msg and data ' +
+  'rates may apply. Reply STOP to opt out, HELP for help. Your number is never shared with ' +
+  'anyone for marketing.';
