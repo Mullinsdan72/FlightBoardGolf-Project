@@ -22,25 +22,39 @@ export type OpeningState = {
 };
 
 /**
+ * Where a round is in its life. One definition, used by every screen that shows
+ * a round's state, so ACTIVITY and the opening tab can never disagree.
+ *
+ *   - **not started** — no field, or nothing posted. A round set up last night
+ *     is a plan, not a round.
+ *   - **in progress** — somebody has posted and somebody has not signed.
+ *   - **closed** — every card in the field is signed. The round is over and its
+ *     scores are locked; reopening one takes the organizer.
+ *
+ * Note what closed is *not*: your own signature. One phone can be keeping four
+ * cards, and a round where you signed first is still very much being played.
+ */
+export type RoundStatus = 'not-started' | 'in-progress' | 'closed';
+
+export function roundStatus(state: Omit<OpeningState, 'hasRound'>): RoundStatus {
+  if (state.fieldSize === 0) return 'not-started';
+  if (state.holesPosted === 0) return 'not-started';
+  return state.cardsSigned >= state.fieldSize ? 'closed' : 'in-progress';
+}
+
+/**
  * True when the app should open on ROUND rather than SCORE.
  *
- * Three ways a round fails to be "in progress", and they are not the same thing:
+ * Anything that isn't actively being played: no round at all, one nobody has
+ * teed off in, or one that is finished. Opening on a locked scorecard reads as
+ * the app being stuck, which is exactly the complaint that started this.
  *
- *   - **There isn't one.** First run, or you deleted your last one.
- *   - **Nothing has been posted.** A round set up last night is a plan, not a
- *     round. ROUND is where you finish setting it up and tee off from, so this
- *     is the screen even when the round already exists.
- *   - **Every card is signed.** Finished. Opening on a locked scorecard reads as
- *     the app being stuck, which is exactly the complaint that started this.
- *
- * Anything else means somebody is mid-round, and mid-round SCORE wins — even if
- * *your* card is signed, because you may still be marking for three others.
+ * Mid-round SCORE wins — even if *your* card is signed, because you may still
+ * be marking for three others.
  */
 export function opensOnRoundTab(state: OpeningState): boolean {
   if (!state.hasRound) return true;
-  if (state.fieldSize === 0) return true;
-  if (state.holesPosted === 0) return true;
-  return state.cardsSigned >= state.fieldSize;
+  return roundStatus(state) !== 'in-progress';
 }
 
 /** The route to open on. One place, so no screen has to guess. */

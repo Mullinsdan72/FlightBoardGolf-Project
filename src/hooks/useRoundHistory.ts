@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { roundStatus, type RoundStatus } from '@/lib/opening';
 
 export type HistoryPlayer = {
   id: string;
@@ -16,6 +17,11 @@ export type HistoryRound = {
   roundId: string;
   players: HistoryPlayer[];
   holeCount: number;
+  /** How many cards in this round are signed. Closed is all of them. */
+  cardsSigned: number;
+  /** Holes with a score on them, from anyone. Zero means never teed off. */
+  holesPosted: number;
+  status: RoundStatus;
 };
 
 /**
@@ -46,13 +52,16 @@ export function useRoundHistory(roundIds: string[]) {
       setLoaded(true);
       return;
     }
-    const [rosterRes, scoreRes, holeRes] = await Promise.all([
+    const [rosterRes, scoreRes, holeRes, signRes] = await Promise.all([
       supabase
         .from('round_players')
         .select('round_id, player_id, players(id, name, handicap)')
         .in('round_id', roundIds),
       supabase.from('scores').select('round_id, player_id, hole, strokes').in('round_id', roundIds),
       supabase.from('round_holes').select('round_id, hole, par').in('round_id', roundIds),
+      // Which cards are signed, so ACTIVITY can say a round is closed without
+      // asking each one separately. Same rule as the opening tab reads.
+      supabase.from('signoffs').select('round_id, player_id').in('round_id', roundIds),
     ]);
 
     if (rosterRes.error || scoreRes.error || holeRes.error) {
@@ -91,12 +100,33 @@ export function useRoundHistory(roundIds: string[]) {
       tally.set(k, t);
     }
 
+    // A failed signoffs read means nothing is signed, never that everything is.
+    // Rule 8 is enforced by a row existing, and a round wrongly shown as closed
+    // is a round somebody thinks they cannot edit.
+    if (signRes.error) console.warn('useRoundHistory signoffs failed:', signRes.error.message);
+    const signed = new Map<string, number>();
+    for (const s of (signRes.data ?? []) as any[]) signed.set(s.round_id, (signed.get(s.round_id) ?? 0) + 1);
+
+    const posted = new Map<string, Set<number>>();
+    for (const s of (scoreRes.data ?? []) as any[]) {
+      const set = posted.get(s.round_id) ?? new Set<number>();
+      set.add(s.hole);
+      posted.set(s.round_id, set);
+    }
+
     const out: Record<string, HistoryRound> = {};
     for (const r of (rosterRes.data ?? []) as any[]) {
       const p = r.players;
       if (!p) continue;
       const t = tally.get(`${r.round_id}|${r.player_id}`);
-      const entry = (out[r.round_id] ??= { roundId: r.round_id, players: [], holeCount: holeCount.get(r.round_id) ?? 0 });
+      const entry = (out[r.round_id] ??= {
+        roundId: r.round_id,
+        players: [],
+        holeCount: holeCount.get(r.round_id) ?? 0,
+        cardsSigned: signed.get(r.round_id) ?? 0,
+        holesPosted: posted.get(r.round_id)?.size ?? 0,
+        status: 'not-started',
+      });
       entry.players.push({
         id: p.id,
         name: p.name,
@@ -118,6 +148,14 @@ export function useRoundHistory(roundIds: string[]) {
       });
     }
 
+    for (const r of Object.values(out)) {
+      r.status = roundStatus({
+        holesPosted: r.holesPosted,
+        fieldSize: r.players.length,
+        cardsSigned: r.cardsSigned,
+      });
+    }
+
     setError(null);
     setHistory(out);
     setLoaded(true);
@@ -128,5 +166,27 @@ export function useRoundHistory(roundIds: string[]) {
     load();
   }, [load]);
 
-  return { history, historyLoaded: loaded, historyError: error, reloadHistory: load };
+  /**
+   * Unlock every card in a round, so its scores can be edited again.
+   *
+   * Rule 8 says reopening a signed card takes the organizer, and this is that
+   * rule applied to a whole round at once — the card-by-card version already
+   * lives on CARD. It is here because the place you notice a wrong score is
+   * usually the leaderboard afterwards, not the scorecard at the time.
+   *
+   * Deletes signatures, never scores. A reopened round is the same round with
+   * its cards unlocked; nothing that was posted is touched.
+   */
+  const reopenRound = useCallback(async (roundId: string): Promise<string | null> => {
+    if (!isSupabaseConfigured || !supabase) return null;
+    const { error: err } = await supabase.from('signoffs').delete().eq('round_id', roundId);
+    if (err) {
+      console.warn('reopenRound failed:', err.message);
+      return err.message;
+    }
+    await load();
+    return null;
+  }, [load]);
+
+  return { history, historyLoaded: loaded, historyError: error, reloadHistory: load, reopenRound };
 }

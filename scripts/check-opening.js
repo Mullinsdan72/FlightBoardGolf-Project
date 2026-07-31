@@ -80,6 +80,23 @@ check('in progress routes to SCORE', p.openingRoute(state({ holesPosted: 4 })), 
 check('nothing in progress routes to ROUND', p.openingRoute(state({ hasRound: false })), '/(tabs)/round');
 check('finished routes to ROUND', p.openingRoute(state({ holesPosted: 18, cardsSigned: 4 })), '/(tabs)/round');
 
+
+// ------------------------------------------------------------ the three states
+check('no field is not started', p.roundStatus({ holesPosted: 0, fieldSize: 0, cardsSigned: 0 }), 'not-started');
+check('a field with nothing posted is not started', p.roundStatus({ holesPosted: 0, fieldSize: 4, cardsSigned: 0 }), 'not-started');
+check('one hole posted is in progress', p.roundStatus({ holesPosted: 1, fieldSize: 4, cardsSigned: 0 }), 'in-progress');
+check('three of four signed is still in progress', p.roundStatus({ holesPosted: 9, fieldSize: 4, cardsSigned: 3 }), 'in-progress');
+check('every card signed is closed', p.roundStatus({ holesPosted: 9, fieldSize: 4, cardsSigned: 4 }), 'closed');
+// Reopening one card is what makes a closed round editable again — the status
+// has to follow the signatures, or ACTIVITY keeps calling it closed while SCORE
+// lets you type in it.
+check('reopening one card puts it back to in progress', p.roundStatus({ holesPosted: 9, fieldSize: 4, cardsSigned: 3 }), 'in-progress');
+// A player removed after signing leaves more signatures than seats.
+check('more signatures than seats is closed, not broken', p.roundStatus({ holesPosted: 9, fieldSize: 2, cardsSigned: 3 }), 'closed');
+// The two must never disagree; ACTIVITY and the opening tab read the same rule.
+check('only in-progress keeps you on SCORE', p.opensOnRoundTab({ hasRound: true, holesPosted: 9, fieldSize: 4, cardsSigned: 0 }), false);
+check('closed sends you to ROUND', p.opensOnRoundTab({ hasRound: true, holesPosted: 9, fieldSize: 4, cardsSigned: 4 }), true);
+
 console.log('');
 if (failures.length) {
   console.error(`${failures.length} check(s) failed:\n`);

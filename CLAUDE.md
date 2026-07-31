@@ -194,6 +194,15 @@ everywhere in this codebase, not just the screens they were first written for.
   at hydrated false. Gate on them unconditionally and a first-time user gets a permanent
   blank screen — this file has shipped that bug twice already, so gate with
   `!activeRoundId || (...)`.
+- **`roundStatus` is the one definition of not-started / in-progress / closed**, and both
+  ACTIVITY and the opening tab read it. Closed is *every* card signed, never your own — one
+  phone can be keeping four cards, and a round you signed first is still being played.
+- **ACTIVITY shows the field as soon as there are players in it.** It used to wait for a
+  posted score, so a round you had just added four people to looked empty. Reported as "it
+  doesn't show the players that were added", and it didn't.
+- **RE-OPEN on ACTIVITY unlocks a whole round**; the card-by-card version is on CARD. It
+  deletes signatures and never scores. It is on ACTIVITY because the place a wrong score gets
+  noticed is the leaderboard afterwards, not the scorecard at the time.
 - Posted holes are counted off the **local cache**, which is what the phone knows before the
   network answers. A phone that has never seen the round reads it as unplayed and opens on
   ROUND: one tap wrong, and much better than holding the whole app on a network call at a

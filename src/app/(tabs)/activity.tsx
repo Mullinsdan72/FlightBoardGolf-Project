@@ -30,7 +30,7 @@ export default function ActivityScreen() {
   const [creating, setCreating] = useState(false);
 
   const roundIds = useMemo(() => rounds.map((r) => r.id), [rounds]);
-  const { history, historyLoaded, historyError } = useRoundHistory(roundIds);
+  const { history, historyLoaded, historyError, reopenRound } = useRoundHistory(roundIds);
 
   /**
    * Read a past round without disturbing the one being played.
@@ -93,6 +93,30 @@ export default function ActivityScreen() {
     router.push('/(tabs)/round');
   };
 
+  /**
+   * Unlock every card in a finished round.
+   *
+   * The place a wrong score gets noticed is the leaderboard afterwards, not the
+   * scorecard at the time, so the round-level version of rule 8 belongs here.
+   * Scores are never touched — only the signatures that lock them.
+   */
+  const confirmReopen = (roundId: string, name: string) =>
+    Alert.alert(
+      `Reopen ${name || 'this round'}?`,
+      'Every card in it unlocks and the scores can be edited again. Nothing posted is deleted, and everyone in the round will see it unlock. Sign the cards again when the corrections are in.',
+      [
+        { text: 'Leave it closed', style: 'cancel' },
+        {
+          text: 'Reopen',
+          style: 'destructive',
+          onPress: async () => {
+            const message = await reopenRound(roundId);
+            if (message) Alert.alert('Could not reopen that round', message);
+          },
+        },
+      ],
+    );
+
   const confirmDelete = (roundId: string, name: string) =>
     Alert.alert(
       `Delete ${name || 'this round'}?`,
@@ -130,7 +154,8 @@ export default function ActivityScreen() {
         {rounds.map((r) => {
           const h = history[r.id];
           const mine = h?.players.find((p) => p.id === myId);
-          const played = h?.players.filter((p) => p.holesPlayed > 0) ?? [];
+          const field = h?.players ?? [];
+          const status = h?.status ?? 'not-started';
           return (
             <View key={r.id} style={[styles.card, r.id === activeRoundId && styles.cardActive]}>
               <View style={styles.cardTop}>
@@ -143,6 +168,20 @@ export default function ActivityScreen() {
                 {r.name || 'Untitled round'}
                 {r.id === activeRoundId ? ' · OPEN' : ''}
               </Text>
+              {/* What state the round is in, in one word. "Closed" is every card
+                  signed — not your own signature, because one phone can be
+                  keeping four cards and a round you signed first is still very
+                  much being played. */}
+              <View style={styles.statusRow}>
+                <View style={[styles.statusDot, status === 'closed' && styles.statusDotClosed, status === 'not-started' && styles.statusDotIdle]} />
+                <Text style={[styles.status, status === 'closed' && styles.statusClosed]}>
+                  {status === 'closed'
+                    ? `CLOSED · ${h!.cardsSigned} CARD${h!.cardsSigned === 1 ? '' : 'S'} SIGNED`
+                    : status === 'in-progress'
+                      ? `IN PROGRESS · ${h!.cardsSigned} OF ${field.length} SIGNED`
+                      : 'NOT STARTED'}
+                </Text>
+              </View>
 
               {/* Your number, big. Rule 4: a round with nothing posted has no
                   total, so it says so rather than showing a zero. */}
@@ -154,9 +193,13 @@ export default function ActivityScreen() {
                 </Text>
               </View>
 
-              {played.length > 0 && (
+              {/* The field shows as soon as there are players in it. It used to
+                  wait for a posted score, so a round you had just added four
+                  people to looked empty — reported as "it doesn't show the
+                  players that were added", and it didn't. */}
+              {field.length > 0 && (
                 <View style={styles.field}>
-                  {h!.players.map((p, i) => (
+                  {field.map((p, i) => (
                     <View key={p.id} style={styles.fieldRow}>
                       <Text style={styles.pos}>{p.toPar == null ? '–' : i + 1}</Text>
                       <Text style={[styles.fieldName, p.id === myId && styles.fieldNameYou]} numberOfLines={1}>
@@ -175,9 +218,16 @@ export default function ActivityScreen() {
                 <Pressable onPress={() => openHistory(r.id)} style={styles.action}>
                   <Text style={styles.actionLabel}>OPEN</Text>
                 </Pressable>
-                {r.id !== activeRoundId && (
+                {r.id !== activeRoundId && status !== 'closed' && (
                   <Pressable onPress={() => resume(r.id)} style={styles.action}>
                     <Text style={styles.actionLabel}>PLAY THIS ONE</Text>
+                  </Pressable>
+                )}
+                {/* Only on a closed round, because reopening an open one is a
+                    no-op that reads like it did something. */}
+                {status === 'closed' && (
+                  <Pressable onPress={() => confirmReopen(r.id, r.name)} style={styles.action}>
+                    <Text style={styles.actionLabel}>RE-OPEN</Text>
                   </Pressable>
                 )}
                 <Pressable onPress={() => confirmDelete(r.id, r.name)} style={styles.action}>
@@ -217,6 +267,12 @@ const styles = StyleSheet.create({
   course: { fontFamily: font.heading, fontSize: 16, color: colors.text, flexShrink: 1 },
   date: { fontFamily: font.body, fontSize: 11.5, color: colors.muted },
   roundName: { fontFamily: font.body, fontSize: 12, color: colors.muted, marginTop: 3 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 },
+  statusDot: { width: 7, height: 7, backgroundColor: colors.accent },
+  statusDotClosed: { backgroundColor: colors.text },
+  statusDotIdle: { backgroundColor: colors.mutedFaint },
+  status: { fontFamily: font.heading, fontSize: 9.5, letterSpacing: 1.1, color: colors.accent },
+  statusClosed: { color: colors.text },
   scoreRow: { flexDirection: 'row', alignItems: 'baseline', gap: 12, marginTop: 12 },
   gross: { fontFamily: font.heading, fontSize: 44, letterSpacing: -1.5, color: colors.text },
   toPar: { fontFamily: font.heading, fontSize: 17, color: colors.accent },
