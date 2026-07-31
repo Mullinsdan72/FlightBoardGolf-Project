@@ -57,10 +57,21 @@ export function TileGrid({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 20 },
+  // Three across, always. `gap` plus a percentage width cannot guarantee that:
+  // 3 x 31.5% of the row *plus* two 10px gaps came to a fraction more than the
+  // row was wide, so the third tile wrapped and the grid silently became two
+  // columns. Percentages that add to less than 100 with `space-between` cannot
+  // overflow, whatever the screen width.
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    paddingHorizontal: 20,
+  },
   tile: {
-    // Three across, with two 10px gaps and 20px of padding either side.
-    width: '31.5%',
+    // 3 x 32% = 96%; space-between shares the remaining 4% as the two gaps.
+    width: '32%',
     minHeight: 84,
     // A filled, rounded tile rather than the app's usual square hairline rule.
     // Deliberate deviation from the zero-radius house style, asked for so the
