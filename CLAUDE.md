@@ -140,8 +140,12 @@ everywhere in this codebase, not just the screens they were first written for.
      existing; a network error is not that row, and locking a course full of cards on a bad
      connection is the worse failure.
    - `rounds.organizer_player_id` holds the role, set to whoever created the round. The
-     PLAYERS tab can still hand it over, which is also the escape hatch for the rounds that
-     predate Create Round. With no sign-in anyone can take it, so today it records who's
+     PLAYERS screen hands it over — **that control is the only way back into the role, and
+     it must never be dropped again.** It lived on the old PLAYERS tab, didn't survive the
+     lobby rebuild, and for a while nothing in the app called `claimOrganizer` at all: not
+     being the organizer makes teams, games and the round's terms read-only, and no screen
+     could give the role back. Reinstalling the app is enough to land there, because the
+     player this device is gets picked from scratch. With no sign-in anyone can take it, so today it records who's
      running the round rather than restricting anything — move it into RLS once accounts
      exist.
    - Empty means nobody is organizer, not everybody. A card must not become unlockable just

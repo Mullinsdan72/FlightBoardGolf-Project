@@ -41,6 +41,9 @@ export default function PlayersScreen() {
     activeRound,
     activeRoundId,
     course,
+    amOrganizer,
+    organizerId,
+    claimOrganizer,
   } = useRound();
 
   const [adding, setAdding] = useState<Adding>(null);
@@ -176,6 +179,59 @@ export default function PlayersScreen() {
 
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }}>
         {playersError && <Text style={styles.error}>{playersError}</Text>}
+
+        {/* Who is running this round, and the way to take it on.
+            
+            `claimOrganizer` has existed since the organizer role did, and after
+            the lobby rebuild nothing called it any more — the control lived on
+            the old PLAYERS tab and didn't survive. That left the role
+            unrecoverable from inside the app: not the organizer means teams,
+            games and the round's terms are all read-only, and there was no
+            screen that could hand it to you.
+            
+            Reinstalling the app is enough to land there, because the player this
+            device is gets picked again from scratch.
+            
+            Deliberately takeable by anyone in the field. With no sign-in the
+            role records who is running the round rather than restricting
+            anything, and an empty role means nobody is organizer — not
+            everybody — so a signed card must never become unlockable just
+            because the seat is empty. It moves behind RLS when accounts land. */}
+        <View style={styles.organizerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.organizerLabel}>Running this round</Text>
+            <Text style={styles.organizerName}>
+              {amOrganizer
+                ? 'You'
+                : (organizerId && players.find((p) => p.id === organizerId)?.name) || 'Nobody yet'}
+            </Text>
+          </View>
+          {!amOrganizer && !!myId && (
+            <Pressable
+              onPress={() =>
+                Alert.alert(
+                  organizerId ? 'Take over this round?' : 'Run this round?',
+                  organizerId
+                    ? "You'll be able to set the course, the format, the teams and the games, and to reopen a signed card. Whoever is running it now loses those controls."
+                    : "Nobody is running this round. Taking it on lets you set the course, the format, the teams and the games, and reopen a signed card.",
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: organizerId ? 'Take over' : "I'm running it",
+                      onPress: async () => {
+                        const message = await claimOrganizer(myId);
+                        if (message) Alert.alert('Could not change who is running this round', message);
+                      },
+                    },
+                  ],
+                )
+              }
+              style={styles.organizerBtn}
+            >
+              <Text style={styles.organizerBtnLabel}>{organizerId ? 'TAKE OVER' : "I'M RUNNING IT"}</Text>
+            </Pressable>
+          )}
+        </View>
 
         <Text style={styles.sectionLabel}>Playing this round · {players.length}</Text>
         {!playersLoaded && <Text style={styles.note}>Loading…</Text>}
@@ -340,6 +396,26 @@ export default function PlayersScreen() {
 }
 
 const styles = StyleSheet.create({
+  organizerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 20,
+    marginTop: 16,
+    padding: 14,
+    backgroundColor: '#e7e4e2',
+    borderRadius: 10,
+  },
+  organizerLabel: {
+    fontFamily: font.bodySemi,
+    fontSize: 9.5,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    color: colors.muted,
+  },
+  organizerName: { fontFamily: font.heading, fontSize: 16, color: colors.text, marginTop: 4 },
+  organizerBtn: { borderWidth: 2, borderColor: colors.accent, paddingVertical: 8, paddingHorizontal: 12 },
+  organizerBtnLabel: { fontFamily: font.heading, fontSize: 10.5, letterSpacing: 0.9, color: colors.accent },
   doneBtn: {
     height: 68,
     backgroundColor: colors.accent,
