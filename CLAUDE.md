@@ -274,11 +274,29 @@ follow from that, and both were asked for directly:
   `usePhoneAuth`, `/signin`) but the policies have not been flipped, because flipping them
   before everyone has signed in and claimed a player would make every existing round
   invisible to its own players. The order is fixed and must be kept:
-    1. `supabase/auth.sql` + phone sign-in in the app — **done**
+    1. `supabase/auth.sql` + phone sign-in in the app — **done, and codes are delivering**
     2. everyone signs in once and claims their player row — **built**, needs doing
-       for real once codes are being delivered
+       for real by the whole group
     3. `supabase/rls.sql`, the actual lockdown — **written, not yet run**
   Step 3 is the one no tap in the app can undo, so it goes last.
+- **Codes go through Twilio Verify, not a Twilio Messaging Service, and that is not a
+  preference.** A2P 10DLC campaigns registered to a **sole proprietor** brand may not carry
+  one-time passcodes at all — TCR rejects the campaign whatever the description says, and
+  ours was rejected twice before Twilio support confirmed the restriction. The permitted
+  route for OTP on a Messaging Service is a *Standard* brand, which needs an EIN. Verify runs
+  on Twilio's own registered infrastructure and needs no campaign, so it sidesteps the whole
+  thing.
+  - The app is unaffected either way: it calls `signInWithOtp`/`verifyOtp` on Supabase, and
+    the provider is a dashboard setting. Nothing in this codebase knows which one is in use.
+  - **Verify writes its own message.** The SMS template in Supabase is ignored, and the
+    sender name in the text comes from the Verify service's *friendly name* — which is set to
+    `Flight Leaderboard Golf`, the registered brand. Renaming that service renames the sender
+    in every sign-in text.
+  - The rejected A2P campaign and the approved brand are both left in place. The brand is
+    worth keeping if Flight Board ever needs a Standard registration; the campaign is inert.
+  - `SMS_CONSENT` in `src/lib/legal.ts` is still the filed opt-in wording and still belongs
+    on the screen that collects the number. Verify doesn't remove the disclosure obligation,
+    and the text is what a Standard registration would be granted on if it ever happens.
 - **Signing in and being a player are two different things.** `usePhoneAuth` proves whose
   phone this is; `usePlayerIdentity` still decides which player row this device is. Don't
   collapse them — a link that seated whoever opened it is the same mistake as an invite that
