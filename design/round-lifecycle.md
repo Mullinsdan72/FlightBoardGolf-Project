@@ -22,16 +22,44 @@ Both of those are wrong for a group.
 START ROUND currently just navigates to the Score tab. It marks nothing, tells
 nobody, and changes no state.
 
-## Where I disagree with "one live round at a time"
+## Where this is going, and why it settles the argument below
+
+The destination is **one round containing many flights**: twenty players, split
+into groups, each group playing its own Wolf, everyone on one leaderboard and
+able to see how the other flights are getting on and who is up in each.
+
+That is the design's Phase 5 field tooling, and it changes the shape of
+everything below — because once flights live *inside* a round, "one live round at
+a time" is simply true. There is one round. It is the morning. The flights are
+groups within it.
+
+What it needs, roughly:
+
+- a `flights` table belonging to a round, and `round_players.flight_id`
+- every game keyed to a **flight** rather than a round: `wolf_games`,
+  `team_games`, `hole_games`, `team_challenge`. Money moves within a flight,
+  because that is who you are playing against
+- a leaderboard that shows the whole field but groups or filters by flight, and
+  a settle-up that nets per flight
+- the organizer being able to draw the flights, the way teams are drawn now
+
+Substantial, and the right thing. Until it exists, two flights means two rounds,
+and the interim rule below is what keeps that working.
+
+## Where I disagree with "one live round at a time" — for now
 
 The instinct is right — the app should know which round is being played — but
 enforced globally it breaks the very case that prompted it. Tomorrow morning has
 **two Wolf flights running at the same time**, five players and four, on separate
 rounds. Both are genuinely live.
 
-The rule that holds is one step narrower:
+The rule that holds *today* is one step narrower:
 
 > **A player may be in at most one live round at a time.**
+
+Once flights exist this stops being a compromise and starts being the plain
+truth: you are in one round, and your flight is where your game and your money
+are.
 
 Nobody plays two rounds at once. The app can carry as many live rounds as there
 are groups, so long as their fields do not overlap. That gives the group what it
@@ -138,9 +166,10 @@ teed off becomes a draft, which is what it always was.
 
 - **Scramble.** Still needs one score per group, which is a change to score
   entry, not to a round's state.
-- **Flights as a first-class thing.** Two Wolf flights are still two rounds you
-  set up twice. Making them one round with two groups is the design's Phase 5
-  field tooling and a much bigger piece.
+- **Flights as a first-class thing** — see the top of this note. Two Wolf
+  flights are still two rounds you set up twice. That is the interim shape, not
+  the intended one, and the lifecycle here is deliberately built so that adding
+  flights later narrows the rule rather than replacing it.
 
 ## Order to build it
 
