@@ -101,3 +101,50 @@ grant execute on function create_my_player(text, int) to authenticated;
 grant execute on function add_player_to_round(uuid, text, int, text) to authenticated;
 
 select 'rounds policy and create functions installed' as done;
+
+-- ------------------------------------------------------------- invitations
+--
+-- The seat somebody made for you, found by your number.
+--
+-- This cannot be a plain query. `usePendingInvites` used to read `round_players`
+-- and `rounds` directly, and both are gated on `is_round_member` — which a guest
+-- whose row is still unclaimed is not. So the lookup returned nothing, the
+-- invitation never appeared, and somebody who had been added to a round was
+-- shown the first-run screen and invited to create a second one.
+--
+-- `security definer` for the same reason `my_players()` is: the match is against
+-- `auth.users.phone`, which the app cannot read.
+--
+-- Only *unclaimed* rows carrying your number. A row you already own is a round
+-- you are in, not an invitation, and a row somebody else owns is none of your
+-- business.
+create or replace function my_invitations()
+returns table (
+  player_id uuid,
+  player_name text,
+  round_id uuid,
+  round_name text,
+  course_name text,
+  played_on date
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id, p.name, r.id, coalesce(r.name, ''), coalesce(r.course_name, ''), r.played_on
+    from players p
+    join round_players rp on rp.player_id = p.id
+    join rounds r on r.id = rp.round_id
+   where auth.uid() is not null
+     and p.user_id is null
+     and p.phone is not null
+     -- auth.users.phone has no leading '+'; the app writes proper E.164 with
+     -- one. Comparing them raw silently never matches, and the failure looks
+     -- exactly like "nobody invited you".
+     and ltrim(p.phone, '+') = (select u.phone from auth.users u where u.id = auth.uid());
+$$;
+
+grant execute on function my_invitations() to authenticated;
+
+select 'invitations function installed' as done;

@@ -8,15 +8,17 @@ const DECLINED_KEY = 'flightboard.declinedInvites';
 /**
  * Rounds somebody has put you in that you haven't joined.
  *
- * The whole thing hangs off `my_players()`, which is the only way a phone can
- * know an invitation is for *it*: the organizer typed your mobile number, and
- * the function matches it against the number you signed in with. No sign-in
- * means no invitations — not an error, just nothing to say — so this is silent
- * and empty until phone auth is delivering codes.
+ * The whole thing hangs off `my_invitations()`, which is the only way a phone
+ * can know an invitation is for *it*: the organizer typed your mobile number,
+ * and the function matches it against the number you signed in with. No sign-in
+ * means no invitations — not an error, just nothing to say.
  *
- * `my_players()` is `security definer` because `players.user_id` must never be
- * writable directly. Reading through it here is the same reason: the match is
- * against `auth.users.phone`, which the app cannot see.
+ * `security definer`, for two reasons that both matter. The match is against
+ * `auth.users.phone`, which the app cannot read. And under RLS a guest cannot
+ * read `round_players` or `rounds` for a round they are not yet in — which is
+ * every round they have been invited to. Doing this as ordinary queries found
+ * nothing, showed no invitation, and dropped somebody who had been put in a
+ * round onto the first-run screen to create a second one.
  */
 export function usePendingInvites(userId: string | null | undefined, joinedRoundIds: string[]) {
   const [invites, setInvites] = useState<PendingInvite[] | undefined>(undefined);
@@ -41,54 +43,28 @@ export function usePendingInvites(userId: string | null | undefined, joinedRound
       setInvites([]);
       return;
     }
-    const { data: mine, error } = await supabase.rpc('my_players');
-    if (error || !mine) {
-      // Settled, even though it failed. Leaving this undefined holds the tabs
-      // layout on a blank screen — the failure mode this file's siblings have
-      // shipped twice.
-      if (error) console.warn('my_players failed:', error.message);
+    // One `security definer` call, not three queries. Reading `round_players`
+    // and `rounds` directly is gated on `is_round_member`, which a guest whose
+    // row is still unclaimed is not — so the lookup found nothing, no
+    // invitation ever appeared, and somebody who had been put in a round was
+    // shown the first-run screen and invited to create a second one.
+    const { data, error } = await supabase.rpc('my_invitations');
+    if (error || !data) {
+      // Settled, even though it failed. A flag that gates a whole render must
+      // be set on the failure path too.
+      if (error) console.warn('my_invitations failed:', error.message);
       setInvites([]);
       return;
     }
-    const mineRows = mine as Array<{ id: string; user_id: string | null }>;
-    const playerIds = mineRows.map((p) => p.id);
-    // A row already linked to your account is one you have accepted. Rounds it
-    // is in are yours to play, not yours to be asked about — which is also what
-    // stops the question reappearing the moment you join.
-    const claimed = new Set(mineRows.filter((p) => p.user_id === userId).map((p) => p.id));
-    if (playerIds.length === 0) {
-      setInvites([]);
-      return;
-    }
-
-    const { data: memberships, error: mErr } = await supabase
-      .from('round_players')
-      .select('player_id, round_id, rounds(id, name, course_name, played_on), players(id, name)')
-      .in('player_id', playerIds);
-    if (mErr || !memberships) {
-      if (mErr) console.warn('invite memberships failed:', mErr.message);
-      setInvites([]);
-      return;
-    }
-
-    const rows = memberships as unknown as Array<{
-      player_id: string;
-      round_id: string;
-      rounds: { id: string; name: string | null; course_name: string | null; played_on: string | null } | null;
-      players: { id: string; name: string } | null;
-    }>;
-    const acceptedRounds = new Set(rows.filter((r) => claimed.has(r.player_id)).map((r) => r.round_id));
     setInvites(
-      rows
-        .filter((r) => r.rounds != null && !acceptedRounds.has(r.round_id))
-        .map((r) => ({
-          playerId: r.player_id,
-          playerName: r.players?.name ?? 'you',
-          roundId: r.round_id,
-          roundName: r.rounds!.name ?? '',
-          courseName: r.rounds!.course_name ?? '',
-          playedOn: r.rounds!.played_on ?? null,
-        })),
+      (data as any[]).map((r) => ({
+        playerId: r.player_id,
+        playerName: r.player_name ?? 'you',
+        roundId: r.round_id,
+        roundName: r.round_name ?? '',
+        courseName: r.course_name ?? '',
+        playedOn: r.played_on ?? null,
+      })),
     );
   }, [userId]);
 
