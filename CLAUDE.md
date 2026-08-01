@@ -88,6 +88,38 @@ package versions ever get out of sync, `node_modules/expo/bundledNativeModules.j
 installing the target `expo` version) has the exact compatible version of every other
 expo-*/react-native-* package — hand-align to that rather than guessing.
 
+## What this is for
+
+**Large tournaments.** Not a foursome's scorecard that might one day scale — a field of
+dozens, split into flights, playing the same round under the same rules, with each flight's
+side games running separately and everyone able to watch all of it.
+
+That is the shape to build toward, and it settles arguments early:
+
+- **A round is the event.** One morning, one course, one set of rules — the tee, the holes in
+  play, the scoring mode. "Same rules for everyone" is what makes a round a competition
+  rather than a collection of games.
+- **A flight is a group inside it.** Who plays with whom, and *whose money is whose*. Wolf
+  runs per flight, settles per flight, and pays per flight, because that is who you are
+  actually playing against.
+- **A player owns their score, their card and their signature.** Unchanged.
+
+So the three tiers that already govern permissions have a matching shape in the data:
+round → flight → player. Anything that reads "per round" today and is really "per group"
+belongs to a flight — every side game, and the settle-up.
+
+**Visibility is round-wide even where play is not.** Everyone sees every flight's standing
+and who is up in each. That is the whole appeal of a tournament, and it follows the existing
+rule that read access is deliberately wider than write.
+
+Today there are no flights: two groups means two rounds, set up twice, on two leaderboards.
+That is the interim shape and it is already the thing that hurts —
+`design/round-lifecycle.md` has the plan, including what has to be re-keyed from round to
+flight. The design's Phase 5 field tooling (group splitting, shotgun starts, a 300-player
+roster) is this same work.
+
+Don't design anything new as though a round has one group in it.
+
 ## Rules that must not drift
 
 These came out of building the prototype, several by getting them wrong first. They apply
