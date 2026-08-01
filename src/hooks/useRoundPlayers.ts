@@ -96,18 +96,22 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
         return localId;
       }
       const { data: inserted, error: playerErr } = await supabase
-        .from('players')
-        .insert({ name, handicap, phone })
-        .select('id')
-        .single();
+        .rpc('add_player_to_round', {
+          p_round_id: roundId,
+          p_name: name,
+          p_handicap: handicap,
+          p_phone: phone ?? null,
+        });
       if (playerErr || !inserted) {
+        // A plain insert cannot work here. Postgres requires a row created with
+        // RETURNING to pass the SELECT policy too, and a brand new player has no
+        // owner and belongs to no round — so it is invisible to the person who
+        // just made it, and the whole statement comes back as a policy
+        // violation. The function seats them in the round in the same call,
+        // which is what makes the row readable afterwards.
         console.warn('addPlayer failed:', playerErr?.message);
         return null;
       }
-      const { error: linkErr } = await supabase
-        .from('round_players')
-        .insert({ round_id: roundId, player_id: inserted.id });
-      if (linkErr) console.warn('addPlayer (round link) failed:', linkErr.message);
       await refresh();
       return inserted.id as string;
     },

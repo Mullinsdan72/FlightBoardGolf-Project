@@ -43,7 +43,7 @@ export type RoundSummary = {
  */
 function friendlyWriteError(message: string | undefined, what: string): string {
   if (message && /row-level security/i.test(message)) {
-    return `The database would not let this phone ${what}. Open the ME tab: sign in with your phone number if you have not, then tap your own name in the list to claim it. Rounds belong to the account that creates them.`;
+    return `The database would not let this phone ${what}. Sign in with your phone number first — a round belongs to the account that creates it, so there has to be one.`;
   }
   return message ?? `Could not ${what}.`;
 }
@@ -146,15 +146,21 @@ export function useActiveRound() {
       // Make the player first, so the round is never written without an
       // organizer when we know who the organizer is.
       if (!organizerId && input.creatorName) {
-        const { data: person, error: personErr } = await supabase
-          .from('players')
-          .insert({ name: input.creatorName, handicap: input.creatorHandicap ?? 0 })
-          .select('id')
-          .single();
+        // Through a function, not a plain insert. Postgres requires a row
+        // created with RETURNING to pass the SELECT policy as well, and a fresh
+        // player row has no owner and belongs to no round — so it is invisible
+        // to the person who just created it and the statement fails as a policy
+        // violation. `create_my_player` also claims it, which is correct here:
+        // you are making yourself, so there is no window where the row sits
+        // unowned for somebody else to take.
+        const { data: person, error: personErr } = await supabase.rpc('create_my_player', {
+          p_name: input.creatorName,
+          p_handicap: input.creatorHandicap ?? 0,
+        });
         if (personErr || !person) {
           return { id: null, playerId: null, error: friendlyWriteError(personErr?.message, 'create your player') };
         }
-        organizerId = person.id as string;
+        organizerId = (person as any).id as string;
         mintedPlayerId = organizerId;
       }
 

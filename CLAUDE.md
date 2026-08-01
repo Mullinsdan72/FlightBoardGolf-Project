@@ -304,6 +304,19 @@ follow from that, and both were asked for directly:
   in every other respect — nothing dropped, nothing seeded — but its policy block recreates
   `"anon full access"` on all 16 tables. Once `rls.sql` has been run, `schema.sql` silently
   undoes it. Always run them in that order, never one alone.
+- **`INSERT ... RETURNING` has to pass the SELECT policy too, and that broke every create.**
+  Postgres will not return a row the caller cannot read, so `.insert(...).select('id')
+  .single()` — which is how every create in this app gets its new id — failed for the two
+  rows that are invisible at the moment they are made: a player with no owner and no round,
+  and a round with no members. Both surfaced as "new row violates row-level security policy",
+  which reads as *you may not do this* when it means *you may not look at what you just did*.
+  - `supabase/rls-creates.sql` is the fix and must be run after `rls.sql`. It widens the
+    rounds SELECT policy to include the organizer — true on its own terms, and what makes
+    creating one work — and adds `create_my_player` and `add_player_to_round`, both
+    `security definer` for the same reason `claim_player` is: the row's relationship to you
+    is established *by* the call, so the call is the thing that has to be trusted.
+  - Anything new that creates a row and reads it back needs the same treatment. Check it
+    against the table's SELECT policy before assuming a plain insert will do.
 - **The lockdown ships as three files and must be used as three.**
   `rls-preflight.sql` changes nothing and answers the only question that matters:
   *ROUNDS THAT WOULD VANISH* must read 0. A round with no claimed member is unreachable
