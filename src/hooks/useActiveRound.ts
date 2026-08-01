@@ -204,6 +204,34 @@ export function useActiveRound() {
    * change under your thumb — a leaderboard that re-ranks half a second later
    * reads as a bug.
    */
+  /**
+   * Rename the round.
+   *
+   * There was nowhere to do this at all for a while: naming lived on `/rounds`,
+   * which the lobby rebuild deleted, and nothing replaced it. Rounds are named
+   * for the day by default, which is fine until you set three up for the same
+   * morning — a scramble, and two wolf flights — and every one of them is called
+   * "Sat, Aug 1 round".
+   *
+   * Optimistic, then refetched if the write is refused, exactly like the scoring
+   * mode: the field has to move under your thumb.
+   */
+  const renameRound = useCallback(
+    async (name: string): Promise<string | null> => {
+      const trimmed = name.trim();
+      setRounds((prev) => prev.map((r) => (r.id === activeRoundId ? { ...r, name: trimmed } : r)));
+      if (!isSupabaseConfigured || !supabase || !activeRoundId) return null;
+      const { error } = await supabase.from('rounds').update({ name: trimmed }).eq('id', activeRoundId);
+      if (error) {
+        console.warn('renameRound failed:', error.message);
+        await loadRounds();
+        return friendlyWriteError(error.message, 'rename this round');
+      }
+      return null;
+    },
+    [activeRoundId, loadRounds],
+  );
+
   const setScoringMode = useCallback(
     async (mode: ScoringMode): Promise<string | null> => {
       setRounds((prev) => prev.map((r) => (r.id === activeRoundId ? { ...r, scoringMode: mode } : r)));
@@ -256,6 +284,7 @@ export function useActiveRound() {
     createRound,
     deleteRound,
     setScoringMode,
+    renameRound,
     // Gross by default. Net was the default for a while and it is the
     // friendlier number, but it is also a claim about everybody's handicap —
     // and a round where nobody has set one shows net figures that are just

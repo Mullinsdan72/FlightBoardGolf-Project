@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Sheet, type SheetOption } from '@/components/Sheet';
@@ -57,6 +57,7 @@ export default function StartRoundScreen() {
     playersLoaded,
     scoringMode,
     setScoringMode,
+    renameRound,
     teams,
     teamRoster,
     teamDrawSaved,
@@ -73,6 +74,27 @@ export default function StartRoundScreen() {
   };
 
   const [open, setOpen] = useState<Open>(null);
+
+  /**
+   * The round's name, editable here because there is nowhere else.
+   *
+   * Held locally while you type and written when you stop, rather than on every
+   * keystroke: a name is one decision, not eleven. Re-seeded when the round
+   * changes so switching rounds cannot leave the last one's name in the box.
+   */
+  const [name, setName] = useState(activeRound?.name ?? '');
+  const namedRound = useRef<string | null>(null);
+  useEffect(() => {
+    if (namedRound.current === activeRoundId) return;
+    namedRound.current = activeRoundId ?? null;
+    setName(activeRound?.name ?? '');
+  }, [activeRoundId, activeRound?.name]);
+
+  const saveName = async () => {
+    if ((activeRound?.name ?? '') === name.trim()) return;
+    const message = await renameRound(name);
+    if (message) Alert.alert('Could not rename this round', message);
+  };
 
   const selectedCourse = savedCourses.find((c) => c.id === course?.courseId);
   const favourites = savedCourses.filter((c) => c.isFavorite);
@@ -270,6 +292,24 @@ export default function StartRoundScreen() {
               ? [selectedCourse?.location, course.teeName, `par ${parTotal}`, `${holes.length} holes`].filter(Boolean).join(' · ')
               : 'Search below, or pick one you have played'}
           </Text>
+        </View>
+
+        {/* Naming it matters the moment there is more than one in a day. Three
+            rounds for one morning — a scramble and two wolf flights — are
+            otherwise all called "Sat, Aug 1 round". Saved when you finish
+            typing, like everything else here: no Save button. */}
+        <View style={styles.nameBlock}>
+          <Text style={styles.nameLabel}>Round name</Text>
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            onBlur={saveName}
+            onSubmitEditing={saveName}
+            placeholder="Saturday scramble"
+            placeholderTextColor={colors.ghost}
+            style={styles.nameInput}
+            returnKeyType="done"
+          />
         </View>
 
         {/* Favourites first and small — the course you play every week should
@@ -483,6 +523,23 @@ export default function StartRoundScreen() {
 }
 
 const styles = StyleSheet.create({
+  nameBlock: { paddingHorizontal: 20, paddingTop: 18 },
+  nameLabel: {
+    fontFamily: font.bodySemi,
+    fontSize: 9.5,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    color: colors.muted,
+  },
+  nameInput: {
+    fontFamily: font.heading,
+    fontSize: 18,
+    color: colors.text,
+    borderBottomWidth: 2,
+    borderColor: colors.divider,
+    paddingVertical: 8,
+    marginTop: 6,
+  },
   screen: { flex: 1, backgroundColor: colors.bg },
   scroll: { paddingTop: 64, paddingBottom: 40 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
