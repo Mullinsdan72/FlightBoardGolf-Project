@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { Platform, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Wordmark } from '@/components/Wordmark';
@@ -22,6 +22,23 @@ export default function SignInScreen() {
 
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
+  const codeField = useRef<TextInput>(null);
+
+  /**
+   * Focus the code box a beat after it appears, rather than with `autoFocus`.
+   *
+   * The two steps are one screen: the number box unmounts and the code box
+   * mounts in the same frame, and iOS carries the old field's keyboard
+   * configuration across — which is why a box asking for a texted code kept
+   * showing the phone pad and offering your own number out of Contacts. A
+   * moment's gap makes iOS read the new field's traits instead, and
+   * `oneTimeCode` is what puts the six digits in the suggestion strip.
+   */
+  useEffect(() => {
+    if (authStage !== 'codeSent') return;
+    const t = setTimeout(() => codeField.current?.focus(), 350);
+    return () => clearTimeout(t);
+  }, [authStage]);
   const [problem, setProblem] = useState<string | null>(null);
 
   const sent = authStage === 'codeSent';
@@ -118,6 +135,7 @@ export default function SignInScreen() {
 
             <Text style={styles.fieldLabel}>The code</Text>
             <TextInput
+              ref={codeField}
               value={code}
               onChangeText={setCode}
               placeholder="123456"
@@ -138,7 +156,6 @@ export default function SignInScreen() {
               secureTextEntry={false}
               importantForAutofill="yes"
               maxLength={6}
-              autoFocus
               onSubmitEditing={doVerify}
             />
 
