@@ -555,7 +555,12 @@ setup.
   pairings and only one is fair. The screen says so rather than quietly handing out a lopsided
   re-draw.
 - **Gross, net or off the low man is a property of the ROUND** (`rounds.scoring_mode`,
-  defaulting to net), not of the team game. It used to live on `team_games.handicap_mode`,
+  defaulting to **gross**), not of the team game. Net was the default for a while and is
+  the friendlier number, but it is also a claim about everybody's handicap, and a round where
+  nobody has set one shows net figures that are just gross wearing a hat. Changing the
+  default means changing it in three places — `asScoringMode`, the `scoringMode` fallback in
+  `useActiveRound`, and the column default in `schema.sql` — plus the checklist's idea of
+  which value counts as untouched. It used to live on `team_games.handicap_mode`,
   where it governed team standings and nothing else — so "net" meant one number in the
   standings and a different one on your own card, which is exactly what a group argues about
   after a bet. `useTeams` now takes it as an argument and `team_games.handicap_mode` is

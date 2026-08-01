@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Wordmark } from '@/components/Wordmark';
 import { useRound } from '@/context/RoundContext';
 import { PRIVACY_URL, SMS_CONSENT, TERMS_URL } from '@/lib/legal';
@@ -124,7 +124,11 @@ export default function SignInScreen() {
               placeholderTextColor={colors.ghost}
               style={[styles.input, styles.codeInput]}
               keyboardType="number-pad"
-              autoComplete="sms-otp"
+              // `sms-otp` is Android's value and iOS does not know it — set it
+              // there and iOS falls back to guessing, which is how a field
+              // asking for a texted code ended up offering your own phone
+              // number from Contacts. One value each.
+              autoComplete={Platform.OS === 'ios' ? 'one-time-code' : 'sms-otp'}
               textContentType="oneTimeCode"
               maxLength={6}
               autoFocus

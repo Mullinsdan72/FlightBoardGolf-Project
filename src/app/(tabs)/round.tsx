@@ -220,7 +220,7 @@ export default function StartRoundScreen() {
     // this phone was the one that made it — and whether or not it happened
     // before the checklist existed. Only the defaults need to be opened.
     { key: 'holes', label: 'Holes', done: holesInPlay !== 'all18' || openedTiles.has('holes') },
-    { key: 'scoring', label: 'Scoring', done: scoringMode !== 'net' || openedTiles.has('scoring') },
+    { key: 'scoring', label: 'Scoring', done: scoringMode !== 'gross' || openedTiles.has('scoring') },
     { key: 'players', label: 'Players', done: players.length > 0 },
     { key: 'teams', label: 'Teams', done: teams.enabled || openedTiles.has('teams') },
     { key: 'games', label: 'Games', done: gamesCount > 0 || openedTiles.has('games') },

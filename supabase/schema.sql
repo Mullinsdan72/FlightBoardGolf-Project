@@ -110,7 +110,10 @@ alter table rounds add column if not exists organizer_player_id uuid references 
 --
 -- team_games.handicap_mode is left in place for rounds that predate this and is
 -- no longer read. One number, one source (rule 3).
-alter table rounds add column if not exists scoring_mode text not null default 'net';
+alter table rounds add column if not exists scoring_mode text not null default 'gross';
+-- Existing databases keep whatever default they were created with, so set it
+-- explicitly too. `add column if not exists` does nothing on the second run.
+alter table rounds alter column scoring_mode set default 'gross';
 alter table rounds drop constraint if exists round_scoring_mode_is_known;
 alter table rounds add constraint round_scoring_mode_is_known
   check (scoring_mode in ('gross', 'net', 'lowman'));

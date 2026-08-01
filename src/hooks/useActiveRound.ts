@@ -10,7 +10,7 @@ const ACTIVE_KEY = 'flightboard.activeRoundId';
 export type ScoringMode = 'gross' | 'net' | 'lowman';
 
 const asScoringMode = (v: unknown): ScoringMode =>
-  v === 'gross' || v === 'lowman' ? v : 'net';
+  v === 'net' || v === 'lowman' ? v : 'gross';
 
 export type RoundSummary = {
   id: string;
@@ -256,6 +256,10 @@ export function useActiveRound() {
     createRound,
     deleteRound,
     setScoringMode,
-    scoringMode: activeRound?.scoringMode ?? 'net',
+    // Gross by default. Net was the default for a while and it is the
+    // friendlier number, but it is also a claim about everybody's handicap —
+    // and a round where nobody has set one shows net figures that are just
+    // gross wearing a hat. Gross is the score you actually made.
+    scoringMode: activeRound?.scoringMode ?? 'gross',
   };
 }
