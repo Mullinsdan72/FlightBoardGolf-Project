@@ -166,10 +166,13 @@ teed off becomes a draft, which is what it always was.
 
 - **Scramble.** Still needs one score per group, which is a change to score
   entry, not to a round's state.
-- **Flights as a first-class thing** — see the top of this note. Two Wolf
-  flights are still two rounds you set up twice. That is the interim shape, not
-  the intended one, and the lifecycle here is deliberately built so that adding
-  flights later narrows the rule rather than replacing it.
+- **Flights as a first-class thing** — see the top of this note, and
+  `design/flights.md` for the survey: what is in the way (three game tables key
+  on `round_id` as their *primary key*), what the migration looks like, and why
+  this lifecycle has to land first. Two Wolf flights are still two rounds you set
+  up twice. That is the interim shape, not the intended one, and the lifecycle
+  here is deliberately built so that adding flights later narrows the rule rather
+  than replacing it.
 
 ## Order to build it
 
