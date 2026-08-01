@@ -47,15 +47,42 @@ stays the same as the forty-player version.
 
 | Round | Flight |
 | --- | --- |
-| Course, tee, holes in play | Wolf: terms, rotation, per-hole decisions |
-| Scoring mode (gross/net/lowman) | Teams and team challenge |
-| The field, and who organises it | Settle-up — who owes whom |
-| Start and finish | Who plays with whom |
+| Course, tee, holes in play | Wolf: the rotation and the per-hole decisions |
+| Scoring mode (gross/net/lowman) | Team membership and results |
+| **A game's terms** — the stake, the multiplier, the wager | Settle-up — who owes whom |
+| The field, and who organises it | Who plays with whom |
+| Start and finish | |
 | The leaderboard everyone reads | |
 
 The dividing line is money. If two players could end the morning owing each
 other something, they are in the same flight. If they are only compared, they
 are in the same round.
+
+### Terms are the round's, play is the flight's
+
+This is the cut that matters, and it is finer than "games move to flights".
+
+Each flight plays its own game of Wolf — its own rotation, its own wolf on each
+hole, its own ledger. But it plays it **on the round's terms**. $5 a hole and a
+triple for going alone is the tournament's rule, set once, the same for
+everybody. So:
+
+- `wolf_games` keeps `round_id` as its key for `enabled`, `stake`,
+  `lone_multiplier` and `reshuffle_each_round`. One setup for the whole morning.
+- `player_order` moves out to the flight — a rotation is an ordering of the
+  people in *your* group, and there is no round-wide rotation across forty.
+- `wolf_holes` re-keys from `(round_id, hole)` to `(flight_id, hole)`. That is
+  the collision, and it is the only structural break Wolf needs.
+- `team_games` and `team_challenge` split the same way: terms on the round,
+  `team_members` gains a `flight_id` and `team_index` becomes per flight.
+
+Setting the stake ten times would be its own kind of unusable, and worse, it
+would let two flights end the morning playing different bets by accident —
+which is exactly the argument the app exists to prevent.
+
+Per-flight overrides are deliberately not built. If somebody genuinely wants the
+low flight playing for less, that is a real request and a small one to add later;
+guessing at it now costs a settings screen per flight forever.
 
 ## Migration
 
@@ -74,9 +101,11 @@ create table flights (
 alter table round_players add column flight_id uuid references flights(id) on delete set null;
 ```
 
-Then, per game table, `round_id` becomes `flight_id`. Backfill gives each
-existing round one flight, puts its whole field in it, and repoints its game
-rows at it. Nothing played is lost and nothing is re-keyed by hand.
+Then the *play* tables re-key to the flight while the *terms* stay on the round,
+per the split above: `wolf_holes` and `team_members` gain `flight_id`,
+`wolf_games.player_order` moves to `flights`. Backfill gives each existing round
+one flight, puts its whole field in it, and repoints its per-hole rows at it.
+Nothing played is lost and nothing is re-keyed by hand.
 
 The order matters: **`design/round-lifecycle.md` first.** Assigning flights is
 setup, and setup needs a draft state to happen in. Building flights before
