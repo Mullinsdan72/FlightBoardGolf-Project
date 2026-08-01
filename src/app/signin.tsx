@@ -124,12 +124,19 @@ export default function SignInScreen() {
               placeholderTextColor={colors.ghost}
               style={[styles.input, styles.codeInput]}
               keyboardType="number-pad"
-              // `sms-otp` is Android's value and iOS does not know it — set it
-              // there and iOS falls back to guessing, which is how a field
-              // asking for a texted code ended up offering your own phone
-              // number from Contacts. One value each.
-              autoComplete={Platform.OS === 'ios' ? 'one-time-code' : 'sms-otp'}
+              // iOS gets `textContentType` and nothing else. `autoComplete` is
+              // Android's prop; React Native also maps it on iOS, and whatever
+              // it mapped to was enough to make a field asking for a texted code
+              // offer the phone's own number out of Contacts instead. Setting
+              // one and leaving the other undefined is the only combination that
+              // gets the six digits into the suggestion strip.
+              autoComplete={Platform.OS === 'android' ? 'sms-otp' : undefined}
               textContentType="oneTimeCode"
+              // Belt and braces: iOS will not offer a code to a field it thinks
+              // is a password or a phone number, and a secure field never gets
+              // the suggestion at all.
+              secureTextEntry={false}
+              importantForAutofill="yes"
               maxLength={6}
               autoFocus
               onSubmitEditing={doVerify}
