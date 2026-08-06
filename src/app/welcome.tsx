@@ -130,10 +130,16 @@ export default function WelcomeScreen() {
             : "You'll be running this round: you pick the course and who's in it. Next comes the course, then everyone playing. It takes about a minute, and handicaps and anything else can be set once you're in."}
         </Text>
 
-        {/* Somebody who was texted a link isn't starting a round, they're
-            joining one. Both doors on the first screen. */}
-        <Pressable onPress={() => router.replace('/join')} style={styles.secondaryBtn}>
-          <Text style={styles.secondaryLabel}>I WAS SENT AN INVITE</Text>
+        {/* Somebody who was texted a code isn't starting a round, they're
+            joining one. Both doors on the first screen.
+
+            This pointed at `/join?round=`, which needs a working deep link and
+            is refused by RLS regardless — a guest cannot read a round they are
+            not yet in, which is precisely the round they are trying to join. A
+            code goes through a `security definer` lookup instead, so it works
+            from a cold install with nothing but five characters. */}
+        <Pressable onPress={() => router.replace('/joincode')} style={styles.secondaryBtn}>
+          <Text style={styles.secondaryLabel}>I HAVE A ROUND CODE</Text>
           <Text style={styles.secondaryArrow}>›</Text>
         </Pressable>
 

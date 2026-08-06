@@ -60,9 +60,12 @@ export default function InvitedScreen() {
             the round they were promised, not a second round of their own — and
             handing them START ROUND is how a group ends up on two leaderboards
             arguing about which is real. */}
-        <Pressable style={styles.primary} disabled={looking} onPress={lookAgain}>
-          <Text style={styles.primaryLabel}>{looking ? 'LOOKING…' : 'LOOK AGAIN'}</Text>
-          <Text style={styles.primaryArrow}>↻</Text>
+        <Pressable style={styles.primary} onPress={() => router.replace('/joincode')}>
+          <Text style={styles.primaryLabel}>JOIN WITH A CODE</Text>
+          <Text style={styles.primaryArrow}>→</Text>
+        </Pressable>
+        <Pressable style={styles.secondary} disabled={looking} onPress={lookAgain}>
+          <Text style={styles.secondaryLabel}>{looking ? 'LOOKING…' : 'LOOK FOR AN INVITATION AGAIN'}</Text>
         </Pressable>
         <Pressable style={styles.secondary} onPress={() => router.replace('/(tabs)/round')}>
           <Text style={styles.secondaryLabel}>SET A ROUND UP INSTEAD</Text>

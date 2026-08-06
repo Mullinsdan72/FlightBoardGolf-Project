@@ -4,6 +4,7 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { usePendingInvites } from '@/hooks/usePendingInvites';
 import type { PendingInvite } from '@/lib/invite';
 import { useActiveRound } from '@/hooks/useActiveRound';
+import { useJoinByCode } from '@/hooks/useJoinByCode';
 import { useLiveScores } from '@/hooks/useLiveScores';
 import { usePhoneAuth } from '@/hooks/usePhoneAuth';
 import { useMyProfile } from '@/hooks/useMyProfile';
@@ -24,9 +25,14 @@ type RoundContextValue = ReturnType<typeof useLiveScores> &
   ReturnType<typeof useTeams> &
   ReturnType<typeof useHoleGames> &
   ReturnType<typeof usePendingInvites> &
+  ReturnType<typeof useJoinByCode> &
   ReturnType<typeof useActiveRound> & {
     joinInvite: (invite: PendingInvite) => Promise<string | null>;
     declineInvite: (roundId: string) => Promise<void>;
+    joinByCode: (
+      code: string,
+      who: { playerId?: string; name?: string; handicap?: number },
+    ) => Promise<string | null>;
   };
 
 const RoundContext = createContext<RoundContextValue | null>(null);
@@ -124,6 +130,33 @@ export function RoundProvider({ children }: { children: ReactNode }) {
     [identity, round, pending],
   );
 
+  const byCode = useJoinByCode();
+
+  /**
+   * Join by code, and end up actually in the round.
+   *
+   * The same three steps as `joinInvite`, in the same order and for the same
+   * reason: take the seat, become that player, then open the round. Claiming
+   * last would leave a phone seated as a player it does not own.
+   *
+   * `loadRounds` has to run before `switchRound` here — the round was invisible
+   * to this account until a moment ago, so it is not in the list yet, and
+   * switching to a round the list has never heard of resolves to nothing.
+   */
+  const joinByCode = useCallback(
+    async (code: string, who: { playerId?: string; name?: string; handicap?: number }): Promise<string | null> => {
+      const { playerId, error } = await byCode.join(code, who);
+      if (error || !playerId) return error ?? 'Could not join that round.';
+      await identity.choose(playerId);
+      await round.loadRounds();
+      const found = byCode.codeRound?.roundId;
+      if (found) await round.switchRound(found);
+      await pending.refreshInvites();
+      return null;
+    },
+    [byCode, identity, round, pending],
+  );
+
   const playerIds = useMemo(() => roster.players.map((p) => p.id), [roster.players]);
   const wolf = useWolf(roundId, playerIds, course.holes, scores.scores);
   const teams = useTeams(roundId, roster.players, course.holes, scores.scores, round.scoringMode);
@@ -142,8 +175,10 @@ export function RoundProvider({ children }: { children: ReactNode }) {
         ...teams,
         ...holeGames,
         ...pending,
+        ...byCode,
         joinInvite,
         declineInvite: pending.decline,
+        joinByCode,
       }}
     >
       {children}

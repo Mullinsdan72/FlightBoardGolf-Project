@@ -199,6 +199,10 @@ export default function MeScreen() {
                 the thing that was wrong: the screen answers honestly either
                 way, and offering to look is useful precisely when the app
                 believes there is nothing to find. */}
+            <Pressable onPress={() => router.push('/joincode')} style={styles.linkRow}>
+              <Text style={styles.linkLabel}>JOIN A ROUND WITH A CODE</Text>
+              <Text style={styles.linkArrow}>›</Text>
+            </Pressable>
             <Pressable onPress={() => router.push('/invited')} style={styles.linkRow}>
               <Text style={styles.linkLabel}>CHECK FOR INVITATIONS</Text>
               <Text style={styles.linkArrow}>›</Text>

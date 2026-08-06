@@ -20,6 +20,8 @@ export type RoundSummary = {
   createdAt: string;
   organizerId: string | null;
   scoringMode: ScoringMode;
+  /** The five characters that let somebody in. Null until first asked for. */
+  joinCode: string | null;
 };
 
 // Which round this device is looking at, and the list of rounds to choose from.
@@ -60,7 +62,7 @@ export function useActiveRound() {
     if (!isSupabaseConfigured || !supabase) return [];
     const { data, error } = await supabase
       .from('rounds')
-      .select('id, name, course_name, played_on, created_at, organizer_player_id, scoring_mode')
+      .select('id, name, course_name, played_on, created_at, organizer_player_id, scoring_mode, join_code')
       .order('created_at', { ascending: false });
     if (error || !data) {
       console.warn('loadRounds failed:', error?.message);
@@ -81,6 +83,7 @@ export function useActiveRound() {
       createdAt: r.created_at,
       organizerId: r.organizer_player_id ?? null,
       scoringMode: asScoringMode(r.scoring_mode),
+      joinCode: r.join_code ?? null,
     }));
     setRounds(list);
     setRoundsLoaded(true);
@@ -232,6 +235,30 @@ export function useActiveRound() {
     [activeRoundId, loadRounds],
   );
 
+  /**
+   * The code that lets somebody into this round, minted on first ask.
+   *
+   * Not generated when the round is created, deliberately. A code that exists
+   * before anybody has asked for one is a credential handed out by accident —
+   * and most rounds are a foursome who are all already in. Asking for it is the
+   * organizer saying "I am about to give this to people".
+   *
+   * Kept once minted, so a code read out across a car park stays the code.
+   */
+  const ensureJoinCode = useCallback(async (): Promise<{ code: string | null; error: string | null }> => {
+    if (!isSupabaseConfigured || !supabase || !activeRoundId) {
+      return { code: null, error: 'A round has to exist before it can have a code.' };
+    }
+    const { data, error } = await supabase.rpc('ensure_join_code', { p_round_id: activeRoundId });
+    if (error) {
+      console.warn('ensure_join_code failed:', error.message);
+      return { code: null, error: friendlyWriteError(error.message, 'give this round a code') };
+    }
+    const code = (data as string) ?? null;
+    setRounds((prev) => prev.map((r) => (r.id === activeRoundId ? { ...r, joinCode: code } : r)));
+    return { code, error: null };
+  }, [activeRoundId]);
+
   const setScoringMode = useCallback(
     async (mode: ScoringMode): Promise<string | null> => {
       setRounds((prev) => prev.map((r) => (r.id === activeRoundId ? { ...r, scoringMode: mode } : r)));
@@ -285,6 +312,7 @@ export function useActiveRound() {
     deleteRound,
     setScoringMode,
     renameRound,
+    ensureJoinCode,
     // Gross by default. Net was the default for a while and it is the
     // friendlier number, but it is also a claim about everybody's handicap —
     // and a round where nobody has set one shows net figures that are just

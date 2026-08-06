@@ -233,6 +233,40 @@ everywhere in this codebase, not just the screens they were first written for.
   the tab returns. A round with no organizer or an empty field still shows it, because an
   unclaimed round belongs to whoever turns up.
 
+## Joining with a code
+
+`src/lib/joinCode.ts` (pure, `npm run check:joincode`), `useJoinByCode`, `/joincode`, and
+`supabase/join-codes.sql`. **That SQL file has to be run** — after `rls.sql` and
+`rls-creates.sql` — or every code lookup fails with "function does not exist".
+
+- **This is the way in that always works, and invitations are now the convenience.** An
+  invitation is *pushed*: somebody types your number and your phone waits for a screen. When
+  any link in that chain misses there is no second path, and a morning with nine people
+  proved it. A code is *pulled* — you type five characters, you can retry, and it works
+  whether or not the organizer typed your number right, or made you a seat at all.
+- **The code is the credential**, so every lookup is `security definer`: under RLS a guest
+  cannot read a round they are not in, which is every round they might want to join.
+- **Crockford's base32, and the alphabet in `joinCode.ts` and `join-codes.sql` is one
+  alphabet.** No `I`, `L`, `O` (misread as 1 and 0) or `U` (so five random characters can't
+  spell something unfortunate). Input maps `O`→`0` and `I`/`L`→`1`, so somebody who writes
+  down what they heard still gets in. A character one side mints and the other refuses is a
+  code that exists and can never be typed in.
+- **Minted on first ask, not with the round.** A credential that exists before anybody
+  wanted one is a credential handed out by accident, and most rounds are four people already
+  in. Kept once minted, so a code read out across a car park stays the code.
+- **Taken seats are shown and refused, never hidden** — same rule as the player picker, same
+  reason: a field of nine that lists four names looks broken, and the fix people reach for
+  is adding themselves twice.
+- **`join_round_by_code` is idempotent.** Already holding a seat returns that seat. Tapping
+  JOIN twice must never make a second you.
+- **The lookup is `authenticated` only, deliberately.** Showing the round *before* asking for
+  a phone number is the friendlier funnel and worth doing — but an anonymous lookup is an
+  enumeration surface with no rate limiting in front of it, returning real people's names.
+  Do it properly behind a limiter, not casually.
+- `/join?round=` is the old path and is still broken under RLS — a guest cannot read the
+  round the link names. Welcome now points at `/joincode` instead. Don't wire anything new
+  to `/join` without giving it the same `security definer` treatment.
+
 ## Who has actually joined
 
 `seatState`/`fieldProgress` in `src/lib/claim.ts`, shown on `(tabs)/players.tsx`, covered by
@@ -408,6 +442,9 @@ follow from that, and both were asked for directly:
     is established *by* the call, so the call is the thing that has to be trusted.
   - Anything new that creates a row and reads it back needs the same treatment. Check it
     against the table's SELECT policy before assuming a plain insert will do.
+- **The SQL files run in this order, and all four are needed:** `schema.sql`, `rls.sql`,
+  `rls-creates.sql`, `join-codes.sql`. Re-running `schema.sql` undoes `rls.sql`, so any time
+  the first is run the other three follow it.
 - **The lockdown ships as three files and must be used as three.**
   `rls-preflight.sql` changes nothing and answers the only question that matters:
   *ROUNDS THAT WOULD VANISH* must read 0. A round with no claimed member is unreachable

@@ -45,6 +45,7 @@ export default function PlayersScreen() {
     amOrganizer,
     organizerId,
     claimOrganizer,
+    ensureJoinCode,
   } = useRound();
 
   const [adding, setAdding] = useState<Adding>(null);
@@ -241,6 +242,45 @@ export default function PlayersScreen() {
             </Pressable>
           )}
         </View>
+
+        {/* The code, which is the way in that always works.
+
+            Typing somebody's number makes them a seat and hopes their phone
+            finds it. The code inverts that: they type five characters and they
+            are in, whether or not the number was right, whether or not anybody
+            made them a seat, and whether or not they turned up expected.
+
+            Minted on first ask rather than with the round, because a credential
+            that exists before anybody wanted one is a credential handed out by
+            accident — and most rounds are four people who are all already in. */}
+        {amOrganizer && (
+          <>
+            <Text style={styles.sectionLabel}>The way in</Text>
+            {activeRound?.joinCode ? (
+              <View style={styles.codeBox}>
+                <Text style={styles.code}>{activeRound.joinCode}</Text>
+                <Text style={styles.codeNote}>
+                  Read this out, or text it. Anyone with it can open JOIN A ROUND WITH A CODE on ME, pick their own
+                  name and be in — no invitation needed, and it works if you got their number wrong.
+                </Text>
+              </View>
+            ) : (
+              <Pressable
+                onPress={async () => {
+                  const { error } = await ensureJoinCode();
+                  if (error) Alert.alert('Could not make a code for this round', error);
+                }}
+                style={styles.bigBtn}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.bigLabel}>GET A CODE FOR THIS ROUND</Text>
+                  <Text style={styles.bigNote}>Five characters anyone can type in to join. Easier than numbers.</Text>
+                </View>
+                <Text style={styles.bigArrow}>›</Text>
+              </Pressable>
+            )}
+          </>
+        )}
 
         <Text style={styles.sectionLabel}>Playing this round · {players.length}</Text>
         {!playersLoaded && <Text style={styles.note}>Loading…</Text>}
@@ -540,6 +580,11 @@ const styles = StyleSheet.create({
   bigLabel: { fontFamily: font.heading, fontSize: 13.5, letterSpacing: 0.5, color: colors.text },
   bigNote: { fontFamily: font.body, fontSize: 11, color: colors.muted, marginTop: 4 },
   bigArrow: { fontFamily: font.heading, fontSize: 17, color: colors.ghost },
+  codeBox: { marginHorizontal: 20, backgroundColor: '#e7e4e2', borderRadius: 10, padding: 16 },
+  // Big and widely spaced, because this gets read aloud across a car park and
+  // typed off a phone held at arm's length.
+  code: { fontFamily: font.heading, fontSize: 40, letterSpacing: 9, textAlign: 'center', color: colors.text },
+  codeNote: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, marginTop: 12 },
   form: { paddingHorizontal: 20, paddingTop: 18 },
   fieldLabel: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase', color: colors.muted },
   input: {
