@@ -38,10 +38,24 @@ export function usePendingInvites(userId: string | null | undefined, joinedRound
       .catch(() => setDeclined([]));
   }, []);
 
-  const load = useCallback(async () => {
+  /**
+   * Fetch the invitations, and hand back the ones worth acting on.
+   *
+   * It returns the list as well as storing it because of the one moment that
+   * matters most: signing in. That is when a phone first becomes *able* to see
+   * its invitations, and the caller has to act on the answer immediately rather
+   * than wait for a re-render — the old flow dropped a freshly signed-in guest
+   * back into an already-decided layout, so the invitation they had just become
+   * able to see was never looked for.
+   *
+   * The declined list is read from storage here rather than closed over, so
+   * this function never has to depend on it. Depending on it would rebuild
+   * `load`, which would retrigger the effect that calls `load`.
+   */
+  const load = useCallback(async (): Promise<PendingInvite[]> => {
     if (!userId || !isSupabaseConfigured || !supabase) {
       setInvites([]);
-      return;
+      return [];
     }
     // One `security definer` call, not three queries. Reading `round_players`
     // and `rounds` directly is gated on `is_round_member`, which a guest whose
@@ -54,18 +68,27 @@ export function usePendingInvites(userId: string | null | undefined, joinedRound
       // be set on the failure path too.
       if (error) console.warn('my_invitations failed:', error.message);
       setInvites([]);
-      return;
+      return [];
     }
-    setInvites(
-      (data as any[]).map((r) => ({
-        playerId: r.player_id,
-        playerName: r.player_name ?? 'you',
-        roundId: r.round_id,
-        roundName: r.round_name ?? '',
-        courseName: r.course_name ?? '',
-        playedOn: r.played_on ?? null,
-      })),
-    );
+    const found: PendingInvite[] = (data as any[]).map((r) => ({
+      playerId: r.player_id,
+      playerName: r.player_name ?? 'you',
+      roundId: r.round_id,
+      roundName: r.round_name ?? '',
+      courseName: r.course_name ?? '',
+      playedOn: r.played_on ?? null,
+    }));
+    setInvites(found);
+
+    let alreadyDeclined: string[] = [];
+    try {
+      const raw = await AsyncStorage.getItem(DECLINED_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) alreadyDeclined = parsed.filter((x) => typeof x === 'string');
+    } catch {
+      // Corrupt storage is not a reason to hide an invitation.
+    }
+    return pendingInvites(found, { joinedRoundIds: [], declinedRoundIds: alreadyDeclined });
   }, [userId]);
 
   useEffect(() => {

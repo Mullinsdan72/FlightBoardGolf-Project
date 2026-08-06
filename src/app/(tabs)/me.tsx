@@ -187,6 +187,22 @@ export default function MeScreen() {
               Signed in as {userPhone ? prettyPhone(userPhone) : 'your number'}. Signing in is what will let your rounds
               follow you to a new phone.
             </Text>
+            {/* The door that did not exist.
+
+                `/invited` was reachable by exactly one automatic redirect, and
+                when that redirect missed there was no way in at all — no button
+                anywhere in the app meaning "somebody added me, let me in". A
+                whole group spent a morning force-closing the app because the
+                only available fix was to make the automatic path fire again.
+
+                It says CHECK rather than showing a count, because the count is
+                the thing that was wrong: the screen answers honestly either
+                way, and offering to look is useful precisely when the app
+                believes there is nothing to find. */}
+            <Pressable onPress={() => router.push('/invited')} style={styles.linkRow}>
+              <Text style={styles.linkLabel}>CHECK FOR INVITATIONS</Text>
+              <Text style={styles.linkArrow}>›</Text>
+            </Pressable>
             <Pressable onPress={confirmSignOut} style={styles.linkRow}>
               <Text style={styles.linkLabel}>SIGN OUT</Text>
               <Text style={styles.linkArrow}>›</Text>

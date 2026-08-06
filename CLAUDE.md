@@ -199,6 +199,28 @@ everywhere in this codebase, not just the screens they were first written for.
   the app can't read, which is why the function is `security definer`. Signed out there are
   no invitations and the app behaves exactly as it did before. Nothing to switch on when
   codes start delivering.
+- **Signing in must re-check, and act on the answer.** This is the whole of why a group of
+  nine could not join a round. The check fired once at launch, and a new guest is signed
+  *out* at launch — so `my_invitations()` was never called, the layout locked in "nothing
+  waiting", and `signin.tsx` then did `router.replace('/')` straight back into that
+  already-decided layout. The one moment a phone first becomes able to see its invitations
+  was the one moment nothing looked. `refreshInvites()` therefore **returns** the list, and
+  sign-in routes on it. Never turn that back into a bare `replace('/')`.
+- **`decidable` waits on `authStage` and `myOwnedLoaded`.** Effects run whatever the
+  component returns, so the render gate does not protect the opening decision. Deciding
+  mid-restore reads `userId` as null, `invitesReady` as true with an empty list, and locks
+  it in. Whether that happened came down to a local session read racing a network call —
+  same build, same morning, worked on some phones and not others.
+- **The welcome redirect waits for `invitesReady`.** It runs on every render, and a
+  signed-in guest who has claimed nothing has no player and no round for as long as
+  `my_invitations()` is in flight. Without the flag, the render during that flight throws
+  them to `/welcome`, and nothing brings them back.
+- **`/invited` must have a manual door, and now has one** — CHECK FOR INVITATIONS on ME. It
+  was reachable by exactly one automatic redirect; when that missed there was no way in at
+  all, and the only fix available to a guest was force-closing the app until the race went
+  their way. The screen refreshes on arrival and offers LOOK AGAIN, and its empty state
+  offers setting a round up only as the *second* option — handing START ROUND to somebody
+  whose group is on the first tee is how two leaderboards happen.
 - **"Not now" is remembered** (`flightboard.declinedInvites`). Asked on every cold start, the
   question becomes something you dismiss unread — and then the one that mattered gets
   dismissed too.
@@ -210,6 +232,25 @@ everywhere in this codebase, not just the screens they were first written for.
   than no tab. Not a trap — ACTIVITY's + NEW ROUND makes you organizer of your own round and
   the tab returns. A round with no organizer or an empty field still shows it, because an
   unclaimed round belongs to whoever turns up.
+
+## Who has actually joined
+
+`seatState`/`fieldProgress` in `src/lib/claim.ts`, shown on `(tabs)/players.tsx`, covered by
+`npm run check:claim`.
+
+- **Three states, and the organizer sees all of them:** `joined` (claimed), `waiting`
+  (unclaimed, has a number), `no-number` (unclaimed, nothing to invite). The same three
+  `claimStatus` describes from the guest's side.
+- **This exists because its absence corrupted a round.** The roster listed nine names and
+  said nothing about who had opened the app, so "I don't see anything" could only be
+  answered by adding that person again — four rows for one man, three orphaned. The
+  duplicates were not carelessness; adding people twice was the only feedback loop there
+  was.
+- **`no-number` is a resting state, not a problem.** It is the friend who will never install
+  the app, whose card somebody keeps under rule 2. It has to read differently from `waiting`
+  so nobody tries to chase it.
+- **INVITE shows only on a seat still waiting.** Texting a link to somebody already standing
+  in the round is noise, and a row added by name alone has nowhere to send one.
 
 ## The round setup checklist
 

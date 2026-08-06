@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Wordmark } from '@/components/Wordmark';
@@ -19,8 +19,23 @@ import { colors, font } from '@/theme';
  * your phone; that is never something to do because a screen timed out.
  */
 export default function InvitedScreen() {
-  const { invites, joinInvite, declineInvite } = useRound();
+  const { invites, joinInvite, declineInvite, refreshInvites } = useRound();
   const [busy, setBusy] = useState(false);
+  const [looking, setLooking] = useState(false);
+
+  // Ask again on arrival. This screen is now reachable by hand from ME, and
+  // somebody who opens it is asking the one question it exists to answer —
+  // showing them a list fetched before they signed in, or before their
+  // organizer added them, would be answering a different one.
+  useEffect(() => {
+    refreshInvites();
+  }, [refreshInvites]);
+
+  const lookAgain = async () => {
+    setLooking(true);
+    await refreshInvites();
+    setLooking(false);
+  };
 
   const waiting = invites ?? [];
   const first = waiting[0];
@@ -35,12 +50,22 @@ export default function InvitedScreen() {
           <Text style={styles.title}>Nothing waiting</Text>
           <Text style={styles.body}>
             No one has added you to a round you haven't joined. If you're expecting one, check the organizer has your
-            mobile number — that's how the app matches an invitation to a phone.
+            mobile number — that's how the app matches an invitation to a phone, and it has to be the number you signed
+            in with.
           </Text>
         </View>
-        <Pressable style={styles.primary} onPress={() => router.replace('/(tabs)/round')}>
-          <Text style={styles.primaryLabel}>SET A ROUND UP</Text>
-          <Text style={styles.primaryArrow}>→</Text>
+        {/* Looking again comes first, and setting one up second.
+
+            Somebody standing here while their group is on the first tee wants
+            the round they were promised, not a second round of their own — and
+            handing them START ROUND is how a group ends up on two leaderboards
+            arguing about which is real. */}
+        <Pressable style={styles.primary} disabled={looking} onPress={lookAgain}>
+          <Text style={styles.primaryLabel}>{looking ? 'LOOKING…' : 'LOOK AGAIN'}</Text>
+          <Text style={styles.primaryArrow}>↻</Text>
+        </Pressable>
+        <Pressable style={styles.secondary} onPress={() => router.replace('/(tabs)/round')}>
+          <Text style={styles.secondaryLabel}>SET A ROUND UP INSTEAD</Text>
         </Pressable>
       </View>
     );

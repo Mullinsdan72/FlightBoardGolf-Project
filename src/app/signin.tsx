@@ -18,7 +18,8 @@ import { colors, font } from '@/theme';
  * nobody standing on a first tee wants to check their email.
  */
 export default function SignInScreen() {
-  const { authStage, authBusy, authError, pendingPhone, sendCode, verifyCode, cancelCode } = useRound();
+  const { authStage, authBusy, authError, pendingPhone, sendCode, verifyCode, cancelCode, refreshInvites } =
+    useRound();
 
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -54,9 +55,27 @@ export default function SignInScreen() {
     if (!canVerify) return;
     const err = await verifyCode(code);
     setProblem(err);
-    // Signing in proves whose phone this is and nothing else. Which player you
-    // are in a given round is a separate, deliberate step.
-    if (!err) router.replace('/');
+    if (err) return;
+
+    // **Signing in is the moment a phone first becomes able to see its
+    // invitations, and it used to be the one moment nothing looked.**
+    //
+    // This line was `router.replace('/')`, which lands inside the tabs layout —
+    // already mounted, and having already decided where to open back when this
+    // phone was signed out and could therefore see no invitations at all. So a
+    // guest whose organizer had typed them in signed in, was returned to an
+    // empty SCORE tab, and was never offered the round waiting for them. Force
+    // closing the app sometimes fixed it and sometimes didn't, which is what a
+    // group of nine experienced as the app simply not working.
+    //
+    // Asking here, and acting on the answer, is what closes that. It cannot
+    // haul anybody off a round in progress either: you only arrive at this line
+    // by deliberately signing in.
+    //
+    // Signing in still proves only whose phone this is. Which player you are in
+    // a given round remains a separate, deliberate tap — on the next screen.
+    const waiting = await refreshInvites();
+    router.replace(waiting.length > 0 ? '/invited' : '/');
   };
 
   const startOver = () => {

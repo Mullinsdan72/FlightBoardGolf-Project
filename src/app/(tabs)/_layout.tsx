@@ -105,8 +105,26 @@ export default function TabLayout() {
   // its flag and `useLiveScores` sets hydrated false and stops. Waiting on them
   // in that state is a permanent blank screen for a first-time user, which is
   // the exact bug this file has now shipped twice.
+  //
+  // **Auth has to have answered before this decides anything.** These effects
+  // run whatever the component returns, so the render gate below does not
+  // protect them: with a session still restoring, `userId` is null,
+  // `my_invitations()` is never called, `invitesReady` goes true carrying an
+  // empty list, and the decision was made — and locked — on the basis that
+  // nobody had invited you. Whether that happened came down to whether a local
+  // session read beat a network round trip, which is why the same build worked
+  // on some phones and not others on the same morning.
+  //
+  // Both flags settle on every path, including failure, so waiting on them
+  // cannot hang: `authStage` always leaves 'loading', and `myOwnedLoaded` is
+  // set even on a refused read.
   const decidable =
-    roundsLoaded && !!signoffs && invitesReady && (!activeRoundId || (playersLoaded && scoresHydrated));
+    roundsLoaded &&
+    authStage !== 'loading' &&
+    myOwnedLoaded &&
+    !!signoffs &&
+    invitesReady &&
+    (!activeRoundId || (playersLoaded && scoresHydrated));
   const hasInvites = !!invites && invites.length > 0;
 
   useEffect(() => {
@@ -185,7 +203,18 @@ export default function TabLayout() {
   // Not for a guest with an invitation waiting: they are exactly a phone with
   // no player and no round, so welcome would catch the one person the
   // invitation screen was built for.
-  if (activeRoundId === null && !myId && !hasInvites) return <Redirect href="/welcome" />;
+  //
+  // **`invitesReady` is load-bearing, and leaving it out threw people out.**
+  // This runs on every render, not once. A signed-in guest who has claimed
+  // nothing has no player and no round for as long as `my_invitations()` is in
+  // flight — so without waiting for the answer, the render that happens while
+  // the network is still working concludes "nothing waiting" and redirects to
+  // welcome. Nothing brings them back. That is the second half of why closing
+  // and reopening the app fixed this for some people and not others.
+  //
+  // It settles on every path and is `[]` immediately when signed out, so a
+  // genuine first-time user still reaches welcome without a pause.
+  if (activeRoundId === null && !myId && invitesReady && !hasInvites) return <Redirect href="/welcome" />;
 
   // No redirect for "round is null" any more. It pointed at /rounds, which was
   // deleted when ROUND became the round's home — so it sent anyone with no
