@@ -14,6 +14,8 @@ export type ClaimablePlayer = {
   name: string;
   handicap: number;
   userId?: string | null;
+  /** Optional: only the organizer's roster carries it, and only some rows have one. */
+  phone?: string | null;
 };
 
 /** What a signed-in person may do with a given row. */
@@ -72,6 +74,54 @@ export function claimRoster(
  */
 export const hasFreeSeat = (players: ClaimablePlayer[], userId: string | null | undefined): boolean =>
   mineInRoster(players, userId) == null && players.some((p) => !p.userId);
+
+/**
+ * Whether the person a seat was made for has actually taken it.
+ *
+ * This is the organizer's view of the same three states `claimStatus` describes
+ * from the guest's side, and it exists because its absence corrupted a real
+ * round. The roster showed nine names and said nothing about which of them had
+ * opened the app, so when somebody said "I don't see anything" the only
+ * available response was to add them again — four rows for one man, three of
+ * them orphans. The duplicates were not carelessness; adding people twice was
+ * the only feedback loop there was.
+ *
+ * `no-number` is a legitimate resting state, not a problem to fix: it is the
+ * friend who will never install the app, whose card somebody else keeps under
+ * rule 2. It reads differently from `waiting` precisely so that nobody tries to
+ * chase it.
+ */
+export type SeatState =
+  /** Claimed. They have the app, they are in, and their card is their own. */
+  | 'joined'
+  /** Unclaimed, and there is a number to invite. Nobody need do anything but them. */
+  | 'waiting'
+  /** Unclaimed, with nothing to send an invitation to. Somebody keeps their card. */
+  | 'no-number';
+
+export function seatState(player: ClaimablePlayer): SeatState {
+  if (player.userId) return 'joined';
+  return player.phone ? 'waiting' : 'no-number';
+}
+
+export type FieldProgress = {
+  total: number;
+  joined: number;
+  waiting: number;
+  noNumber: number;
+};
+
+/** The field counted by state, for one line at the top of the roster. */
+export function fieldProgress(players: ClaimablePlayer[]): FieldProgress {
+  const progress: FieldProgress = { total: players.length, joined: 0, waiting: 0, noNumber: 0 };
+  for (const p of players) {
+    const state = seatState(p);
+    if (state === 'joined') progress.joined += 1;
+    else if (state === 'waiting') progress.waiting += 1;
+    else progress.noNumber += 1;
+  }
+  return progress;
+}
 
 /**
  * Whether you may keep this player's card — post their scores, and sign it.

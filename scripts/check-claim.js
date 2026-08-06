@@ -120,6 +120,43 @@ check('signed out, nobody keeps anything', p.scoreableRoster(field, { myPlayerId
 // An organizer with no player of their own can still mark unclaimed cards.
 check('an organizer with no seat still keeps the unclaimed', p.scoreableRoster(field, { myPlayerId: null, amOrganizer: true }).map((r) => r.name), ['Rob', 'Steve']);
 
+// ------------------------------------------------ the organizer's own view
+//
+// The roster showed nine names and never said which of them had opened the app,
+// so "I don't see anything" could only be answered by adding that person again.
+// One morning made four rows for one man. These are the assertions that keep
+// the answer visible.
+const seated = [
+  { id: 's1', name: 'Dan', handicap: 12, userId: ME, phone: '+15551110000' },
+  { id: 's2', name: 'Mike', handicap: 4, userId: OTHER, phone: null },
+  { id: 's3', name: 'Steve', handicap: 18, userId: null, phone: '+15552220000' },
+  { id: 's4', name: 'Rob', handicap: 9, userId: null, phone: null },
+  { id: 's5', name: 'Kory', handicap: 7 },
+];
+
+check('a claimed seat has been taken', p.seatState(seated[0]), 'joined');
+// Claimed is claimed whoever claimed it — this is the organizer's view of the
+// field, not a question about whose phone this is.
+check('somebody else having claimed it is still joined', p.seatState(seated[1]), 'joined');
+check('unclaimed with a number is waiting on them', p.seatState(seated[2]), 'waiting');
+check('unclaimed with no number is nobody to chase', p.seatState(seated[3]), 'no-number');
+check('a row with no phone field at all is the same', p.seatState(seated[4]), 'no-number');
+// A joined row must never read as waiting: that is the reading that gets
+// somebody added twice.
+check('claiming a seat moves it out of waiting', p.seatState({ ...seated[2], userId: ME }), 'joined');
+
+check('the field counted by state', p.fieldProgress(seated), {
+  total: 5,
+  joined: 2,
+  waiting: 1,
+  noNumber: 2,
+});
+check('an empty field counts to nothing', p.fieldProgress([]), { total: 0, joined: 0, waiting: 0, noNumber: 0 });
+// The three states must account for everybody, or the line at the top of the
+// roster quietly loses a player.
+const totals = p.fieldProgress(seated);
+check('every seat is in exactly one state', totals.joined + totals.waiting + totals.noNumber, totals.total);
+
 console.log('');
 if (failures.length) {
   console.error(`${failures.length} check(s) failed:\n`);

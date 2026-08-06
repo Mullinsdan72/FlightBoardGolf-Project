@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import * as SMS from 'expo-sms';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
+import { fieldProgress, seatState } from '@/lib/claim';
 import { pickContact } from '@/lib/contacts';
 import { APP_STORE_URL, cleanName, inviteMessage } from '@/lib/invite';
 import { isPhoneValid, prettyPhone, samePhone, toE164 } from '@/lib/phone';
@@ -54,6 +55,7 @@ export default function PlayersScreen() {
   const [swapping, setSwapping] = useState<string | null>(null);
 
   const swappingFor = swapping ? players.find((p) => p.id === swapping) : null;
+  const progress = fieldProgress(players);
   const tidy = cleanName(name);
   const parsedHandicap = handicap.trim() === '' ? 0 : Number(handicap.trim());
   const handicapOk = Number.isFinite(parsedHandicap) && parsedHandicap >= 0 && parsedHandicap <= 54;
@@ -246,8 +248,35 @@ export default function PlayersScreen() {
           <Text style={styles.note}>Nobody yet. Add everyone playing, starting with yourself.</Text>
         )}
 
+        {/* Where the field actually stands, in one line.
+
+            Without it the roster showed nine names and said nothing about which
+            of them had opened the app — so "I don't see anything" could only be
+            answered by adding that person again. One morning produced four rows
+            for one man, three of them orphans. */}
+        {playersLoaded && players.length > 0 && (
+          <View style={styles.progressRow}>
+            <Text style={[styles.progressPart, styles.progressJoined]}>{progress.joined} JOINED</Text>
+            {progress.waiting > 0 && (
+              <Text style={[styles.progressPart, styles.progressWaiting]}>{progress.waiting} WAITING</Text>
+            )}
+            {progress.noNumber > 0 && (
+              <Text style={[styles.progressPart, styles.progressNone]}>{progress.noNumber} NO NUMBER</Text>
+            )}
+          </View>
+        )}
+        {playersLoaded && progress.waiting > 0 && (
+          <Text style={styles.note}>
+            Waiting means their seat is made and they haven't opened it yet. Don't add them a second time — that gives
+            one person two scorecards. Send the invite again instead.
+          </Text>
+        )}
+
         {players.map((p) => {
           const played = thruFor(holes, scores, p.id);
+          // Joined, waiting, or nothing to invite. The same three states
+          // `claimStatus` describes from the guest's side, read from here.
+          const seat = seatState(p);
           return (
             <View key={p.id} style={[styles.row, p.id === myId && styles.rowYou]}>
               <View style={{ flex: 1 }}>
@@ -259,11 +288,32 @@ export default function PlayersScreen() {
                   HCP {p.handicap} · {played > 0 ? `${played} played` : 'not started'}
                   {p.phone ? ` · ${prettyPhone(p.phone)}` : ' · no number'}
                 </Text>
+                {/* Said in words rather than by a colour, because the whole
+                    point is that it can be read at a glance and acted on. A
+                    seat with no number is a resting state, not a problem —
+                    it is the friend who will never install the app, and
+                    somebody keeps his card under rule 2. */}
+                <Text
+                  style={[
+                    styles.seat,
+                    seat === 'joined' && styles.seatJoined,
+                    seat === 'waiting' && styles.seatWaiting,
+                    seat === 'no-number' && styles.seatNone,
+                  ]}
+                >
+                  {seat === 'joined'
+                    ? 'JOINED'
+                    : seat === 'waiting'
+                      ? 'WAITING — INVITED, NOT OPENED YET'
+                      : 'NO NUMBER — YOU KEEP THIS CARD'}
+                </Text>
               </View>
 
-              {/* A dead INVITE button is worse than none, so somebody added by
-                  name alone simply doesn't get one. */}
-              {p.phone && p.id !== myId && (
+              {/* Only a seat still waiting. Texting somebody who has already
+                  joined is an invitation to a round they are standing in, and
+                  a dead INVITE button on a row added by name alone is worse
+                  than none — there is nowhere to send it. */}
+              {seat === 'waiting' && p.id !== myId && (
                 <Pressable onPress={() => invite(p.id)} style={styles.rowBtn} hitSlop={6}>
                   <Text style={styles.rowBtnLabel}>INVITE</Text>
                 </Pressable>
@@ -452,6 +502,11 @@ const styles = StyleSheet.create({
   },
   note: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, paddingHorizontal: 20, paddingTop: 14 },
   error: { fontFamily: font.body, fontSize: 11.5, color: colors.accent, paddingHorizontal: 20, paddingTop: 8 },
+  progressRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, paddingHorizontal: 20, paddingBottom: 4 },
+  progressPart: { fontFamily: font.heading, fontSize: 10, letterSpacing: 0.9 },
+  progressJoined: { color: colors.text },
+  progressWaiting: { color: colors.accent },
+  progressNone: { color: colors.mutedFaint },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -464,6 +519,10 @@ const styles = StyleSheet.create({
   rowYou: { backgroundColor: 'rgba(236,48,19,0.06)' },
   rowName: { fontFamily: font.heading, fontSize: 15, color: colors.text },
   rowMeta: { fontFamily: font.body, fontSize: 11, color: colors.muted, marginTop: 3 },
+  seat: { fontFamily: font.heading, fontSize: 9, letterSpacing: 0.9, marginTop: 5 },
+  seatJoined: { color: colors.text },
+  seatWaiting: { color: colors.accent },
+  seatNone: { color: colors.mutedFaint },
   rowBtn: { paddingHorizontal: 7, paddingVertical: 6 },
   rowBtnLabel: { fontFamily: font.heading, fontSize: 11, letterSpacing: 0.5, color: colors.text },
   cancelSwap: { fontFamily: font.heading, fontSize: 11.5, letterSpacing: 0.6, color: colors.accent },
