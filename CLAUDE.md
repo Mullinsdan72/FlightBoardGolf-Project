@@ -502,6 +502,14 @@ follow from that, and both were asked for directly:
 - Known simplification: `strokesReceivedFor` allocates strokes off the full course handicap
   even on a 9-hole round, where convention is to halve it. Fine for gross play and for the
   net figures shown today; revisit if net becomes a competitive format.
+- **`typedRoutes` makes `npm run typecheck` a false pass on a machine that has never run
+  the dev server.** `app.json` sets `experiments.typedRoutes: true`, so expo-router generates
+  the union of every valid route into `.expo/types/router.d.ts` — which is gitignored. Where
+  that file is absent, `router.push('/anything')` typechecks against a loose fallback and
+  passes; where it exists but predates a new screen, the same line is an error. A new route
+  therefore passes here and fails on Dan's Mac, which is exactly what happened with
+  `/joincode`. **After adding a screen, regenerate the routes** (`npx expo start`, wait for
+  the QR, `Ctrl-C`) before trusting a green typecheck, and say so in the handover steps.
 - `npm run check` runs the typecheck plus all seven verification scripts (course parsing,
   score outbox, wolf money, teams, side games, team challenge, invites) — 395 assertions. Worth running before pushing anything
   that touches scoring, course data, teams, or money.
