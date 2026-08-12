@@ -180,12 +180,34 @@ export default function ScoreEntryScreen() {
   // by the POST button (which also advances) and by jumping to a different
   // hole via the chip strip — leaving a hole is the commit, not a separate
   // step you have to remember.
-  const postCurrentHole = () => {
+  /**
+   * @param deliberate The POST bar, rather than navigating off the hole.
+   *
+   * Leaving a hole commits it, and that stays — going back to the second to fix
+   * a number and tapping away to save it is the best thing about this screen.
+   *
+   * What changes is a hole **nobody has touched at all**. The steppers default
+   * to par, so an unplayed hole shows 4, 4, 4, 4 — indistinguishable from four
+   * pars — and committing on navigation meant tapping from the 4th to the 7th
+   * wrote par for every player on the holes in between. Nobody played them, and
+   * the leaderboard said thru 6. Rule 4 says an unplayed hole is blank rather
+   * than par; that was writing one to the database and counting it.
+   *
+   * Touch anything on a hole and the whole hole commits, pars included — so
+   * changing one player's number still records the other three. Only a hole you
+   * have not touched at all is left alone, and pressing POST commits it anyway,
+   * which is the case of a group who genuinely all made par.
+   */
+  const postCurrentHole = (deliberate = false) => {
     // Group mode posts for the cards you are actually keeping, not for the whole
     // field. Somebody who has claimed their own row is scoring on their own
     // phone, and writing over them from here would be the one thing rule 2
     // exists to prevent.
     const entries = effectiveMode === 'self' ? [myId] : open.map((p) => p.id);
+    const touched = Object.keys(draft[hole] ?? {}).length > 0;
+    const alreadyHasScores = entries.some((id) => scores[hole]?.[id] != null);
+    if (!deliberate && !touched && !alreadyHasScores) return;
+
     const nextScores = { ...scores, [hole]: { ...(scores[hole] || {}) } };
     const posting = entries.map((playerId) => {
       const strokes = valueFor(hole, playerId);
@@ -204,11 +226,15 @@ export default function ScoreEntryScreen() {
     setDraft((prev) => ({ ...prev, [hole]: {} }));
   };
 
+  // The POST bar is an explicit act, so it commits whatever is on screen —
+  // including a hole where everybody made par and nothing needed touching.
   const commitHole = () => {
-    postCurrentHole();
+    postCurrentHole(true);
     if (!isLastHole) setHoleIndex(safeIndex + 1);
   };
 
+  // Tapping a hole number is navigation. It still saves the hole you are
+  // leaving — that is the point — but it will not invent one you never scored.
   const goToHole = (index: number) => {
     if (index !== safeIndex) postCurrentHole();
     setHoleIndex(index);
