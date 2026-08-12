@@ -192,8 +192,8 @@ export default function LeaderboardScreen() {
           fieldRows.map((r) => (
             <Pressable
               key={r.id}
-              onPress={() => openCard(r.id)}
-              style={[styles.fieldRow, r.isYou && styles.rowYou]}
+              onPress={() => setMiniId(r.id)}
+              style={[styles.fieldRow, r.isYou && styles.rowYou, r.id === shownMiniId && styles.rowShown]}
             >
               <Text style={styles.pos}>{r.pos}</Text>
               <View style={styles.fieldNameCol}>
@@ -295,32 +295,39 @@ export default function LeaderboardScreen() {
               </Pressable>
             ))}
 
-            <View style={styles.miniSection}>
-              <Text style={styles.miniLabel}>
-                Hole by hole · {shownMiniId === myId ? 'you' : miniName}
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
-                {mini.map((c) => (
-                  <View key={c.hole} style={styles.miniCell}>
-                    <Text style={styles.miniHole}>{c.hole}</Text>
-                    {c.strokes != null ? (
-                      <ScoreRing strokes={c.strokes} par={c.par} size={30} innerSize={25} fontSize={14} />
-                    ) : (
-                      <Text style={styles.miniDash}>–</Text>
-                    )}
-                  </View>
-                ))}
-              </ScrollView>
-              {/* The way to the full card, now that tapping a row no longer is
-                  one. Hiding a thing must never hide the last way to it. */}
-              <Pressable onPress={() => openCard(shownMiniId)} style={styles.miniOpen}>
-                <Text style={styles.miniOpenLabel}>
-                  OPEN {shownMiniId === myId ? 'MY' : `${miniName.toUpperCase()}'S`} FULL CARD
-                </Text>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
-            </View>
           </>
+        )}
+
+        {/* The hole-by-hole strip belongs to both lists.
+
+            It only ever rendered under MY GROUP, so switching to FIELD — which
+            is the tab that actually shows everybody — made it disappear, and it
+            read as having been lost. It answers the same question on either
+            list: what did this person actually do, hole by hole. */}
+        {tab !== 'teams' && (
+          <View style={styles.miniSection}>
+            <Text style={styles.miniLabel}>Hole by hole · {shownMiniId === myId ? 'you' : miniName}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
+              {mini.map((c) => (
+                <View key={c.hole} style={styles.miniCell}>
+                  <Text style={styles.miniHole}>{c.hole}</Text>
+                  {c.strokes != null ? (
+                    <ScoreRing strokes={c.strokes} par={c.par} size={30} innerSize={25} fontSize={14} />
+                  ) : (
+                    <Text style={styles.miniDash}>–</Text>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+            {/* The way to the full card, now that tapping a row no longer is
+                one. Hiding a thing must never hide the last way to it. */}
+            <Pressable onPress={() => openCard(shownMiniId)} style={styles.miniOpen}>
+              <Text style={styles.miniOpenLabel}>
+                OPEN {shownMiniId === myId ? 'MY' : `${miniName.toUpperCase()}'S`} FULL CARD
+              </Text>
+              <Text style={styles.chevron}>›</Text>
+            </Pressable>
+          </View>
         )}
       </ScrollView>
     </View>
