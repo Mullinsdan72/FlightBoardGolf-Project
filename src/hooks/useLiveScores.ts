@@ -4,6 +4,7 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import {
   dequeue,
   enqueue,
+  enqueueMany,
   loadCachedScores,
   loadOutbox,
   roundsWithPending,
@@ -236,10 +237,36 @@ export function useLiveScores(roundId: string | null | undefined) {
     [roundId, flushOutbox],
   );
 
+  /**
+   * Post a whole hole — every card this phone keeps — as one write.
+   *
+   * Posting a hole for a four-ball is one action by the golfer, and it used to
+   * fire four independent `postScore` calls in the same tick. Each was a
+   * read-modify-write on the same key, so all four read the same queue and the
+   * last one to write won: three scores were lost on the phone before the
+   * network was involved, with nothing on screen to say so.
+   *
+   * `enqueueMany` is serialised, so this is safe on its own — but doing it in
+   * one call is also simply what it is.
+   */
+  const postHole = useCallback(
+    async (hole: number, entries: { playerId: string; strokes: number }[]) => {
+      if (!roundId || !entries.length) return;
+      const queue = await enqueueMany(
+        roundId,
+        entries.map((e) => ({ hole, playerId: e.playerId, strokes: e.strokes })),
+      );
+      setPendingCount(queue.length);
+      flushOutbox();
+    },
+    [roundId, flushOutbox],
+  );
+
   return {
     scores,
     setScores,
     postScore,
+    postHole,
     live: isSupabaseConfigured,
     connected,
     pendingCount,

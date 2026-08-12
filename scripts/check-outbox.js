@@ -157,6 +157,69 @@ const OTHER = 'round-b';
   check('a deleted round leaves no cached scores', await ob.loadCachedScores(R), {});
   check('deleting one round spares the other', summary(await ob.loadOutbox(OTHER)), ['4:a=9']);
 
+  // ------------------------------------------- posting a hole for a four-ball
+  //
+  // The bug this exists for lost real scores from a real round and said
+  // nothing. Queueing is a read-modify-write on one key, and posting a hole for
+  // four players fired four of them in the same tick without waiting. All four
+  // read the same queue, each wrote back a queue holding only its own score,
+  // and the last one won — three scores gone before the network was involved.
+  //
+  // Nothing reported it: the screen was right (the cache is written in one go),
+  // the queue emptied cleanly (the survivor sent fine), and "0 to sync" was
+  // true. The only symptom was three players missing from everybody else's
+  // leaderboard, and the survivor was always whoever came last in the list.
+  await ob.clearRound('race');
+
+  await Promise.all([
+    ob.enqueue('race', { hole: 1, playerId: 'danny', strokes: 4 }),
+    ob.enqueue('race', { hole: 1, playerId: 'jaxon', strokes: 5 }),
+    ob.enqueue('race', { hole: 1, playerId: 'kory', strokes: 6 }),
+    ob.enqueue('race', { hole: 1, playerId: 'kyler', strokes: 3 }),
+  ]);
+  const raced = await ob.loadOutbox('race');
+  check('four scores queued at once all survive', raced.length, 4);
+  check(
+    'and every player is there, not just the last',
+    raced.map((q) => q.playerId).sort(),
+    ['danny', 'jaxon', 'kory', 'kyler'],
+  );
+  check('with their own strokes', raced.find((q) => q.playerId === 'danny')?.strokes, 4);
+
+  // The batch form: one action by the golfer, one write to disk.
+  await ob.clearRound('batch');
+  const batched = await ob.enqueueMany('batch', [
+    { hole: 7, playerId: 'a', strokes: 4 },
+    { hole: 7, playerId: 'b', strokes: 5 },
+    { hole: 7, playerId: 'c', strokes: 6 },
+  ]);
+  check('a whole hole queues in one go', batched.length, 3);
+  check('and lands on disk', (await ob.loadOutbox('batch')).length, 3);
+
+  // Re-posting a hole replaces those scores rather than stacking a second set.
+  const corrected = await ob.enqueueMany('batch', [
+    { hole: 7, playerId: 'a', strokes: 3 },
+    { hole: 7, playerId: 'b', strokes: 5 },
+    { hole: 7, playerId: 'c', strokes: 6 },
+  ]);
+  check('correcting a hole does not duplicate it', corrected.length, 3);
+  check('and keeps the new number', corrected.find((q) => q.playerId === 'a')?.strokes, 3);
+
+  // A correction racing the rest of the hole must not be lost either.
+  await ob.clearRound('mixed');
+  await Promise.all([
+    ob.enqueueMany('mixed', [
+      { hole: 2, playerId: 'a', strokes: 4 },
+      { hole: 2, playerId: 'b', strokes: 4 },
+    ]),
+    ob.enqueue('mixed', { hole: 3, playerId: 'a', strokes: 7 }),
+  ]);
+  check('a single score racing a batch survives', (await ob.loadOutbox('mixed')).length, 3);
+
+  await ob.clearRound('race');
+  await ob.clearRound('batch');
+  await ob.clearRound('mixed');
+
   console.log('');
   if (failures.length) {
     console.error(`${failures.length} check(s) failed:\n`);

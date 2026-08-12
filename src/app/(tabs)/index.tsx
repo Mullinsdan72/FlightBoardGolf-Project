@@ -24,6 +24,7 @@ export default function ScoreEntryScreen() {
     scores,
     setScores,
     postScore,
+    postHole,
     live,
     connected,
     players,
@@ -186,11 +187,19 @@ export default function ScoreEntryScreen() {
     // exists to prevent.
     const entries = effectiveMode === 'self' ? [myId] : open.map((p) => p.id);
     const nextScores = { ...scores, [hole]: { ...(scores[hole] || {}) } };
-    for (const playerId of entries) {
+    const posting = entries.map((playerId) => {
       const strokes = valueFor(hole, playerId);
       nextScores[hole][playerId] = strokes;
-      postScore(hole, playerId, strokes);
-    }
+      return { playerId, strokes };
+    });
+    // **One call, not one per player.** This used to fire `postScore` once per
+    // card in the same tick, and each of those was a read-modify-write on the
+    // same outbox key — so four cards read the same queue, each wrote back a
+    // queue containing only its own score, and the last one won. Three scores
+    // were lost on the phone before the network was involved, with nothing to
+    // show for it: the screen was right, the queue emptied cleanly, and the
+    // other three players simply never appeared on anybody else's leaderboard.
+    postHole(hole, posting);
     setScores(nextScores);
     setDraft((prev) => ({ ...prev, [hole]: {} }));
   };

@@ -59,17 +59,61 @@ export const loadOutbox = (roundId: string) => readJson<PendingScore[]>(outboxKe
 export const saveOutbox = (roundId: string, queue: PendingScore[]) =>
   writeJson(outboxKey(roundId), queue);
 
+/**
+ * Every change to the outbox runs one at a time.
+ *
+ * **This is a data-loss fix, and the loss was silent.** Queueing a score is a
+ * read-modify-write on one storage key, and posting a hole for a four-ball fired
+ * four of them in the same tick without waiting. All four read the same queue,
+ * each appended its own score, each wrote the result back — so the last write
+ * won and three scores were gone before the network was ever involved.
+ *
+ * Nothing reported it. The screen was right, because the local cache is written
+ * in one go; the outbox emptied cleanly, because the one surviving row sent
+ * fine; and "0 to sync" was true. The only symptom was three players missing
+ * from the leaderboard on everybody else's phone, and the survivor was always
+ * whoever came last in the list.
+ *
+ * A chain rather than a lock: each write waits for the one before it, and a
+ * failure never stalls the ones behind it.
+ */
+let writes: Promise<unknown> = Promise.resolve();
+function serialize<T>(run: () => Promise<T>): Promise<T> {
+  const next = writes.then(run, run);
+  writes = next.catch(() => undefined);
+  return next;
+}
+
 // One entry per hole+player: re-entering a score replaces the queued one rather
 // than stacking a second write for the same cell.
-export async function enqueue(
+export function enqueue(
   roundId: string,
   entry: Omit<PendingScore, 'queuedAt'>,
 ): Promise<PendingScore[]> {
-  const queue = await loadOutbox(roundId);
-  const next = queue.filter((q) => keyOf(q) !== keyOf(entry));
-  next.push({ ...entry, queuedAt: Date.now() });
-  await saveOutbox(roundId, next);
-  return next;
+  return enqueueMany(roundId, [entry]);
+}
+
+/**
+ * Queue a whole hole at once — every card this phone is keeping, one write.
+ *
+ * The batch form exists because posting a hole for four players is one action
+ * by the golfer and should be one write to disk. Serialised as well, so it is
+ * safe even against a stray single `enqueue` arriving at the same moment.
+ */
+export function enqueueMany(
+  roundId: string,
+  entries: Omit<PendingScore, 'queuedAt'>[],
+): Promise<PendingScore[]> {
+  return serialize(async () => {
+    if (!entries.length) return loadOutbox(roundId);
+    const queue = await loadOutbox(roundId);
+    const replacing = new Set(entries.map(keyOf));
+    const queuedAt = Date.now();
+    const next = queue.filter((q) => !replacing.has(keyOf(q)));
+    for (const entry of entries) next.push({ ...entry, queuedAt });
+    await saveOutbox(roundId, next);
+    return next;
+  });
 }
 
 // A deleted round takes its local cache with it. Otherwise an unsynced hole
@@ -108,14 +152,19 @@ export async function roundsWithPending(): Promise<string[]> {
   }
 }
 
-export async function dequeue(roundId: string, entries: PendingScore[]): Promise<PendingScore[]> {
-  if (!entries.length) return loadOutbox(roundId);
-  const done = new Set(entries.map(keyOf));
-  const queue = await loadOutbox(roundId);
-  // Only drop an entry if it hasn't been re-queued with a newer score since the
-  // flush started — otherwise a correction made mid-sync would be discarded.
-  const sentAt = new Map(entries.map((e) => [keyOf(e), e.queuedAt]));
-  const next = queue.filter((q) => !(done.has(keyOf(q)) && q.queuedAt <= (sentAt.get(keyOf(q)) ?? 0)));
-  await saveOutbox(roundId, next);
-  return next;
+// Serialised for the same reason `enqueue` is: this reads the queue, decides
+// what to drop and writes it back, and a score queued between the read and the
+// write would be thrown away by it.
+export function dequeue(roundId: string, entries: PendingScore[]): Promise<PendingScore[]> {
+  return serialize(async () => {
+    if (!entries.length) return loadOutbox(roundId);
+    const done = new Set(entries.map(keyOf));
+    const queue = await loadOutbox(roundId);
+    // Only drop an entry if it hasn't been re-queued with a newer score since the
+    // flush started — otherwise a correction made mid-sync would be discarded.
+    const sentAt = new Map(entries.map((e) => [keyOf(e), e.queuedAt]));
+    const next = queue.filter((q) => !(done.has(keyOf(q)) && q.queuedAt <= (sentAt.get(keyOf(q)) ?? 0)));
+    await saveOutbox(roundId, next);
+    return next;
+  });
 }

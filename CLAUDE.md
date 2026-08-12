@@ -125,7 +125,18 @@ Don't design anything new as though a round has one group in it.
 These came out of building the prototype, several by getting them wrong first. They apply
 everywhere in this codebase, not just the screens they were first written for.
 
-1. **Scores write locally first, always.** The write succeeds on the phone and syncs later.
+1. **Scores write locally first, always** — and **every write to the outbox is serialised.**
+   Queueing a score is a read-modify-write on one AsyncStorage key. Posting a hole for a
+   four-ball fired four of them in the same tick without waiting, so all four read the same
+   queue, each wrote back a queue holding only its own score, and the last one won. Three
+   scores were lost on the phone *before the network was involved*, and nothing said so: the
+   screen was right (the cache is written in one go), the queue emptied cleanly (the
+   survivor sent fine), and "0 to sync" was true. The only symptom was three players missing
+   from everybody else's leaderboard, and the survivor was always whoever came last in the
+   list. `enqueue`/`enqueueMany`/`dequeue` all run through one promise chain, and a hole is
+   posted with **`postHole`, one call for the whole group** — never a loop of `postScore`.
+   Covered by `npm run check:outbox`.
+   The write succeeds on the phone and syncs later.
    Never make a golfer wait on a network to record a four. Implemented by
    `src/lib/scoreOutbox.ts`: `postScore` persists to AsyncStorage and queues in an outbox
    *before* touching the network, and the queue is retried on reconnect, on a 15s timer, and
