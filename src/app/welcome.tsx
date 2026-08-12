@@ -26,6 +26,10 @@ export default function WelcomeScreen() {
   const [busy, setBusy] = useState(false);
 
   const tidy = cleanName(name);
+  // Waiting for auth to answer counts as signed out for layout, but not for
+  // long: `authStage` always leaves 'loading'. Showing the gate for a frame is
+  // better than showing a name box that is about to be replaced.
+  const signedOut = !userId;
   const canStart = tidy.length > 0 && !busy;
 
   const start = async () => {
@@ -62,18 +66,22 @@ export default function WelcomeScreen() {
           and you keep your own score.
         </Text>
 
-        {/* Signing in comes first now, and it is not a preference.
-            
-            Every write is gated on an account: creating your player row needs
-            `to authenticated`, and creating a round needs you to already own the
-            player you name as organizer. So on a signed-out phone the button
-            below cannot work, and before this it was the biggest thing on the
-            screen — you typed your name, tapped START, and got a policy error
-            for your trouble. First-run, first impression.
-            
-            The name and day are still here and still remembered, so the answer
-            to "what were you doing" survives the trip to the sign-in screen. */}
-        {authStage !== 'loading' && !userId && (
+        {/* One question at a time, and only ever the one you can answer.
+
+            This screen used to ask for your name *and* show the sign-in gate at
+            once, with START A ROUND greyed out underneath. So a new phone typed
+            its name, found the only live button was TEXT ME A CODE, went and
+            signed in — and came back to an empty name box, because this screen
+            unmounts on the trip and its state goes with it. Being asked the same
+            question twice in three taps is the app looking like it wasn't
+            listening, and it was reported exactly that way.
+
+            Signing in genuinely has to be first: every write is gated on an
+            account, so creating your player needs one and creating a round needs
+            you to already own the player you name as organizer. Given that, a
+            name box before sign-in is a question with nowhere to put the answer.
+            So it is not shown until it can be used. */}
+        {signedOut ? (
           <View style={styles.gate}>
             <Text style={styles.gateTitle}>Start with your number</Text>
             <Text style={styles.gateBody}>
@@ -85,50 +93,55 @@ export default function WelcomeScreen() {
               <Text style={styles.gateBtnArrow}>→</Text>
             </Pressable>
           </View>
+        ) : (
+          <>
+            <Text style={styles.fieldLabel}>Your name</Text>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="First and last"
+              placeholderTextColor={colors.ghost}
+              style={styles.input}
+              autoCapitalize="words"
+              autoFocus
+            />
+
+            <Text style={styles.fieldLabel}>When are you playing</Text>
+            {/* Chips rather than a typed date: nobody should have to know that
+                2026-08-01 is the format on the first screen of an app. */}
+            <View style={styles.dayRow}>
+              {[0, 1, 2].map((offset) => (
+                <Pressable
+                  key={offset}
+                  onPress={() => setDayOffset(offset)}
+                  style={[styles.dayBtn, dayOffset === offset && styles.dayBtnOn]}
+                >
+                  <Text style={[styles.dayLabel, dayOffset === offset && styles.dayLabelOn]}>
+                    {offset === 0 ? 'TODAY' : offset === 1 ? 'TOMORROW' : prettyDay(isoDaysFromNow(2)).toUpperCase()}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Pressable
+              onPress={start}
+              disabled={!canStart}
+              style={[styles.startBtn, !canStart && styles.startBtnOff]}
+            >
+              <Text style={styles.startLabel}>{busy ? 'STARTING…' : 'START A ROUND'}</Text>
+              <Text style={styles.startArrow}>→</Text>
+            </Pressable>
+          </>
         )}
 
-        <Text style={styles.fieldLabel}>Your name</Text>
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder="First and last"
-          placeholderTextColor={colors.ghost}
-          style={styles.input}
-          autoCapitalize="words"
-          autoFocus
-        />
-
-        <Text style={styles.fieldLabel}>When are you playing</Text>
-        {/* Chips rather than a typed date: nobody should have to know that
-            2026-08-01 is the format on the first screen of an app. */}
-        <View style={styles.dayRow}>
-          {[0, 1, 2].map((offset) => (
-            <Pressable
-              key={offset}
-              onPress={() => setDayOffset(offset)}
-              style={[styles.dayBtn, dayOffset === offset && styles.dayBtnOn]}
-            >
-              <Text style={[styles.dayLabel, dayOffset === offset && styles.dayLabelOn]}>
-                {offset === 0 ? 'TODAY' : offset === 1 ? 'TOMORROW' : prettyDay(isoDaysFromNow(2)).toUpperCase()}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Pressable
-          onPress={start}
-          disabled={!canStart || !userId}
-          style={[styles.startBtn, (!canStart || !userId) && styles.startBtnOff]}
-        >
-          <Text style={styles.startLabel}>{busy ? 'STARTING…' : 'START A ROUND'}</Text>
-          <Text style={styles.startArrow}>→</Text>
-        </Pressable>
-
-        <Text style={styles.note}>
-          {!userId
-            ? 'Sign in above first — a round belongs to the account that creates it, so there has to be one.'
-            : "You'll be running this round: you pick the course and who's in it. Next comes the course, then everyone playing. It takes about a minute, and handicaps and anything else can be set once you're in."}
-        </Text>
+        {/* No "sign in above first" any more — there is nothing below to
+            explain, because the form only appears once you have. */}
+        {!signedOut && (
+          <Text style={styles.note}>
+            You'll be running this round: you pick the course and who's in it. Next comes the course, then everyone
+            playing. It takes about a minute, and handicaps and anything else can be set once you're in.
+          </Text>
+        )}
 
         {/* Somebody who was texted a code isn't starting a round, they're
             joining one. Both doors on the first screen.
