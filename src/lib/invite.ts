@@ -89,6 +89,29 @@ export function inviteMessage(ctx: InviteContext): string {
   return lines.join('\n');
 }
 
+/**
+ * The message that carries a round code.
+ *
+ * Deliberately different from `inviteMessage`, which is A2P-registered traffic
+ * sent to a number the organizer typed. This one is shared by hand — read out,
+ * texted, put in a group chat — so it does not have to open with the registered
+ * brand name and can spend its words on the two things the recipient actually
+ * needs: the code, and where to type it.
+ *
+ * Naming the screen matters. "Use code ABCDE" is useless to somebody who has
+ * just installed the app and is looking at a scorecard.
+ */
+export function joinCodeMessage(code: string, ctx?: { roundName?: string | null; courseName?: string | null }): string {
+  const where = [ctx?.courseName, ctx?.roundName].filter(Boolean).join(' · ');
+  return [
+    where ? `Join my round — ${where}.` : 'Join my round on Flight Board.',
+    '',
+    `Code: ${code}`,
+    '',
+    'In the app: ME → JOIN A ROUND WITH A CODE, then type it in.',
+  ].join('\n');
+}
+
 /** Digits only, so two spellings of the same number aren't two people. */
 export function normalizePhone(input: string): string | null {
   const trimmed = input.trim();

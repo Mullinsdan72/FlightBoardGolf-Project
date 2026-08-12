@@ -233,6 +233,29 @@ check(
   ['c'],
 );
 
+// ----------------------------------------------------------- the code message
+//
+// Shared by hand rather than sent as registered A2P traffic, so it does not
+// carry the brand name and can spend its words on what the recipient needs.
+const codeMsg = inv.joinCodeMessage('7KQ3M', { roundName: 'Tue round', courseName: 'Gladstan GC' });
+
+check('the code is in it', codeMsg.includes('7KQ3M'), true);
+// Naming the screen is the whole job. "Use code 7KQ3M" is useless to somebody
+// who has just installed the app and is staring at a scorecard.
+check('it says where to type it', codeMsg.includes('JOIN A ROUND WITH A CODE'), true);
+check('and which tab that is on', codeMsg.includes('ME'), true);
+check('the course is named', codeMsg.includes('Gladstan GC'), true);
+check('and the round', codeMsg.includes('Tue round'), true);
+
+// Missing context must not produce "Join my round — ." or a stray separator.
+const bare = inv.joinCodeMessage('7KQ3M');
+check('with no context it still reads as a sentence', bare.includes('Join my round on Flight Board.'), true);
+check('and carries the code', bare.includes('7KQ3M'), true);
+check('with no dangling separator', bare.includes('— .') || bare.includes(' · '), false);
+const partial = inv.joinCodeMessage('7KQ3M', { courseName: 'Gladstan GC', roundName: null });
+check('one of the two is enough', partial.includes('Gladstan GC'), true);
+check('and does not trail a separator', partial.includes('Gladstan GC.'), true);
+
 console.log('');
 if (failures.length) {
   console.error(`${failures.length} check(s) failed:\n`);

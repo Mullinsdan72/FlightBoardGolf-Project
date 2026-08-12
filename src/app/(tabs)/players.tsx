@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import * as SMS from 'expo-sms';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRound } from '@/context/RoundContext';
 import { fieldProgress, seatState } from '@/lib/claim';
 import { pickContact } from '@/lib/contacts';
-import { APP_STORE_URL, cleanName, inviteMessage } from '@/lib/invite';
+import { APP_STORE_URL, cleanName, inviteMessage, joinCodeMessage } from '@/lib/invite';
 import { isPhoneValid, prettyPhone, samePhone, toE164 } from '@/lib/phone';
 import { thruFor } from '@/lib/roundMath';
 import { colors, font } from '@/theme';
@@ -57,6 +58,32 @@ export default function PlayersScreen() {
 
   const swappingFor = swapping ? players.find((p) => p.id === swapping) : null;
   const progress = fieldProgress(players);
+  const [copied, setCopied] = useState(false);
+
+  /**
+   * Put the code on the clipboard, and say so.
+   *
+   * Reported as having to memorise five characters to walk them to Messages,
+   * which is a small thing that happens on a first tee with nine people
+   * waiting. The confirmation matters as much as the copy: a button that
+   * silently succeeds gets pressed three more times.
+   */
+  const copyCode = async () => {
+    const code = activeRound?.joinCode;
+    if (!code) return;
+    await Clipboard.setStringAsync(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  /** Straight into a text, a group chat, or anywhere else — one tap, no typing. */
+  const shareCode = async () => {
+    const code = activeRound?.joinCode;
+    if (!code) return;
+    await Share.share({
+      message: joinCodeMessage(code, { roundName: activeRound?.name, courseName: course?.courseName }),
+    });
+  };
   const tidy = cleanName(name);
   const parsedHandicap = handicap.trim() === '' ? 0 : Number(handicap.trim());
   const handicapOk = Number.isFinite(parsedHandicap) && parsedHandicap >= 0 && parsedHandicap <= 54;
@@ -258,10 +285,23 @@ export default function PlayersScreen() {
             <Text style={styles.sectionLabel}>The way in</Text>
             {activeRound?.joinCode ? (
               <View style={styles.codeBox}>
-                <Text style={styles.code}>{activeRound.joinCode}</Text>
+                {/* The code itself is the button too. Reaching for the thing you
+                    are looking at is the first instinct, and a five-character
+                    code is a small target for a deliberate one. */}
+                <Pressable onPress={copyCode}>
+                  <Text style={styles.code}>{activeRound.joinCode}</Text>
+                </Pressable>
+                <View style={styles.codeActions}>
+                  <Pressable onPress={copyCode} style={styles.codeBtn}>
+                    <Text style={styles.codeBtnLabel}>{copied ? '✓ COPIED' : 'COPY CODE'}</Text>
+                  </Pressable>
+                  <Pressable onPress={shareCode} style={styles.codeBtn}>
+                    <Text style={styles.codeBtnLabel}>SEND IT</Text>
+                  </Pressable>
+                </View>
                 <Text style={styles.codeNote}>
-                  Read this out, or text it. Anyone with it can open JOIN A ROUND WITH A CODE on ME, pick their own
-                  name and be in — no invitation needed, and it works if you got their number wrong.
+                  Anyone with this can open JOIN A ROUND WITH A CODE on ME, pick their own name and be in — no
+                  invitation needed, and it works even if you got their number wrong.
                 </Text>
               </View>
             ) : (
@@ -584,6 +624,16 @@ const styles = StyleSheet.create({
   // Big and widely spaced, because this gets read aloud across a car park and
   // typed off a phone held at arm's length.
   code: { fontFamily: font.heading, fontSize: 40, letterSpacing: 9, textAlign: 'center', color: colors.text },
+  codeActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  codeBtn: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: colors.text,
+    paddingVertical: 11,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  codeBtnLabel: { fontFamily: font.heading, fontSize: 11, letterSpacing: 0.9, color: colors.text },
   codeNote: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, marginTop: 12 },
   form: { paddingHorizontal: 20, paddingTop: 18 },
   fieldLabel: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.3, textTransform: 'uppercase', color: colors.muted },
