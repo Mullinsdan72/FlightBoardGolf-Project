@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PlayerPicker } from '@/components/PlayerPicker';
 import { Wordmark } from '@/components/Wordmark';
@@ -73,12 +73,25 @@ export default function ScorecardScreen() {
     setSwitcherOpen(false);
   }, [params.player, myId]);
 
-  // Clearing the param matters: without it, returning to your own card leaves
-  // the old player on the route, so tapping that same row again would do
-  // nothing — the value wouldn't have changed.
+  /**
+   * Clearing the param matters: without it, returning to your own card leaves
+   * the old player on the route, so tapping that same row again would do
+   * nothing — the value wouldn't have changed.
+   *
+   * **`appliedParam` must not be reset here, and doing so caused a loop nobody
+   * could get out of.** The ref records which route value has already been
+   * consumed. Setting it to null re-arms the effect above, and `setParams` does
+   * not take effect in the same tick — so the very next render saw the *old*
+   * player still on the route, treated it as new, and set the view straight
+   * back to them. Arriving from the leaderboard and then walking the cards
+   * meant signing one, being handed the next, and being thrown back to the
+   * first: two cards, for ever, with two more never reachable.
+   *
+   * The effect clears the ref itself once the route is actually empty, which is
+   * what makes tapping the same row a second time work.
+   */
   const backToMyCard = () => {
     setViewingId(null);
-    appliedParam.current = null;
     router.setParams({ player: '' });
   };
 
@@ -94,6 +107,15 @@ export default function ScorecardScreen() {
   const { signoffs, refreshSignoffs } = useSignoffs(activeRoundId);
   const [hold, setHold] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Signatures change on other phones and on the tab next door, and a stale
+  // list here sends NEXT CARD to somebody who has already signed — which reads
+  // as the walk through the cards going round in circles.
+  useFocusEffect(
+    useCallback(() => {
+      refreshSignoffs();
+    }, [refreshSignoffs]),
+  );
 
   useEffect(() => () => {
     if (timer.current) clearInterval(timer.current);
@@ -159,9 +181,10 @@ export default function ScorecardScreen() {
     (p) => p.id !== shownId && !(signoffs ?? {})[p.id],
   );
 
+  // Same rule as `backToMyCard`: clear the route, never the ref. This is the
+  // NEXT CARD hop, and it is where the loop was actually felt.
   const goToCard = (id: string) => {
     setViewingId(id === myId ? null : id);
-    appliedParam.current = null;
     router.setParams({ player: '' });
   };
 
