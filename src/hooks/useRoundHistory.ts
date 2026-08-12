@@ -64,7 +64,7 @@ export function useRoundHistory(roundIds: string[]) {
       supabase.from('signoffs').select('round_id, player_id').in('round_id', roundIds),
       // Whether each round has been started. A draft and a round being played
       // are otherwise identical here until somebody posts a hole.
-      supabase.from('rounds').select('id, started_at').in('id', roundIds),
+      supabase.from('rounds').select('id, started_at, finished_at').in('id', roundIds),
     ]);
 
     if (rosterRes.error || scoreRes.error || holeRes.error) {
@@ -115,7 +115,11 @@ export function useRoundHistory(roundIds: string[]) {
     // a round wrongly shown as live sends the field to the wrong scorecard.
     if (startRes.error) console.warn('useRoundHistory started_at failed:', startRes.error.message);
     const startedAt = new Map<string, string | null>();
-    for (const r of (startRes.data ?? []) as any[]) startedAt.set(r.id, r.started_at ?? null);
+    const finishedAt = new Map<string, string | null>();
+    for (const r of (startRes.data ?? []) as any[]) {
+      startedAt.set(r.id, r.started_at ?? null);
+      finishedAt.set(r.id, r.finished_at ?? null);
+    }
 
     const posted = new Map<string, Set<number>>();
     for (const s of (scoreRes.data ?? []) as any[]) {
@@ -167,6 +171,9 @@ export function useRoundHistory(roundIds: string[]) {
         // has posted yet. A round the organizer has started but nobody has teed
         // off in is live, and used to read as a draft.
         startedAt: startedAt.get(r.roundId) ?? null,
+        // The organizer having called it ends the round whatever the
+        // signatures say — that is the whole reason it exists.
+        finishedAt: finishedAt.get(r.roundId) ?? null,
       });
     }
 
@@ -193,6 +200,11 @@ export function useRoundHistory(roundIds: string[]) {
    */
   const reopenRound = useCallback(async (roundId: string): Promise<string | null> => {
     if (!isSupabaseConfigured || !supabase) return null;
+    // Clearing `finished_at` as well, or a round the organizer called over stays
+    // closed however many signatures are deleted — reopening would appear to do
+    // nothing at all, which is the worst kind of button.
+    const { error: finErr } = await supabase.from('rounds').update({ finished_at: null }).eq('id', roundId);
+    if (finErr) console.warn('reopenRound could not clear finished_at:', finErr.message);
     const { error: err } = await supabase.from('signoffs').delete().eq('round_id', roundId);
     if (err) {
       console.warn('reopenRound failed:', err.message);

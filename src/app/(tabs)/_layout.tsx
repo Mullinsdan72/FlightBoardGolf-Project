@@ -150,6 +150,7 @@ export default function TabLayout() {
         // has teed off in is live, and used to open everybody on the setup
         // screen because "started" was inferred from posted scores.
         startedAt: activeRound?.startedAt ?? null,
+        finishedAt: activeRound?.finishedAt ?? null,
       })
         ? 'round'
         : 'index',

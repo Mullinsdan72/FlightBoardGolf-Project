@@ -155,6 +155,25 @@ check('a guest in a started round opens on SCORE', p.opensOnRoundTab(guest({ sta
 check('a draft still opens the organizer on ROUND', p.opensOnRoundTab(state({ startedAt: null })), true);
 check('a started round routes to SCORE before a ball is struck', p.openingRoute(state({ startedAt: AT })), '/(tabs)');
 
+// --------------------------------------------------------- the organizer ends it
+//
+// For the round that cannot end by itself: somebody drives off after the 18th
+// without signing, and it sits at "3 of 4 signed" for ever. The alternative was
+// letting the organizer sign somebody else's card, which would make a signature
+// mean "a button was pressed" rather than "they agreed".
+const FIN = '2026-08-11T19:30:00.000Z';
+
+check('called over is closed, whatever the signatures say', p.roundStatus({ holesPosted: 18, fieldSize: 4, cardsSigned: 3, startedAt: AT, finishedAt: FIN }), 'closed');
+check('closed even with nobody signed at all', p.roundStatus({ holesPosted: 18, fieldSize: 4, cardsSigned: 0, startedAt: AT, finishedAt: FIN }), 'closed');
+// Reopening clears it, and the round has to come back to life or the button
+// appears to do nothing.
+check('clearing it puts the round back to live', p.roundStatus({ holesPosted: 18, fieldSize: 4, cardsSigned: 3, startedAt: AT, finishedAt: null }), 'live');
+// An empty round is nothing to finish, however emphatically it was finished.
+check('a round with no field is still not started', p.roundStatus({ holesPosted: 0, fieldSize: 0, cardsSigned: 0, finishedAt: FIN }), 'not-started');
+check('leaving it out changes nothing', p.roundStatus({ holesPosted: 18, fieldSize: 4, cardsSigned: 4, startedAt: AT }), 'closed');
+// And a finished round must not hold anybody on SCORE.
+check('a finished round opens the organizer on ROUND', p.opensOnRoundTab(state({ startedAt: AT, finishedAt: FIN })), true);
+
 console.log('');
 if (failures.length) {
   console.error(`${failures.length} check(s) failed:\n`);

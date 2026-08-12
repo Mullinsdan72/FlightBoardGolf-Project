@@ -359,8 +359,18 @@ refuses to press, which is the app arguing with itself.
   Now every phone in the field lands on the started round when it next opens
   (`useActiveRound`'s resolver prefers a live round over a stored draft, and never moves a
   phone that is already on a live one).
-  - **Finished stays derived from signatures.** Signing *is* the end of a round; a second
-    flag would be a second truth (rule 3).
+  - **Finished is normally derived from signatures.** Signing *is* the end of a round.
+  - **`rounds.finished_at` is the exception, and it is not a second truth.** A round can
+    reach a state it cannot leave: somebody drives off after the 18th without signing and it
+    sits at "3 of 4 signed" for ever, never in the results. FINISH THE ROUND is the
+    organizer's, lives on **CARD** (where you are standing when it happens — your card
+    signed, somebody else's not), and records the round as it stands. **It never signs on
+    anybody's behalf**, and ACTIVITY still reports how many cards were actually signed.
+    Reopening clears it, or the round would stay closed however many signatures were deleted.
+  - **Why not just let the organizer sign for people:** a signature is the golfer saying
+    *these are my numbers*. If anybody else can produce one it stops meaning "they agreed"
+    and starts meaning "a button was pressed" — and it stops holding the first time a score
+    is disputed after a bet. Ending the round costs nothing and invents nothing.
   - **A posted score still counts as started**, as a safety net. A hole recorded on a round
     nobody pressed START on means it is being played, and saying otherwise would be the app
     arguing with the scorecard.

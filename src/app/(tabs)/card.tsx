@@ -47,6 +47,7 @@ export default function ScorecardScreen() {
     activeRound,
     rounds,
     switchRound,
+    finishRound,
   } = useRound();
 
   // Which player's card is on screen. Defaults to you, but any player in the
@@ -193,6 +194,31 @@ export default function ScorecardScreen() {
   const holdStop = () => {
     if (timer.current) clearInterval(timer.current);
     if (!signed) setHold(0);
+  };
+
+  /** Everybody in the field whose card still has no signature on it. */
+  const unsigned = players.filter((p) => !(signoffs ?? {})[p.id]);
+
+  const confirmFinish = () => {
+    const names = unsigned.map((p) => p.name).join(', ');
+    Alert.alert(
+      'Finish the round?',
+      `${names} ${unsigned.length === 1 ? "hasn't" : "haven't"} signed. Finishing records the round as it stands and moves it to your results. Nobody is signed for on their behalf — the card will show who signed and who didn't. You can reopen it afterwards if they turn up.`,
+      [
+        { text: 'Wait for them', style: 'cancel' },
+        {
+          text: 'Finish',
+          onPress: async () => {
+            const message = await finishRound();
+            if (message) {
+              Alert.alert('Could not finish the round', message);
+              return;
+            }
+            router.push('/(tabs)/activity');
+          },
+        },
+      ],
+    );
   };
 
   const confirmReopen = () => {
@@ -433,6 +459,39 @@ export default function ScorecardScreen() {
               A signed card stays locked. Only whoever's running the round can reopen one, from this screen.
             </Text>
           )}
+
+          {/* End the round when it cannot end by itself.
+
+              Here, and only here, because this is exactly where you are
+              standing when the problem happens: your card is signed, the round
+              is over as far as you are concerned, and somebody has driven off
+              without signing theirs. Without this the round sits at "3 of 4
+              signed" for ever and never reaches the results.
+
+              The alternative — letting the organizer sign somebody else's card
+              — would make a signature mean "a button was pressed" rather than
+              "they agreed", and it would stop holding the first time a score is
+              disputed after a bet. So the round ends, and nobody's signature is
+              invented. */}
+          {amOrganizer && signed && unsigned.length > 0 && !activeRound?.finishedAt && (
+            <>
+              <Pressable onPress={confirmFinish} style={styles.finishBtn}>
+                <Text style={styles.finishLabel}>FINISH THE ROUND</Text>
+              </Pressable>
+              <Text style={styles.signNote}>
+                {unsigned.length === 1
+                  ? `${unsigned[0].name} hasn't signed.`
+                  : `${unsigned.length} cards aren't signed (${unsigned.map((p) => p.name).join(', ')}).`}{' '}
+                Finishing records the round as it stands and puts it in the results. Nobody is signed for — the
+                scorecard will show who did and didn't.
+              </Text>
+            </>
+          )}
+          {amOrganizer && !!activeRound?.finishedAt && (
+            <Text style={styles.signNote}>
+              This round is finished. Reopening any card puts it back to being played.
+            </Text>
+          )}
         </View>
       </ScrollView>
 
@@ -558,6 +617,10 @@ const styles = StyleSheet.create({
   signedNote: { fontFamily: font.body, fontSize: 12, lineHeight: 19, color: 'rgba(32,30,29,0.65)', marginTop: 8 },
   reopenBtn: { marginTop: 16, borderWidth: 2, borderColor: colors.text, paddingVertical: 13, alignItems: 'center' },
   reopenLabel: { fontFamily: font.heading, fontSize: 11, letterSpacing: 1, color: colors.text },
+  // Filled rather than outlined: this ends the round for everybody, which is a
+  // heavier thing than reopening one card.
+  finishBtn: { marginTop: 16, backgroundColor: colors.accent, paddingVertical: 14, alignItems: 'center', borderRadius: 8 },
+  finishLabel: { fontFamily: font.heading, fontSize: 12, letterSpacing: 1, color: '#fff' },
   footer: { borderTopWidth: 2, borderColor: colors.divider },
   holdBtn: { height: 82, backgroundColor: colors.bg, overflow: 'hidden', paddingHorizontal: 20, paddingBottom: 26, justifyContent: 'center' },
   holdBtnDisabled: { opacity: 0.4 },

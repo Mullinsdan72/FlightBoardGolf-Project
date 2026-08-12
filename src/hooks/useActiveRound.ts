@@ -24,6 +24,8 @@ export type RoundSummary = {
   joinCode: string | null;
   /** When the organizer pressed START. Null is a draft. */
   startedAt: string | null;
+  /** When the organizer called it over, for a round that cannot end by itself. */
+  finishedAt: string | null;
 };
 
 // Which round this device is looking at, and the list of rounds to choose from.
@@ -64,7 +66,7 @@ export function useActiveRound() {
     if (!isSupabaseConfigured || !supabase) return [];
     const { data, error } = await supabase
       .from('rounds')
-      .select('id, name, course_name, played_on, created_at, organizer_player_id, scoring_mode, join_code, started_at')
+      .select('id, name, course_name, played_on, created_at, organizer_player_id, scoring_mode, join_code, started_at, finished_at')
       .order('created_at', { ascending: false });
     if (error || !data) {
       console.warn('loadRounds failed:', error?.message);
@@ -87,6 +89,7 @@ export function useActiveRound() {
       scoringMode: asScoringMode(r.scoring_mode),
       joinCode: r.join_code ?? null,
       startedAt: r.started_at ?? null,
+      finishedAt: r.finished_at ?? null,
     }));
     setRounds(list);
     setRoundsLoaded(true);
@@ -122,13 +125,18 @@ export function useActiveRound() {
        * phone is already on a live one, that is the round it is playing and
        * nothing should move it.
        */
+      //
+      // Finished rounds are never "live" here, or the last round anybody played
+      // would keep hauling the whole field back onto a locked scorecard every
+      // time they opened the app.
+      const isLive = (r: RoundSummary) => !!r.startedAt && !r.finishedAt;
       const storedRound = stored ? list.find((r) => r.id === stored) : undefined;
-      if (storedRound?.startedAt) {
+      if (storedRound && isLive(storedRound)) {
         setActiveRoundId(storedRound.id);
         return;
       }
       const live = list
-        .filter((r) => r.startedAt)
+        .filter(isLive)
         .sort((a, b) => (b.startedAt ?? '').localeCompare(a.startedAt ?? ''));
       if (live.length > 0) {
         setActiveRoundId(live[0].id);
@@ -326,6 +334,37 @@ export function useActiveRound() {
     return null;
   }, [activeRoundId, rounds, loadRounds]);
 
+  /**
+   * Call the round over, when it cannot end by itself.
+   *
+   * A round normally ends when the last card is signed, and that stays true.
+   * This is for the one that can't: somebody drives off after the 18th without
+   * signing, and it sits at "3 of 4 signed" for ever — never finished, never in
+   * the results.
+   *
+   * **The alternative was letting the organizer sign somebody else's card, and
+   * that would be worse.** A signature is the golfer saying *these are my
+   * numbers*. If anybody else can produce one it stops meaning "they agreed" and
+   * starts meaning "a button was pressed", and it stops holding the first time
+   * there is a disputed score after a bet.
+   *
+   * So the organizer ends the *round*, and nobody's signature is invented.
+   * ACTIVITY still reports how many cards were actually signed.
+   */
+  const finishRound = useCallback(async (): Promise<string | null> => {
+    if (!activeRoundId) return 'There is no round to finish.';
+    const at = new Date().toISOString();
+    setRounds((prev) => prev.map((r) => (r.id === activeRoundId ? { ...r, finishedAt: at } : r)));
+    if (!isSupabaseConfigured || !supabase) return null;
+    const { error } = await supabase.from('rounds').update({ finished_at: at }).eq('id', activeRoundId);
+    if (error) {
+      console.warn('finishRound failed:', error.message);
+      await loadRounds();
+      return friendlyWriteError(error.message, 'finish this round');
+    }
+    return null;
+  }, [activeRoundId, loadRounds]);
+
   const setScoringMode = useCallback(
     async (mode: ScoringMode): Promise<string | null> => {
       setRounds((prev) => prev.map((r) => (r.id === activeRoundId ? { ...r, scoringMode: mode } : r)));
@@ -381,6 +420,7 @@ export function useActiveRound() {
     renameRound,
     ensureJoinCode,
     startRound,
+    finishRound,
     // Gross by default. Net was the default for a while and it is the
     // friendlier number, but it is also a claim about everybody's handicap —
     // and a round where nobody has set one shows net figures that are just

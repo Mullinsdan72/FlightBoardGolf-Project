@@ -110,6 +110,14 @@ alter table rounds add column if not exists organizer_player_id uuid references 
 -- truth (rule 3). See supabase/round-started.sql for the backfill.
 alter table rounds add column if not exists started_at timestamptz;
 
+-- When the organizer called it, for the round that cannot end by itself —
+-- somebody leaves after the 18th without signing and it sits at "3 of 4 signed"
+-- for ever. The alternative was letting the organizer sign somebody else's card,
+-- which would make a signature mean "a button was pressed" rather than "they
+-- agreed". Closed means every card signed, **or** the organizer called it; the
+-- signature count is still reported honestly either way.
+alter table rounds add column if not exists finished_at timestamptz;
+
 -- Gross, net, or off the low man — for the WHOLE round, not just a team game.
 --
 -- This used to live only on team_games.handicap_mode, where it decided team

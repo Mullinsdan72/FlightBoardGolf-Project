@@ -34,8 +34,31 @@ update rounds r
 
 -- Anything never teed off stays null, which is what it always was: a draft.
 
+-- ------------------------------------------------------------ ending a round
+--
+-- A round normally ends when the last card is signed, and that stays true. This
+-- is for the round that cannot end that way: somebody drives off after the 18th
+-- without signing, and the round sits at "3 of 4 signed" for ever — never
+-- finished, never in the results.
+--
+-- **The alternative was letting the organizer sign somebody else's card, and
+-- that would be worse.** A signature is the golfer saying *these are my
+-- numbers*. If anyone else can produce one, it stops meaning "they agreed" and
+-- starts meaning "a button was pressed" — and the lock stops holding the first
+-- time there is a disputed score after a bet.
+--
+-- So the organizer ends the *round*, and nobody's signature is invented.
+-- ACTIVITY still reports how many cards were actually signed, which is the
+-- honest record of what happened.
+--
+-- Not a duplicate of the signature count (rule 3): it is a different fact, with
+-- a different cause. Closed now means "every card signed, **or** the organizer
+-- called it".
+alter table rounds add column if not exists finished_at timestamptz;
+
 select
-  count(*) filter (where started_at is not null) as started,
-  count(*) filter (where started_at is null)     as drafts,
-  count(*)                                        as all_rounds
+  count(*) filter (where started_at is not null)  as started,
+  count(*) filter (where started_at is null)      as drafts,
+  count(*) filter (where finished_at is not null) as finished,
+  count(*)                                         as all_rounds
 from rounds;

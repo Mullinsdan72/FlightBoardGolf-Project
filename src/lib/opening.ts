@@ -30,6 +30,14 @@ export type RoundProgress = {
    * old derivation.
    */
   startedAt?: string | null;
+  /**
+   * When the organizer called the round over, for the round that cannot end by
+   * itself — somebody drives off after the 18th without signing.
+   *
+   * Not a duplicate of the signature count. It is a different fact with a
+   * different cause, and the count is still reported honestly beside it.
+   */
+  finishedAt?: string | null;
 };
 
 export type OpeningState = RoundProgress & {
@@ -74,6 +82,10 @@ export type RoundStatus = 'not-started' | 'live' | 'closed';
 
 export function roundStatus(state: RoundProgress): RoundStatus {
   if (state.fieldSize === 0) return 'not-started';
+  // The organizer calling it ends the round whatever the signatures say. That
+  // is the whole reason it exists: a round nobody can finish, because the man
+  // who never signed has gone home.
+  if (state.finishedAt) return 'closed';
   const started = !!state.startedAt || state.holesPosted > 0;
   if (!started) return 'not-started';
   return state.cardsSigned >= state.fieldSize ? 'closed' : 'live';
