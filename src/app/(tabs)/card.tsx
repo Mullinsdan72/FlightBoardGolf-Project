@@ -173,7 +173,17 @@ export default function ScorecardScreen() {
         const next = prev + HOLD_STEP;
         if (next >= 100) {
           if (timer.current) clearInterval(timer.current);
-          sign().then(refreshSignoffs);
+          sign().then(async () => {
+            await refreshSignoffs();
+            // Nothing else on this phone left to sign, so this person's round
+            // is over — and the only question they have left is what everybody
+            // shot. ACTIVITY is where that lives.
+            //
+            // `nextToSign` already excludes the card just signed, so reading it
+            // from before the refresh is accurate. Still keeping cards? Stay
+            // put: the footer hands over the next one.
+            if (!nextToSign) router.push('/(tabs)/activity');
+          });
           return 100;
         }
         return next;
@@ -443,8 +453,12 @@ export default function ScorecardScreen() {
               <Text style={styles.footerBtnDarkArrow}>→</Text>
             </Pressable>
           ) : isOwnCard ? (
-            <Pressable style={styles.footerBtnDark} onPress={() => router.push('/(tabs)/board')}>
-              <Text style={styles.footerBtnDarkLabel}>BACK TO THE LEADERBOARD</Text>
+            // Signed and nothing else to sign — the round is finished for this
+            // phone. ACTIVITY, not the leaderboard: a leaderboard is what you
+            // read while a round is running, and what you want the moment you
+            // sign is the result of the whole thing.
+            <Pressable style={styles.footerBtnDark} onPress={() => router.push('/(tabs)/activity')}>
+              <Text style={styles.footerBtnDarkLabel}>{signed ? 'SEE THE RESULTS' : 'BACK TO THE LEADERBOARD'}</Text>
               <Text style={styles.footerBtnDarkArrow}>→</Text>
             </Pressable>
           ) : (
