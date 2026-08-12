@@ -67,6 +67,12 @@ export default function ActivityScreen() {
     router.push('/(tabs)');
   };
 
+  /** Switch to a draft and open the screen that finishes setting it up. */
+  const setUp = async (roundId: string) => {
+    if (roundId !== activeRoundId) await switchRound(roundId);
+    router.push('/(tabs)/round');
+  };
+
   /**
    * Start a new round.
    *
@@ -233,13 +239,28 @@ export default function ActivityScreen() {
               )}
               {!historyLoaded && <Text style={styles.note}>Loading scores…</Text>}
 
+              {/* What you can do with a round depends entirely on what state it
+                  is in, and OPEN ignored that.
+
+                  It went to the read-only history view, which is right for a
+                  round from March and nonsense for the one being played — you
+                  tapped it expecting to get back to scoring and got a locked
+                  record of a round still in progress. A live round wants
+                  scoring; a finished one wants the card; a draft wants setup. */}
               <View style={styles.actions}>
-                <Pressable onPress={() => openHistory(r.id)} style={styles.action}>
-                  <Text style={styles.actionLabel}>OPEN</Text>
-                </Pressable>
-                {r.id !== activeRoundId && status !== 'closed' && (
+                {status === 'live' ? (
                   <Pressable onPress={() => resume(r.id)} style={styles.action}>
-                    <Text style={styles.actionLabel}>PLAY THIS ONE</Text>
+                    <Text style={styles.actionLabel}>
+                      {r.id === activeRoundId ? 'BACK TO SCORING' : 'PLAY THIS ONE'}
+                    </Text>
+                  </Pressable>
+                ) : status === 'not-started' ? (
+                  <Pressable onPress={() => setUp(r.id)} style={styles.action}>
+                    <Text style={styles.actionLabel}>SET IT UP</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => openHistory(r.id)} style={styles.action}>
+                    <Text style={styles.actionLabel}>SEE THE CARD</Text>
                   </Pressable>
                 )}
                 {/* Only on a closed round, because reopening an open one is a

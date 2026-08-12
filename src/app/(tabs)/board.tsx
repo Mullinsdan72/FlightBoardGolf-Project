@@ -35,6 +35,8 @@ export default function LeaderboardScreen() {
     organizerId,
   } = useRound();
   const [tab, setTab] = useState<Tab>('field');
+  // Whose hole-by-hole strip is under the group list. Null means yours.
+  const [miniId, setMiniId] = useState<string | null>(null);
   const amInRound = !myId || players.some((p) => p.id === myId);
   const teamsOn = teams.enabled;
 
@@ -143,7 +145,11 @@ export default function LeaderboardScreen() {
       };
     });
 
-  const myMini = holes.map((h) => ({ hole: h.hole, par: h.par, strokes: scores[h.hole]?.[myId] }));
+  // Whose round the strip under the group is showing. Defaults to you, and
+  // falls back to you if that player leaves the round on another device.
+  const shownMiniId = miniId && players.some((p) => p.id === miniId) ? miniId : myId;
+  const miniName = players.find((p) => p.id === shownMiniId)?.name ?? 'you';
+  const mini = holes.map((h) => ({ hole: h.hole, par: h.par, strokes: scores[h.hole]?.[shownMiniId] }));
 
   return (
     <View style={styles.screen}>
@@ -263,11 +269,19 @@ export default function LeaderboardScreen() {
 
         {tab === 'group' && (
           <>
+            {/* Tapping a name reads their round here, rather than throwing you
+                onto the full scorecard screen.
+
+                It used to push straight to CARD, which answered a question
+                nobody had asked: glancing at what somebody is doing is a
+                different act from opening their scorecard, and the strip below
+                already does it in a form you can read in one look. The full
+                card is still one tap further on, from under the strip. */}
             {groupRows.map((r) => (
               <Pressable
                 key={r.id}
-                onPress={() => openCard(r.id)}
-                style={[styles.groupRow, r.isYou && styles.rowYou]}
+                onPress={() => setMiniId(r.id)}
+                style={[styles.groupRow, r.isYou && styles.rowYou, r.id === shownMiniId && styles.rowShown]}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.groupName}>{r.name}</Text>
@@ -282,9 +296,11 @@ export default function LeaderboardScreen() {
             ))}
 
             <View style={styles.miniSection}>
-              <Text style={styles.miniLabel}>Hole by hole · you</Text>
+              <Text style={styles.miniLabel}>
+                Hole by hole · {shownMiniId === myId ? 'you' : miniName}
+              </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
-                {myMini.map((c) => (
+                {mini.map((c) => (
                   <View key={c.hole} style={styles.miniCell}>
                     <Text style={styles.miniHole}>{c.hole}</Text>
                     {c.strokes != null ? (
@@ -295,6 +311,14 @@ export default function LeaderboardScreen() {
                   </View>
                 ))}
               </ScrollView>
+              {/* The way to the full card, now that tapping a row no longer is
+                  one. Hiding a thing must never hide the last way to it. */}
+              <Pressable onPress={() => openCard(shownMiniId)} style={styles.miniOpen}>
+                <Text style={styles.miniOpenLabel}>
+                  OPEN {shownMiniId === myId ? 'MY' : `${miniName.toUpperCase()}'S`} FULL CARD
+                </Text>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
             </View>
           </>
         )}
@@ -318,6 +342,9 @@ const styles = StyleSheet.create({
   tabLabel: { fontFamily: font.heading, fontSize: 11, letterSpacing: 0.5, color: colors.text },
   tabUnderline: { height: 3, backgroundColor: colors.accent, marginTop: 9 },
   rowYou: { backgroundColor: 'rgba(236,48,19,0.08)' },
+  // Which row the strip below belongs to. A left edge rather than a fill, so it
+  // reads as a pointer and can sit on top of the "you" tint without fighting it.
+  rowShown: { borderLeftWidth: 3, borderLeftColor: colors.text },
   fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -349,6 +376,16 @@ const styles = StyleSheet.create({
   groupThru: { fontFamily: font.body, fontSize: 11, marginLeft: 8, color: colors.muted },
   miniSection: { paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 2, borderColor: colors.divider },
   miniLabel: { fontFamily: font.bodySemi, fontSize: 10, letterSpacing: 1.1, textTransform: 'uppercase', color: colors.muted },
+  miniOpen: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderColor: colors.divider,
+  },
+  miniOpenLabel: { fontFamily: font.heading, fontSize: 11.5, letterSpacing: 0.8, color: colors.accent },
   miniCell: { width: 38, alignItems: 'center', gap: 7, borderRightWidth: 1, borderColor: colors.divider, paddingVertical: 2 },
   miniHole: { fontFamily: font.bodySemi, fontSize: 9.5, color: colors.muted },
   miniDash: { fontFamily: font.heading, fontSize: 14, color: colors.ghost, height: 30, textAlignVertical: 'center' },
