@@ -32,6 +32,7 @@ export default function LeaderboardScreen() {
     teamStandingsFor,
     teamDrawSavedFor,
     teamsForSegment,
+    organizerId,
   } = useRound();
   const [tab, setTab] = useState<Tab>('field');
   const amInRound = !myId || players.some((p) => p.id === myId);
@@ -79,7 +80,17 @@ export default function LeaderboardScreen() {
     return {
       id: p.id,
       name: p.id === myId ? p.name + ' (you)' : p.name,
-      club: mode === 'gross' ? `HCP ${p.handicap}` : `HCP ${p.handicap} · gets ${allowanceOf(p.id)}`,
+      // Who is running the round, said on the screen everybody actually looks
+      // at. It was only ever visible on PLAYERS, which is the organizer's own
+      // tab and hidden from everyone else — so the one person a guest needs to
+      // find, to ask about the format or a wrong score, was named nowhere they
+      // could see. Rule 5: say what a number, or a name, is.
+      club: [
+        mode === 'gross' ? `HCP ${p.handicap}` : `HCP ${p.handicap} · gets ${allowanceOf(p.id)}`,
+        p.id === organizerId ? 'running this round' : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
       handicap: p.handicap,
       gross,
       net,

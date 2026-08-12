@@ -283,6 +283,17 @@ everywhere in this codebase, not just the screens they were first written for.
 - **`no-number` is a resting state, not a problem.** It is the friend who will never install
   the app, whose card somebody keeps under rule 2. It has to read differently from `waiting`
   so nobody tries to chase it.
+- **The roster is live, and it had to become live.** `useRoundPlayers` subscribes to
+  `round_players` for the round *and* to updates on `players`, because joining is two
+  different writes — a new seat, or somebody claiming a seat that already existed. It used
+  to refetch only on a round switch and after its own writes, which covers the organizer
+  adding somebody and nothing else: a guest who joined by code appeared on their own phone
+  and on nobody else's, and the organizer watching a leaderboard without them on it had no
+  reason to think it had worked.
+- **Joining lands on `/`, never `/(tabs)`.** The group path hands the navigator no child, so
+  it reopens whichever tab was last focused — ROUND, for anyone the opening decision sent
+  there while they had no round. Joining then dropped people on a setup screen for somebody
+  else's round, with no ROUND tab in the bar to explain where they were.
 - **INVITE shows only on a seat still waiting.** Texting a link to somebody already standing
   in the round is noise, and a row added by name alone has nowhere to send one.
 

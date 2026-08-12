@@ -66,6 +66,51 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
     refresh();
   }, [refresh]);
 
+  /**
+   * Somebody joining has to appear on everybody else's phone.
+   *
+   * Scores have been live since the beginning and the roster never was: it
+   * refetched on a round switch and after this hook's own writes, which covers
+   * the organizer adding somebody and nothing else. So a guest who joined by
+   * code appeared on their own phone and on nobody else's, and the organizer —
+   * looking at a leaderboard that did not have them on it — had no reason to
+   * believe it had worked. That is the same blindness that produced duplicate
+   * players, arriving by a different door.
+   *
+   * Two tables, because joining is two writes. `round_players` is the new seat;
+   * `players` is somebody claiming a seat that already existed, which changes no
+   * membership row at all but does change who owns the card. Watching only the
+   * first would miss every invitation ever accepted.
+   *
+   * `players` cannot be filtered by round — it has no round column — so this
+   * takes every player change and refetches. The roster is small and a refetch
+   * is two queries; being right matters more here than being frugal.
+   *
+   * One channel, distinctly named. Supabase rejects a second `postgres_changes`
+   * subscription on a topic that already has one, and this hook is mounted once
+   * in `RoundProvider` precisely so that stays true.
+   */
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !roundId) return;
+    const client = supabase;
+    const channel = client
+      .channel(`roster:${roundId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'round_players', filter: `round_id=eq.${roundId}` },
+        () => {
+          refresh();
+        },
+      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'players' }, () => {
+        refresh();
+      })
+      .subscribe();
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [roundId, refresh]);
+
   const claimOrganizer = useCallback(
     async (playerId: string | null): Promise<string | null> => {
       setOrganizerId(playerId);

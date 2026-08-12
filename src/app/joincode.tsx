@@ -63,7 +63,13 @@ export default function JoinCodeScreen() {
       Alert.alert('Could not join that round', message);
       return;
     }
-    router.replace('/(tabs)');
+    // `/`, not `/(tabs)`. Replacing with the *group* hands the tabs navigator no
+    // child to open, so it restores whichever tab it had last — and for somebody
+    // who has just joined that is ROUND, because the opening decision sent them
+    // there back when they had no round at all. They then land on a setup screen
+    // for a round that is not theirs to set up, with no ROUND tab in the bar to
+    // explain where they are. `/` is the Score tab by name.
+    router.replace('/');
   };
 
   // Signing in has to happen before a seat can be taken — a seat records *whose*

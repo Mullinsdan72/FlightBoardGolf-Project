@@ -84,7 +84,12 @@ export default function InvitedScreen() {
     }
     // Straight to scoring. You are a player in somebody else's round; the setup
     // is theirs and the card is yours.
-    router.replace('/(tabs)');
+    //
+    // `/` names the Score tab. `/(tabs)` names the group, which reopens whatever
+    // tab was last focused — ROUND, for anyone the opening decision sent there
+    // while they had no round — so joining dropped people on a setup screen they
+    // have no business on and no tab bar entry to leave by.
+    router.replace('/');
   };
 
   const notNow = async () => {
