@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { router } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Wordmark } from '@/components/Wordmark';
 import { useRound } from '@/context/RoundContext';
@@ -30,7 +30,26 @@ export default function ActivityScreen() {
   const [creating, setCreating] = useState(false);
 
   const roundIds = useMemo(() => rounds.map((r) => r.id), [rounds]);
-  const { history, historyLoaded, historyError, reopenRound } = useRoundHistory(roundIds);
+  const { history, historyLoaded, historyError, reopenRound, reloadHistory } = useRoundHistory(roundIds);
+
+  /**
+   * Refetch every time this tab is opened.
+   *
+   * `useRoundHistory` deliberately isn't realtime — a second channel over every
+   * round's scores is a lot of traffic for a screen you glance at. But it loaded
+   * once and then never again, so posting a hole on SCORE and switching straight
+   * here showed the round exactly as it was before you scored: "nothing posted",
+   * "NOT STARTED", every player on a dash. The screen was not wrong about the
+   * data it had; it just had old data and no reason to say so.
+   *
+   * Reported as a round not saying it had started, which it hadn't — but it also
+   * would not have said so an hour later.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      reloadHistory();
+    }, [reloadHistory]),
+  );
 
   /**
    * Read a past round without disturbing the one being played.
