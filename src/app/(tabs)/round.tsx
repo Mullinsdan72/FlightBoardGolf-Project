@@ -463,6 +463,36 @@ export default function StartRoundScreen() {
           <Text style={styles.startArrow}>→</Text>
         </Pressable>
 
+        {/* The other way out, and it needed to exist.
+
+            Setting a round up the night before is the normal case — the field,
+            the course and the games are all decided long before anybody tees
+            off. But START ROUND was the only button on this screen, so the only
+            way to leave was to press it or to walk away using the tab bar, and
+            neither reads as "saved". Nothing was ever lost: a round you have not
+            started *is* a draft and has always been listed under NOT STARTED.
+            The state existed; the button did not.
+
+            Deliberately never disabled. START is gated on the checklist because
+            a round with no card has nothing to score against — but a draft is
+            unfinished by definition, and refusing to let somebody put down a
+            half-built round is the opposite of the point.
+
+            It writes nothing, because there is nothing to write. Its whole job
+            is to say so and to show you the round sitting in the list. */}
+        {!activeRound?.startedAt && (
+          <>
+            <Pressable onPress={() => router.replace('/(tabs)/activity')} style={styles.laterBtn}>
+              <Text style={styles.laterLabel}>SAVE IT FOR LATER</Text>
+              <Text style={styles.laterArrow}>›</Text>
+            </Pressable>
+            <Text style={styles.note}>
+              Everything here saves as you tap it. Leaving it unstarted puts it in ACTIVITY under NOT STARTED, ready to
+              pick up and start when you get there.
+            </Text>
+          </>
+        )}
+
         {/* Name what is left rather than saying "not ready". A disabled button
             with no reason on it is the thing people tap twice and then put the
             phone down. */}
@@ -627,6 +657,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   startOff: { opacity: 0.35 },
+  // Outlined, not filled: starting the round is the loud action on this screen
+  // and putting it down for the night should not compete with it.
+  laterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 20,
+    marginTop: 12,
+    borderWidth: 2,
+    borderColor: colors.text,
+    borderRadius: 10,
+    paddingVertical: 15,
+    paddingHorizontal: 18,
+  },
+  laterLabel: { fontFamily: font.heading, fontSize: 13, letterSpacing: 0.7, color: colors.text },
+  laterArrow: { fontFamily: font.heading, fontSize: 17, color: colors.text },
   startLabel: { fontFamily: font.heading, fontSize: 19, letterSpacing: 0.3, color: '#fff' },
   startArrow: { fontFamily: font.heading, fontSize: 22, color: '#fff' },
   note: { fontFamily: font.body, fontSize: 11.5, lineHeight: 18, color: colors.muted, paddingHorizontal: 20, paddingTop: 12 },
