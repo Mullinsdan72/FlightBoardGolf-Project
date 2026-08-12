@@ -10,15 +10,33 @@
  * Pure so the rule can be checked without a phone: `npm run check:opening`.
  */
 
-export type OpeningState = {
-  /** Is a round selected at all. */
-  hasRound: boolean;
+/**
+ * How far along a round is. Facts about the round itself, and nothing about who
+ * is looking at it — `roundStatus` takes only this, because what state a round
+ * is in cannot depend on whose phone is asking.
+ */
+export type RoundProgress = {
   /** How many holes have a score on them, from anyone in the field. */
   holesPosted: number;
   /** How many players are in the round. */
   fieldSize: number;
   /** How many of them have signed. */
   cardsSigned: number;
+};
+
+export type OpeningState = RoundProgress & {
+  /** Is a round selected at all. */
+  hasRound: boolean;
+  /**
+   * Whether ROUND is this person's tab at all.
+   *
+   * True for the organizer, and for a round nobody runs or nobody is in — an
+   * unclaimed round belongs to whoever turns up. False for a guest who joined
+   * somebody else's round, and for them ROUND is not merely uninteresting: it is
+   * **not in their tab bar**, so being sent there is being put in a room with no
+   * door on it.
+   */
+  runsRound: boolean;
 };
 
 /**
@@ -36,7 +54,7 @@ export type OpeningState = {
  */
 export type RoundStatus = 'not-started' | 'in-progress' | 'closed';
 
-export function roundStatus(state: Omit<OpeningState, 'hasRound'>): RoundStatus {
+export function roundStatus(state: RoundProgress): RoundStatus {
   if (state.fieldSize === 0) return 'not-started';
   if (state.holesPosted === 0) return 'not-started';
   return state.cardsSigned >= state.fieldSize ? 'closed' : 'in-progress';
@@ -51,9 +69,22 @@ export function roundStatus(state: Omit<OpeningState, 'hasRound'>): RoundStatus 
  *
  * Mid-round SCORE wins — even if *your* card is signed, because you may still
  * be marking for three others.
+ *
+ * **Never for somebody who does not run the round**, whatever state it is in.
+ * ROUND is hidden from the tab bar for a guest, so sending them there strands
+ * them on a setup screen for somebody else's round with no tab to leave by. It
+ * happened the moment joining by code started working: `/joincode` sits outside
+ * the tab group, so coming back remounts the layout and re-runs this decision —
+ * and a round nobody has teed off in is "not started", so every guest who joined
+ * was immediately posted to the organizer's setup screen. The screen they want
+ * is their card.
+ *
+ * No round at all still means ROUND, whoever is asking: there is nothing to
+ * score, and the tab is shown in that state precisely so a round can be made.
  */
 export function opensOnRoundTab(state: OpeningState): boolean {
   if (!state.hasRound) return true;
+  if (!state.runsRound) return false;
   return roundStatus(state) !== 'in-progress';
 }
 

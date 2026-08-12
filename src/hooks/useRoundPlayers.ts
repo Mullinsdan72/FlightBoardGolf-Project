@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { PLAYERS as SEED_PLAYERS } from '@/data/seed';
 import type { SeedPlayer } from '@/data/seed';
@@ -109,6 +110,24 @@ export function useRoundPlayers(roundId: string | null | undefined, myId: string
     return () => {
       client.removeChannel(channel);
     };
+  }, [roundId, refresh]);
+
+  /**
+   * And again whenever the app comes back to the foreground.
+   *
+   * A subscription is not a guarantee. It drops in a pocket, on a course with
+   * bad signal, and silently when a table was never published in the first
+   * place — which is exactly how the roster went stale unnoticed for weeks. The
+   * cost of being wrong here is the organizer staring at a leaderboard missing
+   * somebody who is standing next to them, so one refetch on wake is cheap
+   * insurance. Same pattern the score outbox already uses, for the same reason.
+   */
+  useEffect(() => {
+    if (!isSupabaseConfigured || !roundId) return;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') refresh();
+    });
+    return () => sub.remove();
   }, [roundId, refresh]);
 
   const claimOrganizer = useCallback(

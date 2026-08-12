@@ -127,10 +127,16 @@ export default function TabLayout() {
     (!activeRoundId || (playersLoaded && scoresHydrated));
   const hasInvites = !!invites && invites.length > 0;
 
+  // Whether ROUND belongs to this phone. Computed here rather than further down
+  // because the opening decision needs it: sending a guest to a tab that is not
+  // in their tab bar is the one outcome this decision must never produce.
+  const runsIt = amOrganizer || organizerId === null || players.length === 0;
+
   useEffect(() => {
     if (opening !== null || !decidable) return;
     setOpening(
       opensOnRoundTab({
+        runsRound: runsIt,
         hasRound: !!activeRoundId,
         // Posted scores come off local disk first, so this is what the phone
         // knows before the network answers. On a phone that has never seen the
@@ -143,7 +149,7 @@ export default function TabLayout() {
         ? 'round'
         : 'index',
     );
-  }, [opening, decidable, activeRoundId, scoreState, players.length, signoffs]);
+  }, [opening, decidable, activeRoundId, scoreState, players.length, signoffs, runsIt]);
 
   // The one move, once the tabs exist to move within.
   //
@@ -243,7 +249,10 @@ export default function TabLayout() {
   // Not a trap: ACTIVITY's + NEW ROUND makes you the organizer of your own
   // round, which brings the tab back. That is the standing rule — hiding a tab
   // must never hide the last way to something — and this is the door.
-  const runsIt = amOrganizer || organizerId === null || players.length === 0;
+  //
+  // `runsIt` is computed once, further up, because the opening decision reads it
+  // too. One definition — the tab bar and the opening tab disagreeing is how a
+  // guest ended up *on* ROUND while ROUND was not in their bar.
   const visible = runsIt ? ['index', 'board', 'activity', 'round', 'me'] : ['index', 'board', 'activity', 'me'];
   // A game nobody has set up isn't worth a tab; the organizer keeps it to set
   // one up with.

@@ -339,6 +339,13 @@ declare t text;
 begin
   for t in select unnest(array[
     'scores', 'round_holes', 'rounds',
+    -- Who is playing. Left out originally, and it did not show until somebody
+    -- could join from their own phone: the organizer's roster only ever
+    -- refetched after its own writes, so a guest who joined by code was visible
+    -- to themselves and to nobody else. `players` as well as `round_players`,
+    -- because accepting an invitation claims a seat that already exists and
+    -- changes no membership row at all. See supabase/realtime-roster.sql.
+    'round_players', 'players',
     -- Side-game tables subscribe via postgres_changes too: the wolf picks a
     -- partner on their own phone and the rest of the group has to see it, and
     -- the organizer's team draw has to reach everyone playing in it.

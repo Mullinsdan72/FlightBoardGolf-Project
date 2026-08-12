@@ -342,6 +342,15 @@ refuses to press, which is the app arguing with itself.
   at hydrated false. Gate on them unconditionally and a first-time user gets a permanent
   blank screen — this file has shipped that bug twice already, so gate with
   `!activeRoundId || (...)`.
+- **Never send somebody to ROUND who does not run the round.** `opensOnRoundTab` takes
+  `runsRound` and returns false without it — because ROUND is hidden from a guest's tab bar,
+  so being sent there is a setup screen for somebody else's round with no tab to leave by.
+  It appeared the moment joining by code worked: `/joincode` sits outside the tab group, so
+  returning **remounts this layout and re-runs the decision**, and a round nobody has teed
+  off in reads as not-started. `runsIt` is computed once and feeds both the decision and the
+  tab bar — two definitions is how somebody ends up *on* a tab that isn't in their bar.
+- **`roundStatus` takes `RoundProgress`, not the opening state.** What state a round is in
+  cannot depend on whose phone is asking.
 - **`roundStatus` is the one definition of not-started / in-progress / closed**, and both
   ACTIVITY and the opening tab read it. Closed is *every* card signed, never your own — one
   phone can be keeping four cards, and a round you signed first is still being played.
@@ -453,9 +462,17 @@ follow from that, and both were asked for directly:
     is established *by* the call, so the call is the thing that has to be trusted.
   - Anything new that creates a row and reads it back needs the same treatment. Check it
     against the table's SELECT policy before assuming a plain insert will do.
-- **The SQL files run in this order, and all four are needed:** `schema.sql`, `rls.sql`,
-  `rls-creates.sql`, `join-codes.sql`. Re-running `schema.sql` undoes `rls.sql`, so any time
-  the first is run the other three follow it.
+- **The SQL files run in this order, and all five are needed:** `schema.sql`, `rls.sql`,
+  `rls-creates.sql`, `join-codes.sql`, `realtime-roster.sql`. Re-running `schema.sql` undoes
+  `rls.sql`, so any time the first is run the others follow it.
+- **Realtime only broadcasts for tables in the `supabase_realtime` publication, and the
+  roster was not in it.** `round_players` and `players` were the only two tables left out —
+  everything else, including every side-game table, was published. It hid for months because
+  the only way into a round was the organizer typing you in, and that phone refetched its own
+  roster. The moment somebody could join from *their* phone, the organizer's leaderboard
+  stopped agreeing with the round and gave no sign why. `supabase/realtime-roster.sql` adds
+  them; `schema.sql` now carries it too. **Adding a subscription is half the job — check the
+  table is published.**
 - **The lockdown ships as three files and must be used as three.**
   `rls-preflight.sql` changes nothing and answers the only question that matters:
   *ROUNDS THAT WOULD VANISH* must read 0. A round with no claimed member is unreachable

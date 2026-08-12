@@ -50,11 +50,13 @@ const check = (label, actual, expected) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'}  ${label}`);
 };
 
-const state = (over) => ({ hasRound: true, holesPosted: 0, fieldSize: 4, cardsSigned: 0, ...over });
+// The organizer's view is the default here, because it is the one every rule
+// below was written against. The guest's view gets its own section at the end.
+const state = (over) => ({ hasRound: true, holesPosted: 0, fieldSize: 4, cardsSigned: 0, runsRound: true, ...over });
 
 // ------------------------------------------------------------ nothing on yet
 check('a phone with no round opens on ROUND', p.opensOnRoundTab(state({ hasRound: false })), true);
-check('and it does so whatever else is claimed to be true', p.opensOnRoundTab({ hasRound: false, holesPosted: 9, fieldSize: 4, cardsSigned: 1 }), true);
+check('and it does so whatever else is claimed to be true', p.opensOnRoundTab({ hasRound: false, holesPosted: 9, fieldSize: 4, cardsSigned: 1, runsRound: true }), true);
 check('a round with nobody in it opens on ROUND', p.opensOnRoundTab(state({ fieldSize: 0 })), true);
 check('a round set up but never played opens on ROUND', p.opensOnRoundTab(state({ holesPosted: 0 })), true);
 
@@ -94,8 +96,34 @@ check('reopening one card puts it back to in progress', p.roundStatus({ holesPos
 // A player removed after signing leaves more signatures than seats.
 check('more signatures than seats is closed, not broken', p.roundStatus({ holesPosted: 9, fieldSize: 2, cardsSigned: 3 }), 'closed');
 // The two must never disagree; ACTIVITY and the opening tab read the same rule.
-check('only in-progress keeps you on SCORE', p.opensOnRoundTab({ hasRound: true, holesPosted: 9, fieldSize: 4, cardsSigned: 0 }), false);
-check('closed sends you to ROUND', p.opensOnRoundTab({ hasRound: true, holesPosted: 9, fieldSize: 4, cardsSigned: 4 }), true);
+check('only in-progress keeps you on SCORE', p.opensOnRoundTab({ hasRound: true, holesPosted: 9, fieldSize: 4, cardsSigned: 0, runsRound: true }), false);
+check('closed sends you to ROUND', p.opensOnRoundTab({ hasRound: true, holesPosted: 9, fieldSize: 4, cardsSigned: 4, runsRound: true }), true);
+
+// ------------------------------------------------------- somebody else's round
+//
+// ROUND is hidden from the tab bar for a guest, so sending them there strands
+// them on a setup screen for a round that is not theirs with no tab to leave by.
+// It happened the moment joining by code worked: /joincode sits outside the tab
+// group, so returning remounts the layout and re-runs this decision — and a
+// round nobody has teed off in reads as "not started".
+const guest = (over) => ({ hasRound: true, holesPosted: 0, fieldSize: 4, cardsSigned: 0, runsRound: false, ...over });
+
+check('a guest who just joined opens on SCORE, not setup', p.opensOnRoundTab(guest()), false);
+check('a guest opens on SCORE mid-round too', p.opensOnRoundTab(guest({ holesPosted: 9 })), false);
+// Even finished. A guest has no START ROUND and no RE-OPEN; their card is the
+// only thing on that phone worth showing them.
+check('and on a round that is over', p.opensOnRoundTab(guest({ holesPosted: 18, cardsSigned: 4 })), false);
+check('and on a round with an empty field', p.opensOnRoundTab(guest({ fieldSize: 0 })), false);
+check('a guest never routes to ROUND', p.openingRoute(guest()), '/(tabs)');
+
+// The one case where not running it still means ROUND: there is no round. The
+// tab is shown in that state precisely so one can be made.
+check('no round at all still opens on ROUND', p.opensOnRoundTab(guest({ hasRound: false })), true);
+check('and routes there', p.openingRoute(guest({ hasRound: false })), '/(tabs)/round');
+
+// The organizer's behaviour is untouched by any of this.
+check('the organizer still gets ROUND before anyone tees off', p.opensOnRoundTab(state()), true);
+check('and SCORE once play starts', p.opensOnRoundTab(state({ holesPosted: 1 })), false);
 
 console.log('');
 if (failures.length) {
