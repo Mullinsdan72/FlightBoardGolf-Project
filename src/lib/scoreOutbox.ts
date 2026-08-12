@@ -84,6 +84,30 @@ export async function clearRound(roundId: string): Promise<void> {
   }
 }
 
+/**
+ * Every round this phone still owes the server scores for.
+ *
+ * The outbox is keyed per round, and for a long time only the *open* round's
+ * queue was ever retried. So setting up tomorrow's round while playing today's
+ * — which is an entirely reasonable thing to do between nines — switched the
+ * active round and left today's unsynced holes with nothing running to send
+ * them. They sat on the phone, correct on screen and invisible to everybody
+ * else, for ever.
+ *
+ * Read off the keys rather than a list we maintain, because a list we maintain
+ * is a second place for this to be wrong.
+ */
+export async function roundsWithPending(): Promise<string[]> {
+  const prefix = 'flightboard.outbox.';
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    return keys.filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length));
+  } catch (err) {
+    console.warn('Could not list pending rounds:', err);
+    return [];
+  }
+}
+
 export async function dequeue(roundId: string, entries: PendingScore[]): Promise<PendingScore[]> {
   if (!entries.length) return loadOutbox(roundId);
   const done = new Set(entries.map(keyOf));
