@@ -58,6 +58,7 @@ export default function StartRoundScreen() {
     scoringMode,
     setScoringMode,
     renameRound,
+    startRound,
     teams,
     teamRoster,
     teamDrawSaved,
@@ -442,12 +443,23 @@ export default function StartRoundScreen() {
           />
         </TileGrid>
 
+        {/* This used to navigate and nothing else — the round had no state of
+            its own, so pressing it changed nothing and told nobody. Now it
+            records the start, which is what puts every other phone in the field
+            on this round when they next open the app. */}
         <Pressable
-          onPress={() => router.replace('/(tabs)')}
+          onPress={async () => {
+            const message = await startRound();
+            if (message) {
+              Alert.alert('Could not start the round', message);
+              return;
+            }
+            router.replace('/(tabs)');
+          }}
           disabled={!ready}
           style={[styles.startBtn, !ready && styles.startOff]}
         >
-          <Text style={styles.startLabel}>START ROUND</Text>
+          <Text style={styles.startLabel}>{activeRound?.startedAt ? 'BACK TO SCORING' : 'START ROUND'}</Text>
           <Text style={styles.startArrow}>→</Text>
         </Pressable>
 

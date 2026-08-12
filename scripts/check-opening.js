@@ -86,13 +86,13 @@ check('finished routes to ROUND', p.openingRoute(state({ holesPosted: 18, cardsS
 // ------------------------------------------------------------ the three states
 check('no field is not started', p.roundStatus({ holesPosted: 0, fieldSize: 0, cardsSigned: 0 }), 'not-started');
 check('a field with nothing posted is not started', p.roundStatus({ holesPosted: 0, fieldSize: 4, cardsSigned: 0 }), 'not-started');
-check('one hole posted is in progress', p.roundStatus({ holesPosted: 1, fieldSize: 4, cardsSigned: 0 }), 'in-progress');
-check('three of four signed is still in progress', p.roundStatus({ holesPosted: 9, fieldSize: 4, cardsSigned: 3 }), 'in-progress');
+check('one hole posted is live', p.roundStatus({ holesPosted: 1, fieldSize: 4, cardsSigned: 0 }), 'live');
+check('three of four signed is still live', p.roundStatus({ holesPosted: 9, fieldSize: 4, cardsSigned: 3 }), 'live');
 check('every card signed is closed', p.roundStatus({ holesPosted: 9, fieldSize: 4, cardsSigned: 4 }), 'closed');
 // Reopening one card is what makes a closed round editable again — the status
 // has to follow the signatures, or ACTIVITY keeps calling it closed while SCORE
 // lets you type in it.
-check('reopening one card puts it back to in progress', p.roundStatus({ holesPosted: 9, fieldSize: 4, cardsSigned: 3 }), 'in-progress');
+check('reopening one card puts it back to live', p.roundStatus({ holesPosted: 9, fieldSize: 4, cardsSigned: 3 }), 'live');
 // A player removed after signing leaves more signatures than seats.
 check('more signatures than seats is closed, not broken', p.roundStatus({ holesPosted: 9, fieldSize: 2, cardsSigned: 3 }), 'closed');
 // The two must never disagree; ACTIVITY and the opening tab read the same rule.
@@ -124,6 +124,36 @@ check('and routes there', p.openingRoute(guest({ hasRound: false })), '/(tabs)/r
 // The organizer's behaviour is untouched by any of this.
 check('the organizer still gets ROUND before anyone tees off', p.opensOnRoundTab(state()), true);
 check('and SCORE once play starts', p.opensOnRoundTab(state({ holesPosted: 1 })), false);
+
+// ------------------------------------------------------------- started_at
+//
+// A round used to have no state of its own: "being played" was inferred from
+// whether anybody had posted, so START ROUND navigated to the Score tab and
+// marked nothing — and a round set up the night before was indistinguishable
+// from one being played. The organizer pressing START told the other ten phones
+// nothing at all.
+const AT = '2026-08-11T14:00:00.000Z';
+
+check('a draft is not started', p.roundStatus({ holesPosted: 0, fieldSize: 4, cardsSigned: 0, startedAt: null }), 'not-started');
+// The line that matters: started, and nobody has hit a shot yet. Standing on
+// the first tee is the single most likely moment for the app to be open.
+check('started with nothing posted is live', p.roundStatus({ holesPosted: 0, fieldSize: 4, cardsSigned: 0, startedAt: AT }), 'live');
+check('started and part played is live', p.roundStatus({ holesPosted: 6, fieldSize: 4, cardsSigned: 0, startedAt: AT }), 'live');
+check('started and every card signed is closed', p.roundStatus({ holesPosted: 18, fieldSize: 4, cardsSigned: 4, startedAt: AT }), 'closed');
+
+// The safety net. A score on a round nobody pressed START on still means it is
+// being played — saying otherwise would be the app arguing with the scorecard.
+check('a posted score counts as started on its own', p.roundStatus({ holesPosted: 1, fieldSize: 4, cardsSigned: 0, startedAt: null }), 'live');
+// But an empty field is still nothing, however emphatically it was started.
+check('started with nobody in it is still not started', p.roundStatus({ holesPosted: 0, fieldSize: 0, cardsSigned: 0, startedAt: AT }), 'not-started');
+// Leaving it out entirely must behave exactly as before this existed.
+check('an absent startedAt falls back to the old rule', p.roundStatus({ holesPosted: 0, fieldSize: 4, cardsSigned: 0 }), 'not-started');
+
+// And what it does to the opening tab — the reason the column exists.
+check('the organizer of a started round opens on SCORE', p.opensOnRoundTab(state({ startedAt: AT })), false);
+check('a guest in a started round opens on SCORE', p.opensOnRoundTab(guest({ startedAt: AT })), false);
+check('a draft still opens the organizer on ROUND', p.opensOnRoundTab(state({ startedAt: null })), true);
+check('a started round routes to SCORE before a ball is struck', p.openingRoute(state({ startedAt: AT })), '/(tabs)');
 
 console.log('');
 if (failures.length) {

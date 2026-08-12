@@ -61,6 +61,7 @@ function ModernistTabBar({ state, navigation, visible }: any) {
 export default function TabLayout() {
   const {
     activeRoundId,
+    activeRound,
     roundsLoaded,
     roundsError,
     amOrganizer,
@@ -145,11 +146,15 @@ export default function TabLayout() {
         holesPosted: Object.values(scoreState).filter((byPlayer) => Object.keys(byPlayer).length > 0).length,
         fieldSize: players.length,
         cardsSigned: Object.keys(signoffs ?? {}).length,
+        // The round's own state. A round the organizer has started but nobody
+        // has teed off in is live, and used to open everybody on the setup
+        // screen because "started" was inferred from posted scores.
+        startedAt: activeRound?.startedAt ?? null,
       })
         ? 'round'
         : 'index',
     );
-  }, [opening, decidable, activeRoundId, scoreState, players.length, signoffs, runsIt]);
+  }, [opening, decidable, activeRoundId, activeRound, scoreState, players.length, signoffs, runsIt]);
 
   // The one move, once the tabs exist to move within.
   //

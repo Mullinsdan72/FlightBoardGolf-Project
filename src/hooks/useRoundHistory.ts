@@ -52,7 +52,7 @@ export function useRoundHistory(roundIds: string[]) {
       setLoaded(true);
       return;
     }
-    const [rosterRes, scoreRes, holeRes, signRes] = await Promise.all([
+    const [rosterRes, scoreRes, holeRes, signRes, startRes] = await Promise.all([
       supabase
         .from('round_players')
         .select('round_id, player_id, players(id, name, handicap)')
@@ -62,6 +62,9 @@ export function useRoundHistory(roundIds: string[]) {
       // Which cards are signed, so ACTIVITY can say a round is closed without
       // asking each one separately. Same rule as the opening tab reads.
       supabase.from('signoffs').select('round_id, player_id').in('round_id', roundIds),
+      // Whether each round has been started. A draft and a round being played
+      // are otherwise identical here until somebody posts a hole.
+      supabase.from('rounds').select('id, started_at').in('id', roundIds),
     ]);
 
     if (rosterRes.error || scoreRes.error || holeRes.error) {
@@ -106,6 +109,13 @@ export function useRoundHistory(roundIds: string[]) {
     if (signRes.error) console.warn('useRoundHistory signoffs failed:', signRes.error.message);
     const signed = new Map<string, number>();
     for (const s of (signRes.data ?? []) as any[]) signed.set(s.round_id, (signed.get(s.round_id) ?? 0) + 1);
+
+    // A failed read here means "not started", which is the safe way round: a
+    // round wrongly shown as a draft is one tap from being started again, where
+    // a round wrongly shown as live sends the field to the wrong scorecard.
+    if (startRes.error) console.warn('useRoundHistory started_at failed:', startRes.error.message);
+    const startedAt = new Map<string, string | null>();
+    for (const r of (startRes.data ?? []) as any[]) startedAt.set(r.id, r.started_at ?? null);
 
     const posted = new Map<string, Set<number>>();
     for (const s of (scoreRes.data ?? []) as any[]) {
@@ -153,6 +163,10 @@ export function useRoundHistory(roundIds: string[]) {
         holesPosted: r.holesPosted,
         fieldSize: r.players.length,
         cardsSigned: r.cardsSigned,
+        // The round's own answer, rather than one inferred from whether anybody
+        // has posted yet. A round the organizer has started but nobody has teed
+        // off in is live, and used to read as a draft.
+        startedAt: startedAt.get(r.roundId) ?? null,
       });
     }
 

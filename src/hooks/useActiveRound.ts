@@ -22,6 +22,8 @@ export type RoundSummary = {
   scoringMode: ScoringMode;
   /** The five characters that let somebody in. Null until first asked for. */
   joinCode: string | null;
+  /** When the organizer pressed START. Null is a draft. */
+  startedAt: string | null;
 };
 
 // Which round this device is looking at, and the list of rounds to choose from.
@@ -62,7 +64,7 @@ export function useActiveRound() {
     if (!isSupabaseConfigured || !supabase) return [];
     const { data, error } = await supabase
       .from('rounds')
-      .select('id, name, course_name, played_on, created_at, organizer_player_id, scoring_mode, join_code')
+      .select('id, name, course_name, played_on, created_at, organizer_player_id, scoring_mode, join_code, started_at')
       .order('created_at', { ascending: false });
     if (error || !data) {
       console.warn('loadRounds failed:', error?.message);
@@ -84,6 +86,7 @@ export function useActiveRound() {
       organizerId: r.organizer_player_id ?? null,
       scoringMode: asScoringMode(r.scoring_mode),
       joinCode: r.join_code ?? null,
+      startedAt: r.started_at ?? null,
     }));
     setRounds(list);
     setRoundsLoaded(true);
@@ -103,8 +106,36 @@ export function useActiveRound() {
       }
       const list = await loadRounds();
       if (cancelled) return;
-      if (stored && list.some((r) => r.id === stored)) {
-        setActiveRoundId(stored);
+
+      /**
+       * A live round outranks whatever this phone was last looking at.
+       *
+       * This is the whole point of `started_at`. Which round a device had open
+       * lived in AsyncStorage, so the organizer pressing START did nothing for
+       * anybody else — and "which round are we on?" got settled by text message
+       * across a car park while ten people stood on a tee.
+       *
+       * Now START is a fact in the database, and every phone that opens the app
+       * finds it. Deliberately narrow: it only overrides a stored round that is
+       * *not itself live*. Looking at an old round is legitimate, and being in
+       * two live rounds at once is not something anybody does — but if this
+       * phone is already on a live one, that is the round it is playing and
+       * nothing should move it.
+       */
+      const storedRound = stored ? list.find((r) => r.id === stored) : undefined;
+      if (storedRound?.startedAt) {
+        setActiveRoundId(storedRound.id);
+        return;
+      }
+      const live = list
+        .filter((r) => r.startedAt)
+        .sort((a, b) => (b.startedAt ?? '').localeCompare(a.startedAt ?? ''));
+      if (live.length > 0) {
+        setActiveRoundId(live[0].id);
+        return;
+      }
+      if (storedRound) {
+        setActiveRoundId(storedRound.id);
         return;
       }
       setActiveRoundId(list.length ? list[0].id : null);
@@ -259,6 +290,42 @@ export function useActiveRound() {
     return { code, error: null };
   }, [activeRoundId]);
 
+  /**
+   * Start the round. The button finally does what its name says.
+   *
+   * Until now START ROUND navigated to the Score tab and marked nothing — so a
+   * round set up the night before was indistinguishable from one being played,
+   * and pressing it told the other ten phones nothing at all.
+   *
+   * Writing `started_at` makes it a fact everybody can read: every phone in the
+   * field lands on this round next time it opens.
+   *
+   * Idempotent by intent — a round already started keeps its original time
+   * rather than restarting. The time a round began is not something a second tap
+   * should move.
+   */
+  const startRound = useCallback(async (): Promise<string | null> => {
+    if (!activeRoundId) return 'There is no round to start.';
+    const already = rounds.find((r) => r.id === activeRoundId)?.startedAt;
+    if (already) return null;
+    const at = new Date().toISOString();
+    setRounds((prev) => prev.map((r) => (r.id === activeRoundId ? { ...r, startedAt: at } : r)));
+    if (!isSupabaseConfigured || !supabase) return null;
+    const { error } = await supabase
+      .from('rounds')
+      .update({ started_at: at })
+      .eq('id', activeRoundId)
+      // Never overwrite a start time that is already there. Two people pressing
+      // START within a second of each other must not produce two answers.
+      .is('started_at', null);
+    if (error) {
+      console.warn('startRound failed:', error.message);
+      await loadRounds();
+      return friendlyWriteError(error.message, 'start this round');
+    }
+    return null;
+  }, [activeRoundId, rounds, loadRounds]);
+
   const setScoringMode = useCallback(
     async (mode: ScoringMode): Promise<string | null> => {
       setRounds((prev) => prev.map((r) => (r.id === activeRoundId ? { ...r, scoringMode: mode } : r)));
@@ -313,6 +380,7 @@ export function useActiveRound() {
     setScoringMode,
     renameRound,
     ensureJoinCode,
+    startRound,
     // Gross by default. Net was the default for a while and it is the
     // friendlier number, but it is also a claim about everybody's handicap —
     // and a round where nobody has set one shows net figures that are just

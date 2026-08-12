@@ -351,7 +351,26 @@ refuses to press, which is the app arguing with itself.
   tab bar — two definitions is how somebody ends up *on* a tab that isn't in their bar.
 - **`roundStatus` takes `RoundProgress`, not the opening state.** What state a round is in
   cannot depend on whose phone is asking.
-- **`roundStatus` is the one definition of not-started / in-progress / closed**, and both
+- **A round is live because the organizer said so, not because somebody scored.**
+  `rounds.started_at` is the round's own state; START ROUND writes it and finally does what
+  its name says. Before this the button navigated to SCORE and marked nothing, so a round
+  set up the night before was indistinguishable from one being played — and pressing it told
+  the other ten phones nothing, because which round a device had open lived in AsyncStorage.
+  Now every phone in the field lands on the started round when it next opens
+  (`useActiveRound`'s resolver prefers a live round over a stored draft, and never moves a
+  phone that is already on a live one).
+  - **Finished stays derived from signatures.** Signing *is* the end of a round; a second
+    flag would be a second truth (rule 3).
+  - **A posted score still counts as started**, as a safety net. A hole recorded on a round
+    nobody pressed START on means it is being played, and saying otherwise would be the app
+    arguing with the scorecard.
+  - `startRound` writes with `.is('started_at', null)` so two people pressing it a second
+    apart cannot produce two answers. The time a round began is not something a second tap
+    should move.
+  - **Not built:** the overlap check from `design/round-lifecycle.md` — refusing START when
+    somebody in the field is already in another live round, naming the clash. It needs every
+    other round's roster, which nothing loads yet.
+- **`roundStatus` is the one definition of not-started / live / closed**, and both
   ACTIVITY and the opening tab read it. Closed is *every* card signed, never your own — one
   phone can be keeping four cards, and a round you signed first is still being played.
 - **ACTIVITY shows the field as soon as there are players in it.** It used to wait for a
@@ -462,8 +481,8 @@ follow from that, and both were asked for directly:
     is established *by* the call, so the call is the thing that has to be trusted.
   - Anything new that creates a row and reads it back needs the same treatment. Check it
     against the table's SELECT policy before assuming a plain insert will do.
-- **The SQL files run in this order, and all five are needed:** `schema.sql`, `rls.sql`,
-  `rls-creates.sql`, `join-codes.sql`, `realtime-roster.sql`. Re-running `schema.sql` undoes
+- **The SQL files run in this order, and all six are needed:** `schema.sql`, `rls.sql`,
+  `rls-creates.sql`, `join-codes.sql`, `realtime-roster.sql`, `round-started.sql`. Re-running `schema.sql` undoes
   `rls.sql`, so any time the first is run the others follow it.
 - **Realtime only broadcasts for tables in the `supabase_realtime` publication, and the
   roster was not in it.** `round_players` and `players` were the only two tables left out —

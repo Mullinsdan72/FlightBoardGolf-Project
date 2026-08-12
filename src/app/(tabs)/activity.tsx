@@ -196,8 +196,8 @@ export default function ActivityScreen() {
                 <Text style={[styles.status, status === 'closed' && styles.statusClosed]}>
                   {status === 'closed'
                     ? `CLOSED · ${h!.cardsSigned} CARD${h!.cardsSigned === 1 ? '' : 'S'} SIGNED`
-                    : status === 'in-progress'
-                      ? `IN PROGRESS · ${h!.cardsSigned} OF ${field.length} SIGNED`
+                    : status === 'live'
+                      ? `LIVE · ${h!.cardsSigned} OF ${field.length} SIGNED`
                       : 'NOT STARTED'}
                 </Text>
               </View>

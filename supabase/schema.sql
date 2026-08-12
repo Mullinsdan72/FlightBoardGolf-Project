@@ -101,6 +101,15 @@ alter table rounds add column if not exists holes_in_play text not null default 
 -- once there are real accounts.
 alter table rounds add column if not exists organizer_player_id uuid references players(id) on delete set null;
 
+-- When the organizer pressed START. Null is a draft: created, being set up,
+-- counting for nothing. This is the round's own state, and it exists because it
+-- used to have none — "is this being played" was derived from whether anybody
+-- had posted a score, so a round set up the night before was indistinguishable
+-- from one nobody had teed off in. Finished stays derived from signatures,
+-- because signing *is* the end of a round and a second flag would be a second
+-- truth (rule 3). See supabase/round-started.sql for the backfill.
+alter table rounds add column if not exists started_at timestamptz;
+
 -- Gross, net, or off the low man — for the WHOLE round, not just a team game.
 --
 -- This used to live only on team_games.handicap_mode, where it decided team
